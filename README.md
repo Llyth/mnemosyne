@@ -82,7 +82,7 @@ in the addon drawer next to the minimap). The same actions as commands:
 | `/mnemosyne unregister` | Withdraw its registration; peers forget it |
 | `/mnemosyne lookup <text>` | Find characters by name or by nickname, ignoring case and accents; a second-hand nickname shows with who passed it on |
 | `/mnemosyne sync` | Sync with the players heard this session who have Mnemosyne (at most once every 6 hours each) |
-| `/mnemosyne status` | How many identities you know, how many of your characters are registered or anonymous, and this character's registration |
+| `/mnemosyne status` | How many identities you know (second-hand ones only while **Show second-hand** is on), how many of your characters are registered or anonymous, and this character's registration (registered, anonymous, unregistered, or not registered yet) |
 | `/mnemosyne report` | A debug report to paste in a bug report |
 | `/mnemosyne debug` | Log every message sent and received in the chat frame, or stop |
 | `/mnemosyne help` | The list of commands |

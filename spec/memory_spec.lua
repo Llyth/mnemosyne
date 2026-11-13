@@ -161,6 +161,12 @@ describe("Memory", function()
 			memory:hear("Hugh Jass", { revision = 901 })
 			assert.equal(3, memory:count())
 		end)
+
+		it("counts only first-hand identities when asked", function()
+			memory:hear("Paige Turner", { nickname = "Paige", revision = 900, source = "Anna Conda" })
+			assert.equal(5, memory:count())
+			assert.equal(4, memory:count(true))
+		end)
 	end)
 end)
 
