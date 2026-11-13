@@ -1,6 +1,6 @@
 -- Commands: the slash commands that read the memory and the debug log
--- (lookup, status, debug, sync). Part of the Interface adapter (decision
--- 0004): it adds to the commands table of Interface.lua.
+-- (lookup, status, debug, sync, forget, unforget). Part of the Interface
+-- adapter (decision 0004): it adds to the commands table of Interface.lua.
 local _, ns = ...
 
 local L = ns.L
@@ -55,4 +55,41 @@ end
 function commands.sync()
 	local count = Client.sync()
 	say(count > 0 and L.SYNC_STARTED:format(count) or L.SYNC_NONE)
+end
+
+-- The forgotten characters, or how to forget one.
+local function sayForgotten()
+	local names = ns.memory:forgotten()
+	say(names[1] and L.FORGOTTEN_LIST:format(table.concat(names, ", ")) or L.FORGOTTEN_NONE)
+end
+
+-- The full name held or forgotten that the player typed, else the text as
+-- typed when it is a full name ("First Last"); nil after saying so.
+local function fullName(text)
+	local name = ns.memory:fullName(text) or (text:find(" ", 1, true) and text)
+	if not name then
+		say(L.FORGET_FULL_NAME)
+	end
+	return name
+end
+
+function commands.forget(text)
+	if text == "" then
+		sayForgotten()
+		return
+	end
+	local name = fullName(text)
+	if not name then
+		return
+	end
+	say((ns.memory:forget(name) and L.FORGOTTEN or L.ALREADY_FORGOTTEN):format(name, name))
+end
+
+function commands.unforget(text)
+	if text == "" then
+		sayForgotten()
+		return
+	end
+	local name = ns.memory:fullName(text) or text
+	say((ns.memory:unforget(name) and L.UNFORGOTTEN or L.NOT_FORGOTTEN):format(name))
 end

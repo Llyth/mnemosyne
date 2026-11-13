@@ -34,6 +34,11 @@ describe("Strangers", function()
 		assert.is_false(strangers:ask("Hugh Jass", "Anna Conda"))
 	end)
 
+	it("never asks a character the player forgot", function()
+		memory:forget("Hugh Jass")
+		assert.is_false(strangers:ask("Hugh Jass", "Anna Conda"))
+	end)
+
 	it("asks the same character at most once a day", function()
 		assert.is_true(strangers:ask("Hugh Jass", "Anna Conda"))
 		now = now + DAY - 1

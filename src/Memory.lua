@@ -8,8 +8,9 @@
 -- unregistering and anonymous are revisions without a nickname; at most
 -- 20,000 second-hand identities are kept (the oldest heard dropped first) and
 -- at most 1,000 changes (new, later, removed or disputed) accepted from one
--- peer a day. Staleness and forgetting join it later, behind the same hear
--- and recall.
+-- peer a day. A forgotten character's second-hand copies are refused (only
+-- the player's choice, nobody is told). Staleness joins it later, behind the
+-- same hear and recall.
 local _, ns = ...
 
 local Memory = {}
@@ -143,7 +144,10 @@ end
 -- how many second-hand changes each peer brought today. Counts older
 -- than a day are let go here.
 -- clock: returns the server time, in seconds.
-function Memory.new(saved, clock)
+-- forgotten: the characters forgotten, as a set of full names
+-- (MnemosyneDB.forgotten); an empty one when left out. A name matches it
+-- ignoring case and accents, as a player may type it.
+function Memory.new(saved, clock, forgotten)
 	saved.identities = saved.identities or {}
 	saved.newFrom = saved.newFrom or {} -- counts every change, not only new ones (key kept)
 	local now = clock()
@@ -155,6 +159,8 @@ function Memory.new(saved, clock)
 	local self = setmetatable({
 		identities = saved.identities,
 		newFrom = saved.newFrom,
+		forgottenNames = forgotten or {},
+		folded = {}, -- each forgotten name, by its folded text
 		secondHand = 0,
 		clock = clock,
 		sums = {},
@@ -164,6 +170,11 @@ function Memory.new(saved, clock)
 	}, Memory)
 	for bucket = 1, Memory.BUCKETS do
 		self.sums[bucket] = 0
+	end
+	for name in pairs(self.forgottenNames) do
+		if type(name) == "string" then -- the saved file may have been edited by hand
+			self.folded[fold(name)] = name
+		end
 	end
 	for name, known in pairs(saved.identities) do
 		sum(self, name, known, 1)
@@ -262,7 +273,9 @@ end
 -- nickname makes the identity disputed.
 function Memory:hear(name, heard)
 	local known = self.identities[name]
-	if heard.source then
+	if heard.source and self:isForgotten(name) then
+		return false
+	elseif heard.source then
 		return hearSecondHand(self, name, heard, known)
 	end
 	if known and known.firstHand and known.revision > heard.revision then
@@ -373,4 +386,70 @@ function Memory:missing(digest)
 		end
 	end
 	return found
+end
+
+-- Forgets a character (its full name in any case, accents or not): drops its
+-- identity and refuses its second-hand copies
+-- until unforgotten; first-hand ones still get through. With no identity
+-- left, it is out of the digest and never passed on; once heard first-hand,
+-- it is passed on like any other. Returns false when it was already
+-- forgotten.
+-- shortcut: a peer that still holds it keeps that digest bucket differing, so
+-- each sync with it (at most every 6 hours) resends the bucket, about 1/128 of
+-- the memory, to be refused or already held; keep a hidden copy in the digest
+-- if players forget many characters.
+function Memory:forget(name)
+	name = self:fullName(name) or name
+	if self:isForgotten(name) then
+		return false
+	end
+	self.forgottenNames[name] = true
+	self.folded[fold(name)] = name
+	local known = self.identities[name]
+	if known and not known.firstHand then
+		self.secondHand = self.secondHand - 1
+	end
+	store(self, name, nil)
+	return true
+end
+
+-- Lets a forgotten character's second-hand copies in again. Returns false
+-- when it was not forgotten.
+function Memory:unforget(name)
+	local folded = fold(name)
+	local forgotten = self.folded[folded]
+	if not forgotten then
+		return false
+	end
+	self.forgottenNames[forgotten] = nil
+	self.folded[folded] = nil
+	return true
+end
+
+-- The full name of a character held or forgotten, from the text a player
+-- typed, ignoring case and accents; nil when none matches.
+function Memory:fullName(text)
+	local wanted = fold(text)
+	for _, names in ipairs({ self.identities, self.forgottenNames }) do
+		for name in pairs(names) do
+			if fold(name) == wanted then
+				return name
+			end
+		end
+	end
+end
+
+-- Whether the player forgot the character.
+function Memory:isForgotten(name)
+	return self.folded[fold(name)] ~= nil
+end
+
+-- The forgotten characters' full names, sorted.
+function Memory:forgotten()
+	local names = {}
+	for name in pairs(self.forgottenNames) do
+		names[#names + 1] = name
+	end
+	table.sort(names)
+	return names
 end

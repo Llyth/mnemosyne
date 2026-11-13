@@ -74,5 +74,15 @@ ns.L = {
 	HELP_SYNC = "/mnemosyne sync: bring your memory up to date with the peers you can reach now",
 	SYNC_STARTED = "Syncing with %d |4peer:peers;.",
 	SYNC_NONE = "No peer to sync with now: none heard this session, or all synced in the last 6 hours.",
+	-- Forgetting.
+	HELP_FORGET = "/mnemosyne forget <character>: drop a character's nickname and refuse what others pass on about it",
+	HELP_UNFORGET = "/mnemosyne unforget <character>: undo forget",
+	FORGOTTEN = "%s is forgotten. Only what it says itself counts now, until /mnemosyne unforget %s.",
+	ALREADY_FORGOTTEN = "%s is already forgotten.",
+	UNFORGOTTEN = "%s is no longer forgotten.",
+	NOT_FORGOTTEN = "%s is not forgotten.",
+	FORGOTTEN_LIST = "Forgotten: %s",
+	FORGET_FULL_NAME = "Type the character's full name, first and last: /mnemosyne forget <character>",
+	FORGOTTEN_NONE = "No character is forgotten. Type a character's full name: /mnemosyne forget <character>",
 	NEWER_VERSION = "A newer Mnemosyne exists: update it, or some messages from other players stay ignored.",
 }
