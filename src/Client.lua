@@ -64,8 +64,7 @@ function Client.canSend()
 end
 
 local function isRegistered()
-	local registration = ns.characters:registration(playerName)
-	return registration and registration.nickname ~= nil
+	return ns.characters:state(playerName) == "registered"
 end
 
 -- The group's channel: the instance group's, or the raid's, or the party's.
@@ -79,28 +78,15 @@ end
 
 -- Builds a job's message when it is sent, from the registration as it is then:
 -- a job that waited through a lockdown carries the latest nickname, or the
--- removal if the character unregistered meanwhile. Every character asks,
--- registered or not. A character that unregistered keeps answering asks with
--- its removal, and an anonymous one with "anonymous": that is how the change
--- reaches peers who were offline when it was announced. Returns nothing to
--- drop the job.
+-- removal if the character unregistered meanwhile (Self:message). Returns
+-- nothing to drop the job.
 local function compose(job)
 	if job.text then
 		return job.text, "WHISPER", job.target, job.kind
 	end
-	local registration = ns.characters:registration(playerName)
-	local message
-	if job.kind == "ask" then
-		message = { kind = "ask" }
-	elseif not registration then
+	local message = ns.characters:message(playerName, job.kind)
+	if not message then
 		return
-	elseif registration.anonymous then
-		message = { kind = "anonymous", revision = registration.revision }
-	elseif not registration.nickname then
-		message = { kind = "removal", revision = registration.revision }
-	else
-		local kind = job.kind == "answer" and "answer" or "announcement"
-		message = { kind = kind, nickname = registration.nickname, revision = registration.revision }
 	end
 	local chatType = job.channel
 	if chatType == "GROUP" then

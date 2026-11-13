@@ -87,6 +87,28 @@ function Self:state(name)
 	return "unregistered"
 end
 
+-- The Protocol message a character sends for a job ("announce", "answer" or
+-- "ask"), from its registration as it is now, or nil when it has nothing to
+-- say. Every character asks. One that unregistered sends its removal, an
+-- anonymous one "anonymous": it announces that only right after the change
+-- (Client announces at login only when registered), and answers asks with it,
+-- which is how the change reaches peers who were offline when it was announced.
+function Self:message(name, job)
+	if job == "ask" then
+		return { kind = "ask" }
+	end
+	local character = self.characters[name]
+	local state = self:state(name)
+	if state == "registered" then
+		local kind = job == "answer" and "answer" or "announcement"
+		return { kind = kind, nickname = character.nickname, revision = character.revision }
+	elseif state == "anonymous" then
+		return { kind = "anonymous", revision = character.revision }
+	elseif state == "unregistered" then
+		return { kind = "removal", revision = character.revision }
+	end
+end
+
 -- How many of this account's characters are in a state.
 function Self:count(state)
 	local count = 0

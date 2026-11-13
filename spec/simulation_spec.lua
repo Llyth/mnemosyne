@@ -57,11 +57,7 @@ describe("Several peers", function()
 
 	-- A character tells others who plays it, as its announcement would.
 	local function announce(peer, ...)
-		local registration = peer.characters:registration(peer.name)
-		local message = { kind = "removal", revision = registration.revision }
-		if registration.nickname then
-			message = { kind = "announcement", nickname = registration.nickname, revision = registration.revision }
-		end
+		local message = peer.characters:message(peer.name, "announce")
 		for _, other in ipairs({ ... }) do
 			post(peer.name, { { peer = other.name, text = Protocol.write(message) } })
 		end
@@ -128,6 +124,19 @@ describe("Several peers", function()
 		sync(b, c)
 		sync(c, d)
 		for _, peer in ipairs({ b, c, d }) do
+			assert.is_nil(peer.memory:recall(a.name), peer.name)
+		end
+	end)
+
+	it("carries a character kept anonymous to everyone who knew its identity", function()
+		announce(a, b)
+		sync(b, c)
+		now = now + 1
+		a.characters:keepAnonymous(a.name)
+		announce(a, b)
+		now = now + 6 * HOUR
+		sync(b, c)
+		for _, peer in ipairs({ b, c }) do
 			assert.is_nil(peer.memory:recall(a.name), peer.name)
 		end
 	end)
