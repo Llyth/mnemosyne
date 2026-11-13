@@ -3,7 +3,8 @@
 -- the clock and the memory as arguments (decision 0004); the hooks that call
 -- it are in src/Encounter.lua.
 --
--- A character is asked only when its identity is not known, at most once a
+-- A character is asked only when its identity is not known and the player did
+-- not forget it (asking would bring it back first-hand), at most once a
 -- day, and at most one ask goes out every 2 seconds: an ask in between is
 -- dropped, not queued (decision 0002).
 local _, ns = ...
@@ -33,7 +34,7 @@ end
 -- character being played; when true, it counts as asked.
 function Strangers:ask(name, player)
 	local now = self.clock()
-	if name == player or self.memory:knows(name) then
+	if name == player or self.memory:knows(name) or self.memory:isForgotten(name) then
 		return false
 	end
 	local askedAt = self.asked[name]

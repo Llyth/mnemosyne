@@ -292,7 +292,8 @@ function handlers.ADDON_LOADED(name)
 	db.memory = db.memory or {}
 	db.characters = db.characters or {}
 	db.debug = db.debug == true
-	ns.memory = ns.Memory.new(db.memory, GetServerTime)
+	db.forgotten = db.forgotten or {}
+	ns.memory = ns.Memory.new(db.memory, GetServerTime, db.forgotten)
 	ns.characters = ns.Self.new(db.characters, GetServerTime)
 	db.settings = db.settings or {}
 	for key, value in pairs(DEFAULTS) do

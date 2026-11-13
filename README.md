@@ -81,6 +81,8 @@ Mnemosyne, also in the addon drawer next to the minimap) comes later.
 | `/mnemosyne register <nickname>` | Register the character you are playing |
 | `/mnemosyne unregister` | Withdraw its registration; peers forget it |
 | `/mnemosyne lookup <text>` | Find characters by name or by nickname, ignoring case and accents; a second-hand nickname shows with who passed it on |
+| `/mnemosyne forget <character>` | Forget a character (its full name): drop its nickname from your memory and refuse what other players pass on about it; what the character says itself still counts. Without a name, lists the characters you forgot |
+| `/mnemosyne unforget <character>` | Undo forget: learn about the character from other players again |
 | `/mnemosyne sync` | Sync with the players heard this session who have Mnemosyne (at most once every 6 hours each) |
 | `/mnemosyne status` | How many identities you know (second-hand ones only while **Show second-hand** is on), how many of your characters are registered or anonymous, and this character's registration (registered, anonymous, unregistered, or not registered yet) |
 | `/mnemosyne report` | A debug report to paste in a bug report |
@@ -109,9 +111,11 @@ shared: an anonymous character only tells other players who have Mnemosyne that
 it is anonymous, so they forget any nickname they held for it. Unregistering
 spreads the same way, but more slowly than the nickname did.
 
-Forgetting a character is coming: it will remove the character from your own
-memory and keep it out until you undo it, without telling anyone. It is not
-there yet.
+Forgetting a character (`/mnemosyne forget`) removes it from your own memory
+and keeps what other players pass on about it out until you undo it, on all your
+characters, without telling anyone. Your syncs stop passing it on too. If
+the character itself tells you who plays it, that still counts, and is passed on
+like anything you heard first-hand.
 
 ## Reporting a problem
 
