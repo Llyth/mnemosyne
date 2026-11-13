@@ -45,7 +45,8 @@ L.ASK_LATER = "Mnemosyne vous le redemandera à votre prochaine connexion sur ce
 -- The other commands.
 L.HELP_LOOKUP = "/mnemosyne lookup <texte> : chercher des personnages par nom ou par pseudonyme"
 L.HELP_STATUS = "/mnemosyne status : ce que contient votre mémoire"
-L.HELP_DEBUG = "/mnemosyne debug : afficher dans la fenêtre de discussion chaque message envoyé et reçu, ou arrêter"
+L.HELP_DEBUG = "/mnemosyne debug : afficher dans la fenêtre de discussion chaque message envoyé et reçu, ou arrêter ; "
+	.. "/mnemosyne debug copy : le journal dans une fenêtre, pour le copier"
 L.HELP_HELP = "/mnemosyne help : cette liste"
 L.LOOKUP_EMPTY = "Tapez un nom ou un pseudonyme après la commande : /mnemosyne lookup <texte>"
 L.LOOKUP_NONE = "Aucun personnage connu pour « %s »."
@@ -65,6 +66,8 @@ L.HELP_ECHO = "/mnemosyne echo : un pair de test qui renvoie ce que vous envoyez
 L.ECHO_ON =
 	"Pair écho activé : Echo Mnemosyne renvoie ce que vous lui chuchotez ou diffusez. /mnemosyne echo l'arrête."
 L.ECHO_OFF = "Pair écho désactivé : Echo Mnemosyne est oublié."
+L.DEBUG_LOG_TITLE = "Journal de débogage de Mnemosyne"
+L.DEBUG_LOG_TEXT = "Le journal de cette session, noms des autres joueurs compris : copiez-le (Ctrl+C) pour le partager."
 L.DEBUG_SENT = "envoyé sur %s : %s"
 L.DEBUG_NOT_SENT = "non envoyé sur %s (%s) : %s"
 L.DEBUG_RECEIVED = "reçu de %s sur %s : %s"

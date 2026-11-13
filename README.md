@@ -117,6 +117,7 @@ the minimap and `/mnemosyne` alone open it too. It has:
 | `/mnemosyne report` | A debug report to paste in a bug report |
 | `/mnemosyne debug` | Log every message sent and received in the chat frame, or stop |
 | `/mnemosyne echo` | A test peer, Echo Mnemosyne, that sends back what you send, to test alone, or stop |
+| `/mnemosyne debug copy` | The session's debug log in a window, to copy |
 | `/mnemosyne help` | The list of commands |
 
 ## Privacy

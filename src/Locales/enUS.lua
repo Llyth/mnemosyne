@@ -40,7 +40,8 @@ ns.L = {
 	-- The other commands.
 	HELP_LOOKUP = "/mnemosyne lookup <text>: find characters by name or by nickname",
 	HELP_STATUS = "/mnemosyne status: what your memory holds",
-	HELP_DEBUG = "/mnemosyne debug: log every message sent and received in the chat frame, or stop",
+	HELP_DEBUG = "/mnemosyne debug: log every message sent and received in the chat frame, or stop; "
+		.. "/mnemosyne debug copy: the log in a window to copy",
 	HELP_HELP = "/mnemosyne help: this list",
 	LOOKUP_EMPTY = "Type a name or a nickname after the command: /mnemosyne lookup <text>",
 	LOOKUP_NONE = 'No character known for "%s".',
@@ -58,6 +59,8 @@ ns.L = {
 	HELP_ECHO = "/mnemosyne echo: a test peer that sends back what you send, to test alone, or stop",
 	ECHO_ON = "Echo peer on: Echo Mnemosyne sends back what you whisper to it or broadcast. /mnemosyne echo stops it.",
 	ECHO_OFF = "Echo peer off: Echo Mnemosyne is forgotten.",
+	DEBUG_LOG_TITLE = "Mnemosyne debug log",
+	DEBUG_LOG_TEXT = "The log of this session, other players' names included: copy it (Ctrl+C) to share it.",
 	DEBUG_SENT = "sent on %s: %s",
 	DEBUG_NOT_SENT = "not sent on %s (%s): %s",
 	DEBUG_RECEIVED = "received from %s on %s: %s",

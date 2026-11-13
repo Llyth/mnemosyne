@@ -10,7 +10,7 @@ local Report = ns.Report
 
 local OFFER = "MNEMOSYNE_REPORT_ERROR"
 
-local window, linkBox, textBox
+local window, title, linkLabel, linkBox, textLabel, textBox
 
 -- The facts of the report, read from the game now.
 local function facts()
@@ -67,11 +67,10 @@ local function create()
 	window:SetFrameStrata("DIALOG")
 	table.insert(UISpecialFrames, window:GetName()) -- Escape closes it
 
-	local title = window:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+	title = window:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
 	title:SetPoint("TOP", 0, -5)
-	title:SetText(L.REPORT_TITLE)
 
-	local linkLabel = window:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+	linkLabel = window:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 	linkLabel:SetPoint("TOPLEFT", 16, -36)
 	linkLabel:SetPoint("RIGHT", -16, 0)
 	linkLabel:SetJustifyH("LEFT")
@@ -83,11 +82,10 @@ local function create()
 	linkBox:SetHeight(20)
 	copyBox(linkBox)
 
-	local textLabel = window:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+	textLabel = window:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 	textLabel:SetPoint("TOPLEFT", linkBox, "BOTTOMLEFT", -6, -16)
 	textLabel:SetPoint("RIGHT", -16, 0)
 	textLabel:SetJustifyH("LEFT")
-	textLabel:SetText(L.REPORT_TEXT)
 
 	local scroll = CreateFrame("ScrollFrame", nil, window, "UIPanelScrollFrameTemplate")
 	scroll:SetPoint("TOPLEFT", textLabel, "BOTTOMLEFT", 0, -8)
@@ -108,6 +106,10 @@ local function show()
 	local db = MnemosyneDB
 	local reportFacts = facts()
 	local text = Report.text(reportFacts, db.events, db.errors)
+	title:SetText(L.REPORT_TITLE)
+	linkLabel:Show()
+	linkBox:Show()
+	textLabel:SetText(L.REPORT_TEXT)
 	setCopy(linkBox, Report.link(text, reportFacts.version))
 	setCopy(textBox, text)
 	window:Show()
@@ -115,6 +117,21 @@ local function show()
 end
 
 ns.commands.report = show
+
+-- The same window with the session's debug log to copy (/mnemosyne debug
+-- copy): the lines as printed, other players' names and nicknames included.
+function ns.showDebugLog()
+	if not window then
+		create()
+	end
+	title:SetText(L.DEBUG_LOG_TITLE)
+	linkLabel:Hide()
+	linkBox:Hide()
+	textLabel:SetText(L.DEBUG_LOG_TEXT)
+	setCopy(textBox, ns.Debug.text())
+	window:Show()
+	textBox:SetFocus()
+end
 
 StaticPopupDialogs[OFFER] = {
 	text = L.REPORT_OFFER,

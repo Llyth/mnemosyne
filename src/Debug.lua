@@ -16,6 +16,9 @@ local printable = ns.Protocol.printable
 local Debug = {}
 ns.Debug = Debug
 
+local MAX_LINES = 500 -- log lines kept for /mnemosyne debug copy, the session's last
+local lines = {}
+
 -- The name of each result of C_ChatInfo.SendAddonMessage, for the log.
 local RESULT = {}
 for name, value in pairs(Enum.SendAddonMessageResult) do
@@ -49,7 +52,17 @@ local function log(template, ...)
 	for i = 1, select("#", ...) do
 		values[i] = printable(tostring(values[i]))
 	end
-	ns.say(template:format(unpack(values, 1, select("#", ...))))
+	local line = template:format(unpack(values, 1, select("#", ...)))
+	lines[#lines + 1] = date("%H:%M:%S ") .. line
+	if #lines > MAX_LINES then
+		table.remove(lines, 1)
+	end
+	ns.say(line)
+end
+
+-- The log lines printed this session, oldest first, one a line.
+function Debug.text()
+	return table.concat(lines, "\n")
 end
 
 -- A message handed to the client: chatType, the target of a whisper, and the

@@ -56,6 +56,7 @@ read_globals = {
 	"UnitIsPlayer",
 	"UnitName",
 	"UnitNameUnmodified",
+	"date",
 	"geterrorhandler",
 	"hooksecurefunc",
 	"issecretvalue",

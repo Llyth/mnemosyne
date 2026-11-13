@@ -68,7 +68,11 @@ function commands.status()
 	end
 end
 
-function commands.debug()
+function commands.debug(text)
+	if text:lower() == "copy" then
+		ns.showDebugLog() -- ReportWindow loads after this file
+		return
+	end
 	say(ns.Debug.toggle() and L.DEBUG_ON or L.DEBUG_OFF)
 end
 
