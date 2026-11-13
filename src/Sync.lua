@@ -95,7 +95,7 @@ local function answer(self, peer, digest, now, outgoing)
 		-- No more than the peer keeps in a day from one peer, from a point that
 		-- moves with the clock, so that later syncs pass on the rest.
 		local chosen = {}
-		for i = 1, math.min(#missing, Memory.MAX_NEW_PER_PEER) do
+		for i = 1, math.min(#missing, Memory.MAX_CHANGES_PER_PEER) do
 			chosen[i] = missing[(now + i) % #missing + 1]
 		end
 		for first = 1, #chosen, Protocol.MAX_IDENTITIES do

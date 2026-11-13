@@ -7,8 +7,9 @@
 -- different nicknames is disputed and hidden until the character speaks;
 -- unregistering and anonymous are revisions without a nickname; at most
 -- 20,000 second-hand identities are kept (the oldest heard dropped first) and
--- at most 1,000 new ones accepted from one peer a day. Staleness and
--- forgetting join it later, behind the same hear and recall.
+-- at most 1,000 changes (new, later, removed or disputed) accepted from one
+-- peer a day. Staleness and forgetting join it later, behind the same hear
+-- and recall.
 local _, ns = ...
 
 local Memory = {}
@@ -16,7 +17,7 @@ Memory.__index = Memory
 ns.Memory = Memory
 
 Memory.MAX_SECOND_HAND = 20000
-Memory.MAX_NEW_PER_PEER = 1000
+Memory.MAX_CHANGES_PER_PEER = 1000
 Memory.BUCKETS = 128 -- of the digest, DIGITS each (BUCKETS * DIGITS = Protocol.DIGEST_LENGTH)
 
 local DIGITS = 8 -- hexadecimal, a bucket of the digest
@@ -139,12 +140,12 @@ local function queue(self, name, known)
 end
 
 -- saved: the table Memory keeps its identities in (MnemosyneDB.memory), and
--- how many new second-hand identities each peer brought today. Counts older
+-- how many second-hand changes each peer brought today. Counts older
 -- than a day are let go here.
 -- clock: returns the server time, in seconds.
 function Memory.new(saved, clock)
 	saved.identities = saved.identities or {}
-	saved.newFrom = saved.newFrom or {}
+	saved.newFrom = saved.newFrom or {} -- counts every change, not only new ones (key kept)
 	local now = clock()
 	for peer, counted in pairs(saved.newFrom) do
 		if now - counted.since >= DAY then
@@ -177,15 +178,15 @@ function Memory.new(saved, clock)
 	return self
 end
 
--- Counts one new second-hand identity from a peer. Returns false once the peer
+-- Counts one second-hand change from a peer. Returns false once the peer
 -- brought its 1,000 of the day.
-local function countNew(self, peer, now)
+local function countChange(self, peer, now)
 	local counted = self.newFrom[peer]
 	if not counted or now - counted.since >= DAY then
 		counted = { since = now, count = 0 }
 		self.newFrom[peer] = counted
 	end
-	if counted.count >= Memory.MAX_NEW_PER_PEER then
+	if counted.count >= Memory.MAX_CHANGES_PER_PEER then
 		return false
 	end
 	counted.count = counted.count + 1
@@ -218,22 +219,24 @@ local function hearSecondHand(self, name, heard, known)
 	if known then
 		if known.firstHand or known.revision > heard.revision then
 			return false
-		elseif known.revision == heard.revision then
-			if known.disputed or known.nickname == heard.nickname then
-				return false
-			end
-			sum(self, name, known, -1)
-			known.disputed = true
-			return true
-		end
-	else
-		if not countNew(self, heard.source, now) then
+		elseif known.revision == heard.revision and (known.disputed or known.nickname == heard.nickname) then
 			return false
 		end
+	end
+	-- Every change counts, not only new identities: else a peer could rewrite
+	-- all it was ever told, with no limit.
+	if not countChange(self, heard.source, now) then
+		return false
+	end
+	if not known then
 		if self.secondHand >= Memory.MAX_SECOND_HAND then
 			dropOldest(self)
 		end
 		self.secondHand = self.secondHand + 1
+	elseif known.revision == heard.revision then
+		sum(self, name, known, -1)
+		known.disputed = true
+		return true
 	end
 	local stored = {
 		nickname = heard.nickname,

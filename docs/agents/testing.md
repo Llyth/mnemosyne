@@ -13,4 +13,4 @@ Work in vertical slices, a *tracer bullet*: one behavior, one failing test (red)
 - Do not write a fake of the WoW API to test an adapter: it would test the fake. Move the logic into a pure module instead.
 - Name each test as a sentence in the words of [CONTEXT.md](../../CONTEXT.md), for example `it("lets a first-hand identity replace a second-hand one")`.
 - Inject the clock: pure modules take the time as an argument and never call `time()`, `GetTime()` or `GetServerTime()`.
-- Everything that arrives from another player gets a test for what is dropped, not only for what is accepted: malformed messages, other versions, escape sequences, control characters, oversized fields, more new identities than a peer may send.
+- Everything that arrives from another player gets a test for what is dropped, not only for what is accepted: malformed messages, other versions, escape sequences, control characters, oversized fields, more changes than a peer may send in a day.
