@@ -62,6 +62,7 @@ function commands.help()
 	say(L.HELP_LOOKUP)
 	say(L.HELP_STATUS)
 	say(L.HELP_DEBUG)
+	say(L.HELP_REPORT)
 	say(L.HELP_HELP)
 end
 

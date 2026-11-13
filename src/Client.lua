@@ -90,7 +90,7 @@ local function compose(job)
 		chatType = nil
 	end
 	if chatType then
-		return Protocol.write(message), chatType, job.target
+		return Protocol.write(message), chatType, job.target, message.kind
 	end
 end
 
@@ -107,14 +107,14 @@ local function flush()
 	refilledAt = now
 	while queue[1] and not isPaused() do
 		local job = queue[1]
-		local text, chatType, target = compose(job)
+		local text, chatType, target, kind = compose(job)
 		if text then
 			local costs = chatType ~= "WHISPER" or IsInInstance()
 			if costs and tokens < 1 then
 				return
 			end
 			local result = C_ChatInfo.SendAddonMessage(Protocol.PREFIX, text, chatType, target)
-			Debug.sent(text, chatType, target, result)
+			Debug.sent(text, chatType, target, result, kind)
 			if RETRY[result] then
 				tokens = 0
 				return
@@ -192,6 +192,13 @@ function handlers.ADDON_LOADED(name)
 		db.settings.chat = true -- chat recognition; the settings panel exposes it later
 	end
 	ns.recognition = ns.Recognition.new(ns.memory, db.settings, ns.L, GetServerTime)
+	-- The debug report (src/Report.lua): its events, the caught errors, and
+	-- whether to offer it after an error.
+	db.events = db.events or {}
+	db.errors = db.errors or {}
+	if db.settings.offerReport == nil then
+		db.settings.offerReport = true
+	end
 	C_ChatInfo.RegisterAddonMessagePrefix(Protocol.PREFIX)
 	for event in pairs(handlers) do
 		if event ~= "ADDON_LOADED" then
@@ -250,7 +257,7 @@ function handlers.CHAT_MSG_ADDON(prefix, text, channel, sender)
 		return
 	end
 	if not (isKnown(text) and isKnown(sender) and isKnown(channel)) then
-		Debug.dropped("?", "secret", "?")
+		Debug.dropped(nil, "secret", "?")
 		return
 	end
 	if sender == "" or sender == playerName or not playerName then
@@ -261,7 +268,7 @@ function handlers.CHAT_MSG_ADDON(prefix, text, channel, sender)
 		Debug.dropped(sender, reason, text)
 		return
 	end
-	Debug.received(sender, channel, text)
+	Debug.received(sender, channel, text, message.kind)
 	if message.kind == "ask" then
 		local now = GetTime()
 		if answeredAt[sender] and now - answeredAt[sender] < ANSWER_COOLDOWN then
