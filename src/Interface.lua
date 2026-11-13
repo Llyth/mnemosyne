@@ -80,8 +80,8 @@ SlashCmdList.MNEMOSYNE = function(input)
 	run(rest)
 end
 
--- The nickname of a known character on its tooltip; nothing for an unknown
--- one, or when the game hides the unit or its name (a secret value). A
+-- The nickname of a known character on its tooltip; nothing for a stranger,
+-- or when the game hides the unit or its name (a secret value). A
 -- tooltip that shows only a first name finds the full name through the GUID.
 TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Unit, function(tooltip)
 	if not ns.recognition or not tooltip.GetUnit then
