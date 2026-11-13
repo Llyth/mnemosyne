@@ -51,7 +51,7 @@ shows in grey, `Hugh Jass (~Tony)`, with the name of the player who passed it on
 in its tooltip. When players pass along different nicknames for the same
 character, it shows none until the character says who plays it. You keep at
 most 20,000 second-hand nicknames, and take at most 1,000 new ones a day from
-any one player.
+any one player; a sync passes on at most 1,000 too, the rest in later syncs.
 
 Nicknames show on tooltips and in chat: every chat type except emotes
 (channels and Communities included), in the Communities window too, and when
