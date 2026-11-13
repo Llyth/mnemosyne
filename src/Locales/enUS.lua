@@ -113,6 +113,7 @@ ns.L = {
 	PANEL_OFFER_REPORT = "Offer a report after an error",
 	PANEL_OFFER_REPORT_HELP = "When Mnemosyne hits one of its own errors, offer the debug report once a session.",
 	PANEL_STATUS = "Status",
+	PANEL_REPORT = "Report a bug",
 	PANEL_IDENTITIES = "Identities",
 	PANEL_SEARCH = "Search names and nicknames",
 	PANEL_COLUMN_CHARACTER = "Character",
