@@ -33,15 +33,11 @@ function Debug.toggle()
 	return MnemosyneDB.debug
 end
 
--- A sync's identities and chunks, hundreds at a time, would push every other
--- event out of the report: they show in the log only, unless a send fails.
-local BULK = { identities = true, chunk = true }
-
 -- Keeps an event for the debug report, once the saved variables are loaded.
-local function record(what, peer, detail)
+local function record(what, peer, detail, kind, failed)
 	if MnemosyneDB and MnemosyneDB.events then
 		local event = { at = GetServerTime(), what = what, peer = peer, detail = detail }
-		Report.keep(MnemosyneDB.events, event, Report.MAX_EVENTS)
+		Report.record(MnemosyneDB.events, event, kind, failed)
 	end
 end
 
@@ -61,9 +57,7 @@ end
 function Debug.sent(text, chatType, target, result, kind)
 	local channel = target and (chatType .. " " .. target) or chatType
 	local sent = result == Enum.SendAddonMessageResult.Success
-	if not (sent and BULK[kind]) then
-		record("sent", target, ("%s %s %s"):format(chatType, kind, RESULT[result] or tostring(result)))
-	end
+	record("sent", target, ("%s %s %s"):format(chatType, kind, RESULT[result] or tostring(result)), kind, not sent)
 	if sent then
 		log(L.DEBUG_SENT, channel, text)
 	else
@@ -72,9 +66,7 @@ function Debug.sent(text, chatType, target, result, kind)
 end
 
 function Debug.received(sender, channel, text, kind)
-	if not BULK[kind] then
-		record("received", sender, channel .. " " .. kind)
-	end
+	record("received", sender, channel .. " " .. kind, kind)
 	log(L.DEBUG_RECEIVED, sender, channel, text)
 end
 
