@@ -35,7 +35,7 @@ local function log(template, ...)
 	for i = 1, select("#", ...) do
 		values[i] = printable(tostring(values[i]))
 	end
-	print("|cff9d8df1Mnemosyne debug|r: " .. template:format(unpack(values, 1, select("#", ...))))
+	ns.say(template:format(unpack(values, 1, select("#", ...))))
 end
 
 -- A message handed to the client: chatType, and the target of a whisper.

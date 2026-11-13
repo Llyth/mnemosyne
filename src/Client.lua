@@ -41,6 +41,12 @@ function Client.playerName()
 	return playerName
 end
 
+-- Whether this account can send addon messages here at all: never on a trial
+-- account, nor on a realm where the client restricts them.
+function Client.canSend()
+	return not (IsTrialAccount() or IsVeteranTrialAccount() or C_ChatInfo.AreOutgoingAddonChatMessagesRestricted())
+end
+
 local function isRegistered()
 	local registration = ns.characters:registration(playerName)
 	return registration and registration.nickname ~= nil
@@ -129,7 +135,7 @@ end
 -- Queues a job once: a job already waiting (one announcement per channel, one
 -- answer per sender) is not queued twice. Returns true when it queued the job.
 local function enqueue(kind, channel, target)
-	if IsTrialAccount() or IsVeteranTrialAccount() or C_ChatInfo.AreOutgoingAddonChatMessagesRestricted() then
+	if not Client.canSend() then
 		return false
 	end
 	local key = kind .. ":" .. channel .. ":" .. (target or "")

@@ -31,15 +31,18 @@ local NICKNAME_PROBLEM = {
 local commands = {}
 ns.commands = commands
 
--- Returns true once the character is registered.
-function commands.register(nickname)
-	local ok, reason = ns.characters:register(Client.playerName(), nickname)
+-- Returns true once the character is registered. fromPrompt: the
+-- registration prompt calls it, and the login already asked the others who
+-- they are, so the announcement does not ask again.
+function commands.register(nickname, fromPrompt)
+	local name = Client.playerName()
+	local ok, reason = ns.characters:register(name, nickname)
 	if not ok then
 		say(NICKNAME_PROBLEM[reason])
 		return
 	end
-	say(L.REGISTERED:format(nickname))
-	Client.announce(true)
+	say(L.REGISTERED:format(ns.characters:registration(name).nickname))
+	Client.announce(not fromPrompt)
 	return true
 end
 

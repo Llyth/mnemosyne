@@ -3,8 +3,8 @@
 -- Interface adapter (decision 0004): Self decides whether to prompt and what
 -- to pre-fill; this file decides when it may open. It never opens in combat,
 -- during a loading screen or in an instance, waits a few seconds after the
--- character enters the world, never shows on a trial account (whose addon
--- messages cannot be sent), and opens at most once per session.
+-- character enters the world, never shows when this account cannot send addon
+-- messages (a trial account), and opens at most once per session.
 local _, ns = ...
 
 local L = ns.L
@@ -17,10 +17,6 @@ local DELAY = 5 -- seconds after entering the world, or after combat, before the
 local asked = false -- the prompt opened this session, or has nothing to ask
 local loading = false
 local waiting = false -- a try is scheduled
-
-local function isTrial()
-	return IsTrialAccount() or IsVeteranTrialAccount()
-end
 
 StaticPopupDialogs[DIALOG] = {
 	text = L.PROMPT,
@@ -48,7 +44,7 @@ StaticPopupDialogs[DIALOG] = {
 	-- Register: keeps the dialog open when the nickname breaks the rules (the
 	-- command says why in the chat frame).
 	OnButton1 = function(dialog)
-		return not ns.commands.register(dialog:GetEditBox():GetText())
+		return not ns.commands.register(dialog:GetEditBox():GetText(), true)
 	end,
 	OnButton2 = function()
 		if ns.characters:keepAnonymous(Client.playerName()) then
@@ -81,7 +77,7 @@ local function try()
 end
 
 local function tryLater()
-	if not (asked or waiting or isTrial()) then
+	if not asked and not waiting and Client.canSend() then
 		waiting = true
 		C_Timer.After(DELAY, try)
 	end

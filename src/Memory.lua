@@ -116,9 +116,9 @@ end
 function Memory:search(text)
 	local wanted = fold(text)
 	local found = {}
-	for name in pairs(self.identities) do
-		local identity = self:recall(name)
-		if identity and (fold(name):find(wanted, 1, true) or fold(identity.nickname):find(wanted, 1, true)) then
+	for name, known in pairs(self.identities) do
+		if known.nickname and (fold(name):find(wanted, 1, true) or fold(known.nickname):find(wanted, 1, true)) then
+			local identity = self:recall(name)
 			identity.name = name
 			found[#found + 1] = identity
 		end
@@ -132,8 +132,8 @@ end
 -- How many identities it holds.
 function Memory:count()
 	local count = 0
-	for name in pairs(self.identities) do
-		if self:recall(name) then
+	for _, known in pairs(self.identities) do
+		if known.nickname then
 			count = count + 1
 		end
 	end

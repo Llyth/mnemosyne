@@ -41,8 +41,8 @@ function commands.status()
 	else
 		say(L.STATUS_NOT_ASKED)
 	end
-	if IsTrialAccount() or IsVeteranTrialAccount() then
-		say(L.STATUS_TRIAL)
+	if not Client.canSend() then
+		say(L.STATUS_CANNOT_SEND)
 	end
 end
 

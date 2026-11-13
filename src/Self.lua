@@ -28,9 +28,14 @@ local function change(self, name, nickname, anonymous)
 	}
 end
 
--- Registers a character with its player's nickname, or changes it. Returns
--- true, or false and why the nickname breaks the rules (Protocol.checkNickname).
+-- Registers a character with its player's nickname, or changes it. The
+-- nickname is stored without spaces around it and with each run of spaces
+-- inside it made one. Returns true, or false and why the nickname breaks the
+-- rules (Protocol.checkNickname).
 function Self:register(name, nickname)
+	if type(nickname) == "string" then
+		nickname = nickname:gsub(" +", " "):match("^ ?(.-) ?$")
+	end
 	local ok, reason = ns.Protocol.checkNickname(nickname)
 	if not ok then
 		return false, reason

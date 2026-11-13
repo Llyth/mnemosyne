@@ -36,6 +36,22 @@ describe("Self", function()
 		assert.same({ nickname = "Tony", revision = 1000 }, characters:registration("Hugh Jass"))
 	end)
 
+	it("trims the spaces around a nickname and collapses the runs inside it", function()
+		assert.is_true(characters:register("Hugh Jass", "  Tony   the  tank "))
+		assert.equal("Tony the tank", characters:registration("Hugh Jass").nickname)
+	end)
+
+	it("refuses a nickname made only of spaces", function()
+		local ok, reason = characters:register("Hugh Jass", "   ")
+		assert.is_false(ok)
+		assert.equal("empty", reason)
+		assert.is_nil(characters:registration("Hugh Jass"))
+	end)
+
+	it("counts a nickname's length after trimming it", function()
+		assert.is_true(characters:register("Hugh Jass", "  " .. string.rep("a", 32) .. "  "))
+	end)
+
 	it("changes the nickname with a later revision", function()
 		characters:register("Hugh Jass", "Tony")
 		now = 2000
