@@ -1,6 +1,6 @@
 ## Interface: 16001
 ## Title: Mnemosyne
-## Notes: Recognize the players you know from Discord behind their WoW Forever characters.
+## Notes: Recognize the players you know behind their WoW Forever characters: the nickname they go by, on their tooltip.
 ## Author: Llyth
 ## Version: @project-version@
 ## SavedVariables: MnemosyneDB
