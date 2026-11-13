@@ -218,8 +218,8 @@ for Forever changes before merging. The addon itself embeds no library.
 ## Repository protection
 
 Modeled on [wowf](https://github.com/Llyth/WoWF)'s, minus what only makes sense for
-more than one contributor. Rulesets only take effect on a private repository with a
-paid plan, so they are set up when the repository goes public:
+more than one contributor. Both rulesets and the repository settings below are in
+place:
 
 - **`main` ruleset** (no bypass actors): no deletion, no force pushes, linear
   history, and changes only through a pull request that is squash-merged with
@@ -231,8 +231,9 @@ paid plan, so they are set up when the repository goes public:
 - **`pr-branches` ruleset**: force pushes allowed on pull request branches, for
   rebases and `git push --force-with-lease`.
 - **Repository settings:** squash merging only, branches deleted after merge,
-  Dependabot security updates and vulnerability alerts on, private vulnerability
-  reporting on (see [SECURITY.md](SECURITY.md)).
+  Dependabot security updates and vulnerability alerts on. Private vulnerability
+  reporting (see [SECURITY.md](SECURITY.md)) is turned on when the repository
+  goes public: GitHub offers it only on public repositories.
 - **Code owners:** `.github/CODEOWNERS` makes `@Llyth` the owner of everything and
   lists the sensitive paths on their own.
 - **CI hardening:** a read-only `GITHUB_TOKEN` by default, actions pinned by commit
