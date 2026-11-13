@@ -12,7 +12,7 @@ describe("Recognition", function()
 	before_each(function()
 		now = 1000
 		memory = Memory.new({}, clock)
-		settings = { chat = true }
+		settings = { chat = true, showSecondHand = true }
 		recognition = Recognition.new(memory, settings, ns.L, clock)
 		memory:hear("Hugh Jass", { nickname = "Tony", revision = 900 })
 	end)
@@ -38,6 +38,11 @@ describe("Recognition", function()
 		it("leaves every name as it is when chat recognition is off", function()
 			settings.chat = false
 			assert.is_nil(recognition:chatName("Hugh Jass", "Hugh Jass"))
+		end)
+
+		it("shows a second-hand nickname in grey, marked with ~", function()
+			memory:hear("Anna Conda", { nickname = "Ann", revision = 900, source = "Barb Dwyer" })
+			assert.equal("Anna Conda (|cff808080~Ann|r)", recognition:chatName("Anna Conda", "Anna Conda"))
 		end)
 
 		it("recognizes a sender by the full name the line's GUID was learned with", function()
@@ -116,6 +121,15 @@ describe("Recognition", function()
 
 		it("shows nothing for a character it does not know", function()
 			assert.is_nil(recognition:chatTooltip("player:Anna Conda:42:SAY:"))
+			assert.is_nil(recognition:communitiesLine("[|HplayerCommunity:Anna Conda:7:1:1:2|hAnna Conda|h]: hi"))
+		end)
+
+		it("shows who passed on a second-hand identity", function()
+			memory:hear("Anna Conda", { nickname = "Ann", revision = 900, source = "Barb Dwyer" })
+			assert.same(
+				{ name = "Anna Conda", nickname = "Ann", heard = "Last heard just now", source = "Barb Dwyer" },
+				recognition:chatTooltip("player:Anna Conda:42:SAY:")
+			)
 		end)
 
 		it("shows nothing when chat recognition is off", function()
@@ -154,6 +168,14 @@ describe("Recognition", function()
 
 		it("leaves the line of a character it does not know as it is", function()
 			assert.is_nil(recognition:communitiesLine(line("Anna Conda", "Anna Conda", "hi")))
+		end)
+
+		it("shows a second-hand nickname in grey, marked with ~", function()
+			memory:hear("Anna Conda", { nickname = "Ann", revision = 900, source = "Barb Dwyer" })
+			assert.equal(
+				line("Anna Conda", "Anna Conda (|cff808080~Ann|r)", "hi"),
+				recognition:communitiesLine(line("Anna Conda", "Anna Conda", "hi"))
+			)
 		end)
 
 		it("leaves a Battle.net friend's line as it is", function()
@@ -203,6 +225,31 @@ describe("Recognition", function()
 
 		it("just now when the server clock went back", function()
 			assert.equal("Last heard just now", heardAgo(-30))
+		end)
+	end)
+
+	describe("with Show second-hand off", function()
+		before_each(function()
+			settings.showSecondHand = false
+			memory:hear("Anna Conda", { nickname = "Ann", revision = 900, source = "Barb Dwyer" })
+		end)
+
+		it("hides second-hand identities everywhere", function()
+			assert.is_nil(recognition:recall("Anna Conda"))
+			assert.is_nil(recognition:chatName("Anna Conda", "Anna Conda"))
+			assert.is_nil(recognition:chatTooltip("player:Anna Conda:42:SAY:"))
+		end)
+
+		it("leaves second-hand identities out of a lookup", function()
+			local found = recognition:search("")
+			assert.equal(1, #found)
+			assert.equal("Hugh Jass", found[1].name)
+			settings.showSecondHand = true
+			assert.equal(2, #recognition:search(""))
+		end)
+
+		it("still shows first-hand identities", function()
+			assert.equal("Hugh Jass (Tony)", recognition:chatName("Hugh Jass", "Hugh Jass"))
 		end)
 	end)
 end)

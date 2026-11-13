@@ -15,13 +15,19 @@ function commands.lookup(text)
 		say(L.LOOKUP_EMPTY)
 		return
 	end
-	local found = ns.memory:search(text)
+	local found = ns.recognition:search(text)
 	if not found[1] then
 		say(L.LOOKUP_NONE:format(text))
 		return
 	end
 	for i = 1, math.min(#found, MAX_FOUND) do
-		say(L.LOOKUP_FOUND:format(found[i].name, found[i].nickname))
+		local identity = found[i]
+		if identity.source then
+			local nickname = L.SECOND_HAND:format(identity.nickname)
+			say(L.LOOKUP_FOUND_SECOND_HAND:format(identity.name, nickname, identity.source))
+		else
+			say(L.LOOKUP_FOUND:format(identity.name, identity.nickname))
+		end
 	end
 	if #found > MAX_FOUND then
 		say(L.LOOKUP_MORE:format(#found - MAX_FOUND))
@@ -48,4 +54,9 @@ end
 
 function commands.debug()
 	say(ns.Debug.toggle() and L.DEBUG_ON or L.DEBUG_OFF)
+end
+
+function commands.sync()
+	local count = Client.sync()
+	say(count > 0 and L.SYNC_STARTED:format(count) or L.SYNC_NONE)
 end

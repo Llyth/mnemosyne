@@ -62,10 +62,14 @@ describe("Protocol", function()
 			end
 		end
 
-		it("drops a message from another version", function()
-			assertDropped("2:A:5:Tony", "version")
+		it("drops a message from an older version", function()
 			assertDropped("0:Q", "version")
-			assertDropped("10:Q", "version")
+			assertDropped("01:Q", "version")
+		end)
+
+		it("drops a message from a newer version, and says it is newer", function()
+			assertDropped("2:A:5:Tony", "newer")
+			assertDropped("10:Q", "newer")
 		end)
 
 		it("drops a message without a version", function()
@@ -200,6 +204,237 @@ describe("Protocol", function()
 
 		it("keeps other text as it is", function()
 			assert.equal("1:R:5:Éloïse: the tank", Protocol.printable("1:R:5:Éloïse: the tank"))
+		end)
+	end)
+end)
+
+describe("Protocol for syncs", function()
+	local DIGEST = string.rep("0123abcd", 128)
+
+	-- Reads text the way a peer gets it: as chunks when it is long.
+	local function readSplit(text)
+		local reader = Protocol.newReader(function()
+			return 0
+		end)
+		local message, why
+		for _, chunk in ipairs(Protocol.split(text)) do
+			message, why = reader:read("Hugh Jass", chunk)
+		end
+		return message, why
+	end
+
+	local function roundTripSplit(message)
+		return readSplit(Protocol.write(message))
+	end
+
+	local function assertDropped(text, reason)
+		local message, why = readSplit(text)
+		assert.is_nil(message, text)
+		assert.equal(reason, why, text)
+	end
+
+	describe("writes what it reads", function()
+		it("carries a digest", function()
+			assert.same({ kind = "digest", digest = DIGEST }, roundTripSplit({ kind = "digest", digest = DIGEST }))
+		end)
+
+		it("carries identities, nicknames and removals, in order", function()
+			local message = {
+				kind = "identities",
+				identities = {
+					{ name = "Hugh Jass", nickname = "Tony: the tank", revision = 900 },
+					{ name = "Anna Conda", revision = 901 },
+					{ name = "Élise Bérénice", nickname = "Zoé", revision = 902 },
+				},
+			}
+			assert.same(message, roundTripSplit(message))
+		end)
+
+		it("carries the end of a sync", function()
+			assert.same({ kind = "done" }, roundTripSplit({ kind = "done" }))
+		end)
+	end)
+
+	describe("drops what it cannot trust", function()
+		it("drops a digest of the wrong size or not in hexadecimal", function()
+			assertDropped("1:D", "malformed")
+			assertDropped("1:D:" .. DIGEST:sub(2), "malformed")
+			assertDropped("1:D:" .. DIGEST .. "0", "malformed")
+			assertDropped("1:D:" .. DIGEST:upper(), "malformed")
+			assertDropped("1:D:" .. DIGEST:sub(2) .. "g", "malformed")
+		end)
+
+		it("drops identities without any", function()
+			assertDropped("1:I", "malformed")
+			assertDropped("1:I:", "malformed")
+		end)
+
+		it("drops an identity without a valid revision", function()
+			assertDropped("1:I:0:Anna Conda", "malformed")
+			assertDropped("1:I:abc:Hugh Jass:Tony", "malformed")
+			assertDropped("1:I:Hugh Jass:Tony", "malformed")
+		end)
+
+		it("drops identities that hold more than a batch, so one message never costs more than 16", function()
+			local lines = {}
+			for i = 1, Protocol.MAX_IDENTITIES + 1 do
+				lines[i] = "1:Peer" .. i .. " Last"
+			end
+			assertDropped("1:I:" .. table.concat(lines, "\n"), "oversized")
+			lines[#lines] = nil
+			assert.equal(Protocol.MAX_IDENTITIES, #readSplit("1:I:" .. table.concat(lines, "\n")).identities)
+		end)
+
+		it("drops only the identities that do not parse, and keeps the others", function()
+			assert.same(
+				{ kind = "identities", identities = { { name = "Hugh Jass", nickname = "Tony", revision = 900 } } },
+				readSplit("1:I:0:Anna Conda\n900:Hugh Jass:Tony\n900:Cole Slaw:|cffff0000Cole|r\n\n900:Barb")
+			)
+		end)
+
+		it("drops an identity whose character's name is not a full name", function()
+			for _, name in ipairs({
+				"Hugh",
+				"",
+				" Hugh Jass",
+				"Hugh Jass ",
+				"Hugh  Jass",
+				"Hugh Jass Jr",
+				"|cffff0000Hugh|r Jass",
+				"Hugh\0 Jass",
+				"Hugh \255Jass",
+				"Hugh " .. string.rep("a", 60),
+			}) do
+				assertDropped("1:I:900:" .. name .. ":Tony", "malformed")
+			end
+		end)
+
+		it("drops an identity whose nickname breaks the rules", function()
+			assertDropped("1:I:900:Hugh Jass:", "nickname")
+			assertDropped("1:I:900:Hugh Jass:|cffff0000Tony|r", "nickname")
+			assertDropped("1:I:900:Hugh Jass:" .. string.rep("a", 33), "nickname")
+		end)
+
+		it("drops the end of a sync with anything after it", function()
+			assertDropped("1:E:", "malformed")
+			assertDropped("1:E:Tony", "malformed")
+		end)
+	end)
+
+	describe("splits a long message into chunks", function()
+		local now, reader
+
+		before_each(function()
+			now = 1000
+			reader = Protocol.newReader(function()
+				return now
+			end)
+		end)
+
+		-- count identities, with long nicknames when long, for a message of more chunks.
+		local function identities(count, long)
+			local nickname = long and ("Tony"):rep(8) or "Tony"
+			local list = {}
+			for i = 1, count do
+				list[i] =
+					{ name = "Hugh Jass" .. string.char(96 + i % 26), nickname = nickname, revision = 1731500000 + i }
+			end
+			return { kind = "identities", identities = list }
+		end
+
+		local function deliver(sender, texts)
+			local message, reason
+			for _, text in ipairs(texts) do
+				message, reason = reader:read(sender, text)
+			end
+			return message, reason
+		end
+
+		it("sends a short message as it is", function()
+			assert.same({ "1:Q" }, Protocol.split("1:Q"))
+			assert.same({ kind = "ask" }, reader:read("Hugh Jass", "1:Q"))
+		end)
+
+		it("splits a long message into chunks of at most 255 bytes, and reassembles them", function()
+			local message = identities(16, true)
+			local chunks = Protocol.split(Protocol.write(message))
+			assert.is_true(#chunks > 1)
+			for i, chunk in ipairs(chunks) do
+				assert.is_true(#chunk <= Protocol.MAX_MESSAGE_BYTES)
+				if i < #chunks then
+					assert.is_nil(reader:read("Hugh Jass", chunk))
+				end
+			end
+			assert.same(message, reader:read("Hugh Jass", chunks[#chunks]))
+		end)
+
+		it("reassembles each sender's chunks apart", function()
+			local a = Protocol.split(Protocol.write(identities(16, true)))
+			local b = Protocol.split(Protocol.write(identities(16)))
+			for i = 1, #b - 1 do
+				reader:read("Anna Conda", a[i])
+				reader:read("Barb Dwyer", b[i])
+			end
+			assert.same(identities(16), reader:read("Barb Dwyer", b[#b]))
+			assert.same(identities(16, true), deliver("Anna Conda", { unpack(a, #b) }))
+		end)
+
+		it("drops a message whose chunks come out of order", function()
+			local chunks = Protocol.split(Protocol.write(identities(16, true)))
+			chunks[2], chunks[3] = chunks[3], chunks[2]
+			local message, reason = deliver("Hugh Jass", chunks)
+			assert.is_nil(message)
+			assert.equal("incomplete", reason)
+		end)
+
+		it("drops a message cut short when the sender starts another one", function()
+			local cut = Protocol.split(Protocol.write(identities(16, true)))
+			reader:read("Hugh Jass", cut[1])
+			reader:read("Hugh Jass", cut[2])
+			assert.same(identities(16), deliver("Hugh Jass", Protocol.split(Protocol.write(identities(16)))))
+		end)
+
+		it("drops a message whose last chunks never come", function()
+			local chunks = Protocol.split(Protocol.write(identities(16, true)))
+			for i = 1, #chunks - 1 do
+				reader:read("Hugh Jass", chunks[i])
+			end
+			now = now + 61
+			local message, reason = reader:read("Hugh Jass", chunks[#chunks])
+			assert.is_nil(message)
+			assert.equal("incomplete", reason)
+		end)
+
+		it("drops a message announced longer than it may be", function()
+			local message, reason = reader:read("Hugh Jass", "1:C:1:99:1:Q")
+			assert.is_nil(message)
+			assert.equal("oversized", reason)
+		end)
+
+		it("drops a chunk that does not parse", function()
+			for _, text in ipairs({ "1:C", "1:C:1", "1:C:0:2:x", "1:C:3:2:x", "1:C:a:2:x", "1:C:01:2:x" }) do
+				local message, reason = reader:read("Hugh Jass", text)
+				assert.is_nil(message, text)
+				assert.equal("malformed", reason, text)
+			end
+		end)
+
+		it("drops a reassembled message that does not parse", function()
+			local message, reason = deliver("Hugh Jass", { "1:C:1:2:1:I:900:Hugh", "1:C:2:2:" })
+			assert.is_nil(message)
+			assert.equal("malformed", reason)
+		end)
+
+		it("never reassembles a chunk inside a chunk", function()
+			local message, reason = deliver("Hugh Jass", { "1:C:1:2:1:C:1:", "1:C:2:2:1:1:Q" })
+			assert.is_nil(message)
+			assert.equal("malformed", reason)
+		end)
+
+		it("drops a chunk from a newer version, and says it is newer", function()
+			local message, reason = reader:read("Hugh Jass", "2:C:1:2:x")
+			assert.is_nil(message)
+			assert.equal("newer", reason)
 		end)
 	end)
 end)

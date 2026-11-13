@@ -13,10 +13,11 @@ Recognition.__index = Recognition
 ns.Recognition = Recognition
 
 local MINUTE, HOUR, DAY = 60, 3600, 86400
+local GREY = "|cff808080" -- a second-hand nickname's color in chat
 
 -- memory: the Memory to recall identities from.
 -- settings: the saved settings (MnemosyneDB.settings); settings.chat switches
--- chat recognition on.
+-- chat recognition on, settings.showSecondHand second-hand identities.
 -- L: the locale table. clock: returns the server time, in seconds.
 function Recognition.new(memory, settings, L, clock)
 	return setmetatable({ memory = memory, settings = settings, L = L, clock = clock, fullNames = {} }, Recognition)
@@ -34,16 +35,39 @@ end
 -- Recalls the identity of a character shown by name, and by GUID when it is
 -- known. A full name shown ("First Last") is trusted; a first name alone
 -- finds the full name learned for the GUID. Nil when its player's nickname is
--- not known.
+-- not known, or known only second-hand while second-hand identities are off.
 function Recognition:recall(name, guid)
 	if not name:find(" ", 1, true) and guid then
 		name = self.fullNames[guid] or name
 	end
-	return self.memory:recall(name)
+	local identity = self.memory:recall(name)
+	if identity and not self:shows(identity) then
+		return nil
+	end
+	return identity
 end
 
--- The sender's name in a chat line with its player's nickname after it, or nil
--- to leave the line as it is (an unknown character, or chat recognition off).
+-- Whether an identity shows: a second-hand one only while second-hand
+-- identities are on.
+function Recognition:shows(identity)
+	return not identity.source or self.settings.showSecondHand
+end
+
+-- Finds the identities whose character name or nickname contains the text
+-- (Memory:search), leaving out those that do not show.
+function Recognition:search(text)
+	local found = {}
+	for _, identity in ipairs(self.memory:search(text)) do
+		if self:shows(identity) then
+			found[#found + 1] = identity
+		end
+	end
+	return found
+end
+
+-- The sender's name in a chat line with its player's nickname after it, a
+-- second-hand one in grey and marked with ~; or nil to leave the line as it
+-- is (an unknown character, or chat recognition off).
 -- decorated: the name as the chat frame shows it, colors included; guid: the
 -- line's GUID, when there is one.
 function Recognition:chatName(decorated, name, guid)
@@ -51,7 +75,14 @@ function Recognition:chatName(decorated, name, guid)
 		return nil
 	end
 	local identity = self:recall(name, guid)
-	return identity and self.L.CHAT_NAME:format(decorated, identity.nickname)
+	if not identity then
+		return nil
+	end
+	local nickname = identity.nickname
+	if identity.source then
+		nickname = GREY .. self.L.SECOND_HAND:format(nickname) .. "|r"
+	end
+	return self.L.CHAT_NAME:format(decorated, nickname)
 end
 
 -- A line of the Communities window with its sender's nickname after the name,
@@ -91,8 +122,9 @@ local function linkedName(link)
 end
 
 -- The tooltip on a character's name in a chat line, from the line's link:
--- { name, nickname, heard }, or nil to show none (not a character's link, an
--- unknown character, or chat recognition off).
+-- { name, nickname, heard, source }, source for a second-hand identity only;
+-- or nil to show none (not a character's link, an unknown character, or chat
+-- recognition off).
 function Recognition:chatTooltip(link)
 	if not self.settings.chat then
 		return nil
@@ -102,5 +134,10 @@ function Recognition:chatTooltip(link)
 	if not identity then
 		return nil
 	end
-	return { name = name, nickname = identity.nickname, heard = heardAgo(self.L, self.clock() - identity.heard) }
+	return {
+		name = name,
+		nickname = identity.nickname,
+		heard = heardAgo(self.L, self.clock() - identity.heard),
+		source = identity.source,
+	}
 end

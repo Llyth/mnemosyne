@@ -10,9 +10,16 @@ local Client = ns.Client
 local Interface = {}
 ns.Interface = Interface
 
--- Adds who plays a character to a tooltip, in Mnemosyne's color.
-function Interface.addPlayedBy(tooltip, nickname)
-	tooltip:AddLine(L.TOOLTIP_PLAYED_BY:format(nickname), 0.62, 0.55, 0.95)
+-- Adds who plays a character to a tooltip, from its identity ({ nickname,
+-- source }): in Mnemosyne's color when heard first-hand; in grey, marked
+-- with ~ and with who passed it on, when heard second-hand.
+function Interface.addPlayedBy(tooltip, identity)
+	if not identity.source then
+		tooltip:AddLine(L.TOOLTIP_PLAYED_BY:format(identity.nickname), 0.62, 0.55, 0.95)
+		return
+	end
+	tooltip:AddLine(L.TOOLTIP_PLAYED_BY:format(L.SECOND_HAND:format(identity.nickname)), 0.5, 0.5, 0.5)
+	tooltip:AddLine(L.HEARD_FROM:format(identity.source), 0.5, 0.5, 0.5)
 end
 
 local function say(text)
@@ -60,6 +67,7 @@ function commands.help()
 	say(L.HELP_REGISTER)
 	say(L.HELP_UNREGISTER)
 	say(L.HELP_LOOKUP)
+	say(L.HELP_SYNC)
 	say(L.HELP_STATUS)
 	say(L.HELP_DEBUG)
 	say(L.HELP_REPORT)
@@ -99,6 +107,6 @@ TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Unit, function(tool
 	local guid = UnitGUID(unit)
 	local identity = ns.recognition:recall(name, isKnown(guid) and guid or nil)
 	if identity then
-		Interface.addPlayedBy(tooltip, identity.nickname)
+		Interface.addPlayedBy(tooltip, identity)
 	end
 end)

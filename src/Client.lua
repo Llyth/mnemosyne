@@ -6,6 +6,7 @@ local addonName, ns = ...
 
 local Protocol = ns.Protocol
 local Debug = ns.Debug
+local L = ns.L
 
 local Client = {}
 ns.Client = Client
@@ -15,6 +16,15 @@ local ANSWER_COOLDOWN = 60 -- seconds before answering the same sender again
 local BURST, REFILL = 10, 1 -- the client's allowance per prefix: 10 messages, then 1 per second
 local TICK = 0.25 -- seconds between two looks at the queue
 local MAX_ANSWERS = 20 -- once this many jobs wait, an ask is dropped, not answered
+local BYTES_PER_SECOND = 1000 -- the paced queue's pace, all messages together (decision 0002)
+local SYNC_TICK = 5 -- seconds between two looks at the syncs (cut, start waiting ones)
+local LOGIN_WINDOW, LOGIN_SYNCS = 60, 3 -- after login, sync with the first 3 peers answering within a minute
+-- Chunks the sync queue holds at most, about a whole memory's worth: what comes
+-- beyond is dropped, so peers asking for syncs one after another cannot grow it.
+local MAX_SYNC_CHUNKS = 4000
+
+-- The channels of the group: a message there from a peer is a group member's.
+local GROUP_CHANNELS = { PARTY = true, RAID = true, INSTANCE_CHAT = true }
 
 -- Results that mean "not now": the job stays at the head of the queue.
 local RETRY = {
@@ -25,10 +35,16 @@ local RETRY = {
 
 local playerName
 local queue, waiting = {}, {} -- jobs in order, and the keys of those in it
-local tokens, refilledAt = BURST, 0
+local syncQueue = {} -- sync messages, sent once the queue is empty: { text, target, kind }
+local syncSends, servedAt = 0, {} -- sync messages sent, and the count when each peer was last sent one
+local tokens, bytes, refilledAt = BURST, BYTES_PER_SECOND, 0
 local ticker
 local answeredAt = {} -- sender -> GetTime() of the last answer, for the session
 local groupSize, inGuild = 0, false
+local reader -- puts chunked messages back together
+local peersHeard = {} -- peer -> GetServerTime() when last heard, for the session
+local loginAt, loginSyncs = 0, 0
+local toldNewer = false -- the notice that a newer Mnemosyne exists, once a session
 
 -- A value read from the game that addon code can use: present and not secret.
 -- A secret value counts as unknown (comparing one raises an error).
@@ -69,6 +85,9 @@ end
 -- reaches peers who were offline when it was announced. Returns nothing to
 -- drop the job.
 local function compose(job)
+	if job.text then
+		return job.text, "WHISPER", job.target, job.kind
+	end
 	local registration = ns.characters:registration(playerName)
 	local message
 	if job.kind == "ask" then
@@ -98,19 +117,34 @@ local function isPaused()
 	return InCombatLockdown() or C_ChatInfo.InChatMessagingLockdown()
 end
 
--- Sends what the allowance permits, oldest job first, unless in combat or in
--- lockdown; stops ticking once the queue is empty. Whispers outside instances
--- are exempt from the allowance (decision 0002), so answers spend no token.
+-- Sends what the allowance permits, oldest job first and syncs last, about
+-- 1 KB a second in all, unless in combat or in lockdown; stops ticking once
+-- both queues are empty. Whispers outside instances are exempt from the
+-- per-prefix allowance (decision 0002), so answers and syncs spend no token.
 local function flush()
 	local now = GetTime()
 	tokens = math.min(BURST, tokens + (now - refilledAt) * REFILL)
+	bytes = math.min(BYTES_PER_SECOND, bytes + (now - refilledAt) * BYTES_PER_SECOND)
 	refilledAt = now
-	while queue[1] and not isPaused() do
-		local job = queue[1]
+	while (queue[1] or syncQueue[1]) and not isPaused() do
+		local jobs, at = queue, 1
+		if not queue[1] then
+			-- Syncs take turns, the peer served longest ago first, so each keeps
+			-- hearing from its sync and none times out.
+			jobs = syncQueue
+			local oldest
+			for i, job in ipairs(syncQueue) do
+				local served = servedAt[job.target] or 0
+				if not oldest or served < oldest then
+					at, oldest = i, served
+				end
+			end
+		end
+		local job = jobs[at]
 		local text, chatType, target, kind = compose(job)
 		if text then
 			local costs = chatType ~= "WHISPER" or IsInInstance()
-			if costs and tokens < 1 then
+			if (costs and tokens < 1) or bytes < #text then
 				return
 			end
 			local result = C_ChatInfo.SendAddonMessage(Protocol.PREFIX, text, chatType, target)
@@ -122,13 +156,39 @@ local function flush()
 			if costs then
 				tokens = tokens - 1
 			end
+			bytes = bytes - #text
+			if job.text then
+				syncSends = syncSends + 1
+				servedAt[target] = syncSends
+			end
+			if job.text and result ~= Enum.SendAddonMessageResult.Success then
+				-- The peer cannot get it (offline): the rest of its sync, this one
+				-- included, would go nowhere.
+				local kept = {}
+				for _, other in ipairs(syncQueue) do
+					if other.target ~= target then
+						kept[#kept + 1] = other
+					end
+				end
+				syncQueue, at = kept, nil
+			end
 		end
-		table.remove(queue, 1)
-		waiting[job.key] = nil
+		if at then
+			table.remove(jobs, at)
+		end
+		if job.key then
+			waiting[job.key] = nil
+		end
 	end
-	if not queue[1] and ticker then
+	if not queue[1] and not syncQueue[1] and ticker then
 		ticker:Cancel()
 		ticker = nil
+	end
+end
+
+local function wake()
+	if not ticker then
+		ticker = C_Timer.NewTicker(TICK, flush)
 	end
 end
 
@@ -144,10 +204,61 @@ local function enqueue(kind, channel, target)
 	end
 	waiting[key] = true
 	queue[#queue + 1] = { key = key, kind = kind, channel = channel, target = target }
-	if not ticker then
-		ticker = C_Timer.NewTicker(TICK, flush)
-	end
+	wake()
 	return true
+end
+
+-- Queues what Sync returned, each message as its chunks, after everything else.
+-- A sync that does not fit is cut from the first message that does not fit:
+-- the peer stops hearing it and lets it go.
+local function sendSync(outgoing)
+	if not Client.canSend() then
+		return
+	end
+	local cut = {}
+	for _, out in ipairs(outgoing) do
+		local chunks = Protocol.split(out.text)
+		if cut[out.peer] or #syncQueue + #chunks > MAX_SYNC_CHUNKS then
+			cut[out.peer] = true
+		else
+			for i, text in ipairs(chunks) do
+				-- The kind, for the debug log: the message's on its first chunk.
+				syncQueue[#syncQueue + 1] = { text = text, target = out.peer, kind = i == 1 and out.kind or "chunk" }
+			end
+		end
+	end
+	if syncQueue[1] then
+		wake()
+	end
+end
+
+-- Asks Sync for a sync with a peer. Returns whether it started or waits.
+local function requestSync(peer)
+	if not Client.canSend() then
+		return false
+	end
+	local outgoing, accepted = ns.sync:request(peer, peersHeard[peer] or GetServerTime())
+	sendSync(outgoing)
+	return accepted
+end
+
+-- Starts syncs with the peers heard this session, the most recently heard
+-- first (/mnemosyne sync). Returns how many started or wait.
+function Client.sync()
+	local peers = {}
+	for peer in pairs(peersHeard) do
+		peers[#peers + 1] = peer
+	end
+	table.sort(peers, function(a, b)
+		return peersHeard[a] > peersHeard[b]
+	end)
+	local count = 0
+	for _, peer in ipairs(peers) do
+		if requestSync(peer) then
+			count = count + 1
+		end
+	end
+	return count
 end
 
 -- Tells the guild and the group the character's registration has changed: its
@@ -191,6 +302,16 @@ function handlers.ADDON_LOADED(name)
 	if db.settings.chat == nil then
 		db.settings.chat = true -- chat recognition; the settings panel exposes it later
 	end
+	-- "Show second-hand" and "Pass on what I know", on by default; the settings panel exposes them later.
+	if db.settings.showSecondHand == nil then
+		db.settings.showSecondHand = true
+	end
+	if db.settings.passOn == nil then
+		db.settings.passOn = true
+	end
+	db.syncs = db.syncs or {}
+	ns.sync = ns.Sync.new(db.syncs, GetServerTime, ns.memory, db.settings, ns.characters)
+	reader = Protocol.newReader(GetTime)
 	ns.recognition = ns.Recognition.new(ns.memory, db.settings, ns.L, GetServerTime)
 	-- The debug report (src/Report.lua): its events, the caught errors, and
 	-- whether to offer it after an error.
@@ -211,6 +332,10 @@ function handlers.PLAYER_LOGIN()
 	playerName = GetUnitName("player")
 	groupSize = GetNumGroupMembers()
 	inGuild = IsInGuild()
+	loginAt = GetTime()
+	C_Timer.NewTicker(SYNC_TICK, function()
+		sendSync(ns.sync:tick())
+	end)
 	for _, channel in ipairs({ "GUILD", "GROUP" }) do
 		if isRegistered() then
 			enqueue("announce", channel)
@@ -263,13 +388,41 @@ function handlers.CHAT_MSG_ADDON(prefix, text, channel, sender)
 	if sender == "" or sender == playerName or not playerName then
 		return
 	end
-	local message, reason = Protocol.read(text)
+	local message, reason = reader:read(sender, text)
 	if not message then
+		if not reason then
+			Debug.received(sender, channel, text, "chunk") -- more to come
+			return
+		end
 		Debug.dropped(sender, reason, text)
+		if reason == "newer" and not toldNewer then
+			toldNewer = true
+			ns.say(L.NEWER_VERSION)
+		end
 		return
 	end
 	Debug.received(sender, channel, text, message.kind)
-	if message.kind == "ask" then
+	peersHeard[sender] = GetServerTime()
+	local kind = message.kind
+	if kind == "digest" or kind == "identities" or kind == "done" then
+		if channel == "WHISPER" then
+			sendSync(ns.sync:receive(sender, message))
+		else
+			Debug.dropped(sender, "channel", text)
+		end
+		return
+	end
+	-- Syncs with each new group member who is a peer, and after login with the
+	-- first peers answering its asks.
+	local afterLogin = GetTime() - loginAt < LOGIN_WINDOW and loginSyncs < LOGIN_SYNCS
+	if GROUP_CHANNELS[channel] then
+		requestSync(sender)
+	elseif channel == "WHISPER" and kind ~= "ask" and afterLogin then
+		if requestSync(sender) then
+			loginSyncs = loginSyncs + 1
+		end
+	end
+	if kind == "ask" then
 		local now = GetTime()
 		if answeredAt[sender] and now - answeredAt[sender] < ANSWER_COOLDOWN then
 			Debug.dropped(sender, "cooldown", text)

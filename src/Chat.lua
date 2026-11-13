@@ -103,7 +103,7 @@ EventRegistry:RegisterCallback("ChatFrame.OnHyperlinkEnter", function(_, chatFra
 		GameTooltip:SetText(lines.name)
 		tooltipOwner = chatFrame
 	end
-	Interface.addPlayedBy(GameTooltip, lines.nickname)
+	Interface.addPlayedBy(GameTooltip, lines)
 	GameTooltip:AddLine(lines.heard, 0.6, 0.6, 0.6)
 	GameTooltip:Show()
 end, ns)

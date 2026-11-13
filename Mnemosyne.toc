@@ -11,6 +11,7 @@
 src\Protocol.lua
 src\Memory.lua
 src\Self.lua
+src\Sync.lua
 src\Recognition.lua
 src\Strangers.lua
 src\Report.lua

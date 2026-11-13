@@ -40,11 +40,18 @@ There is no server. Copies of Mnemosyne talk to each other in the background
 with the game's addon messages, over your guild and group channels and by
 whisper. You learn your guildmates' nicknames when you log in, your group's when
 you join it, and a stranger's when you hover them. Other players also pass along
-what they learned before you, second-hand.
+what they learned before you, second-hand: two copies of Mnemosyne sync their
+memories privately by whisper, in the background, at login with the first few
+players who answer, with each new group member who has Mnemosyne, and when you
+type `/mnemosyne sync`, at most once every 6 hours with the same player.
 
 Anyone can pass along something false, so a nickname heard from the character
 itself always wins and shows plainly, `Hugh Jass (Tony)`. One heard second-hand
-shows in grey, `Hugh Jass (~Tony)`, with the name of the player who passed it on.
+shows in grey, `Hugh Jass (~Tony)`, with the name of the player who passed it on
+in its tooltip. When players pass along different nicknames for the same
+character, it shows none until the character says who plays it. You keep at
+most 20,000 second-hand nicknames, and take at most 1,000 new ones a day from
+any one player.
 
 Nicknames show on tooltips and in chat: every chat type except emotes
 (channels and Communities included), in the Communities window too, and when
@@ -72,8 +79,8 @@ in the addon drawer next to the minimap). The same actions as commands:
 | --- | --- |
 | `/mnemosyne register <nickname>` | Register the character you are playing |
 | `/mnemosyne unregister` | Withdraw its registration; peers forget it |
-| `/mnemosyne lookup <text>` | Find characters by name or by nickname, ignoring case and accents |
-| `/mnemosyne sync` | Sync with the peers you can reach now (coming) |
+| `/mnemosyne lookup <text>` | Find characters by name or by nickname, ignoring case and accents; a second-hand nickname shows with who passed it on |
+| `/mnemosyne sync` | Sync with the players heard this session who have Mnemosyne (at most once every 6 hours each) |
 | `/mnemosyne status` | How many identities you know, how many of your characters are registered or anonymous, and this character's registration |
 | `/mnemosyne report` | A debug report to paste in a bug report |
 | `/mnemosyne debug` | Log every message sent and received in the chat frame, or stop |
@@ -87,6 +94,12 @@ sends nothing outside the game.
 When you hover or target a character Mnemosyne doesn't know, it whispers that
 character an ask, invisible in chat, at most once a day per character. Turn off
 **Ask strangers** in the settings to send nothing when you just hover people.
+
+Syncs pass along every nickname you know, second-hand. Turn off **Pass on what
+I know** to share only your own registrations, and **Show second-hand** to see
+only what characters said about themselves (both on by default; the settings
+panel that holds them is coming). When a player with a newer Mnemosyne talks
+to yours, it tells you once a session that a newer version exists.
 
 When you register a character, its nickname spreads to every Mnemosyne user,
 through other players too. Characters you don't register are never shared: an

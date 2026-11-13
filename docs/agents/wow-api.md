@@ -55,5 +55,6 @@ Open, to settle in the game and record here:
 - whether an error message names its file as `Interface/AddOns/Mnemosyne/...` (Mnemosyne's error catching keys on it). Without an error-catching addon, Mnemosyne sets `seterrorhandler`, chained to the previous handler. !BugGrabber replaces `seterrorhandler` with a no-op and does not chain, so Mnemosyne also listens to `EventRegistry` `"BugGrabber.BugGrabbed"` (an error id, read with `BugGrabber:GetErrorByID(id).message`), as BugSack does;
 - whether, with BugGrabber and BugSack loaded, an error in Mnemosyne still shows in BugSack and the Mnemosyne report offer appears;
 - whether `BasicFrameTemplateWithInset`, `InputBoxTemplate` and `UIPanelScrollFrameTemplate` exist on Forever, for the report window.
+- whether addon whispers from one sender arrive in the order sent: a sync's chunks rely on it, and a message whose chunks come out of order is dropped.
 
 `/dump select(4, GetBuildInfo())` prints the Interface number; `/dump WOW_PROJECT_ID` the project.

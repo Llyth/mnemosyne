@@ -64,4 +64,12 @@ ns.L = {
 	REPORT_SHOW = "Show the report",
 	REPORT_NOT_NOW = "Not now",
 	REPORT_NEVER = "Don't ask again",
+	-- Second-hand identities and syncs.
+	SECOND_HAND = "~%s", -- a nickname heard second-hand: "~Tony"
+	HEARD_FROM = "Heard from %s",
+	LOOKUP_FOUND_SECOND_HAND = "%s: played by %s, heard from %s", -- the nickname marked as SECOND_HAND
+	HELP_SYNC = "/mnemosyne sync: bring your memory up to date with the peers you can reach now",
+	SYNC_STARTED = "Syncing with %d |4peer:peers;.",
+	SYNC_NONE = "No peer to sync with now: none heard this session, or all synced in the last 6 hours.",
+	NEWER_VERSION = "A newer Mnemosyne exists: update it, or some messages from other players stay ignored.",
 }
