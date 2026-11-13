@@ -2,14 +2,25 @@
 -- name as the server gives it ("First Last", decision 0003). Pure: it takes
 -- its saved table and the clock (the server time) as arguments (decision 0004).
 --
--- First form: first-hand identities only. Second-hand identities, disputes,
--- staleness, forgetting and the limits of decision 0001 join it later, behind
--- the same hear and recall.
+-- The rules of decision 0001 live here: a first-hand identity always wins;
+-- among second-hand copies the later revision wins; the same revision with
+-- different nicknames is disputed and hidden until the character speaks;
+-- unregistering and anonymous are revisions without a nickname; at most
+-- 20,000 second-hand identities are kept (the oldest heard dropped first) and
+-- at most 1,000 new ones accepted from one peer a day. Staleness and
+-- forgetting join it later, behind the same hear and recall.
 local _, ns = ...
 
 local Memory = {}
 Memory.__index = Memory
 ns.Memory = Memory
+
+Memory.MAX_SECOND_HAND = 20000
+Memory.MAX_NEW_PER_PEER = 1000
+Memory.BUCKETS = 128 -- of the digest, 8 hexadecimal digits each (Protocol.DIGEST_LENGTH)
+
+local DAY = 24 * 60 * 60
+local HASH_MODULUS = 4294967296 -- 2^32: the hashes stay exact in a Lua number
 
 -- Latin letters with accents, by code point ranges, and the letters they fold
 -- to for a search: Latin-1 Supplement and Latin Extended-A, both cases.
@@ -76,20 +87,116 @@ local function fold(text)
 	return (text:gsub("[\192-\223][\128-\191]", FOLDED):lower())
 end
 
--- saved: the table Memory keeps its identities in (MnemosyneDB.memory).
+-- saved: the table Memory keeps its identities in (MnemosyneDB.memory), and
+-- how many new second-hand identities each peer brought today. Counts older
+-- than a day are let go here.
 -- clock: returns the server time, in seconds.
 function Memory.new(saved, clock)
 	saved.identities = saved.identities or {}
-	return setmetatable({ identities = saved.identities, clock = clock }, Memory)
+	saved.newFrom = saved.newFrom or {}
+	local now = clock()
+	for peer, counted in pairs(saved.newFrom) do
+		if now - counted.since >= DAY then
+			saved.newFrom[peer] = nil
+		end
+	end
+	local secondHand = 0
+	for _, known in pairs(saved.identities) do
+		if not known.firstHand then
+			secondHand = secondHand + 1
+		end
+	end
+	return setmetatable(
+		{ identities = saved.identities, newFrom = saved.newFrom, secondHand = secondHand, clock = clock },
+		Memory
+	)
 end
 
--- Hears what a character said about itself (first-hand): heard.nickname and
--- heard.revision, or heard.revision alone when it unregistered. A revision
--- older than the one held is ignored. Returns true when the identity changed.
+-- Counts one new second-hand identity from a peer. Returns false once the peer
+-- brought its 1,000 of the day.
+local function countNew(self, peer, now)
+	local counted = self.newFrom[peer]
+	if not counted or now - counted.since >= DAY then
+		counted = { since = now, count = 0 }
+		self.newFrom[peer] = counted
+	end
+	if counted.count >= Memory.MAX_NEW_PER_PEER then
+		return false
+	end
+	counted.count = counted.count + 1
+	return true
+end
+
+-- Drops the second-hand identity heard the longest ago.
+-- shortcut: scans every identity for each one dropped, at most 1,000 times a
+-- day per peer; index them by when heard if it ever shows in a profile.
+local function dropOldest(self)
+	local oldest, oldestHeard
+	for name, known in pairs(self.identities) do
+		if not known.firstHand and not (oldestHeard and oldestHeard <= known.heard) then
+			oldest, oldestHeard = name, known.heard
+		end
+	end
+	self.identities[oldest] = nil
+	self.secondHand = self.secondHand - 1
+end
+
+local function hearSecondHand(self, name, heard, known)
+	local now = self.clock()
+	-- A revision is the server time of the change: one far ahead is forged, and
+	-- no real change could ever beat it.
+	if heard.revision > now + DAY then
+		return false
+	end
+	if known then
+		if known.firstHand or known.revision > heard.revision then
+			return false
+		elseif known.revision == heard.revision then
+			if known.disputed or known.nickname == heard.nickname then
+				return false
+			end
+			known.disputed = true
+			return true
+		end
+	else
+		if not countNew(self, heard.source, now) then
+			return false
+		end
+		if self.secondHand >= Memory.MAX_SECOND_HAND then
+			dropOldest(self)
+		end
+		self.secondHand = self.secondHand + 1
+	end
+	self.identities[name] = {
+		nickname = heard.nickname,
+		revision = heard.revision,
+		firstHand = false,
+		source = heard.source,
+		heard = now,
+	}
+	return true
+end
+
+-- Hears an identity: heard.nickname and heard.revision, or heard.revision
+-- alone when the character unregistered or is anonymous; heard.source, the
+-- peer that passed it on, when it is second-hand. Returns true when the
+-- identity changed.
+--
+-- First-hand (from the character itself), it replaces any second-hand copy,
+-- and a revision older than the first-hand one held is ignored. Second-hand,
+-- it never replaces a first-hand identity, a later revision wins (but not one
+-- more than a day ahead of the clock), and the same revision with another
+-- nickname makes the identity disputed.
 function Memory:hear(name, heard)
 	local known = self.identities[name]
-	if known and known.revision > heard.revision then
+	if heard.source then
+		return hearSecondHand(self, name, heard, known)
+	end
+	if known and known.firstHand and known.revision > heard.revision then
 		return false
+	end
+	if known and not known.firstHand then
+		self.secondHand = self.secondHand - 1
 	end
 	self.identities[name] = {
 		nickname = heard.nickname,
@@ -100,14 +207,26 @@ function Memory:hear(name, heard)
 	return true
 end
 
--- Recalls the identity of a character: { nickname, revision, firstHand, heard },
--- a copy, or nil when its player's nickname is not known.
+-- Whether an identity shows: it has a nickname and is not disputed.
+local function shows(known)
+	return known and known.nickname and not known.disputed
+end
+
+-- Recalls the identity of a character: { nickname, revision, firstHand,
+-- source, heard }, a copy, or nil when its player's nickname is not known or
+-- is disputed.
 function Memory:recall(name)
 	local known = self.identities[name]
-	if not known or not known.nickname then
+	if not shows(known) then
 		return nil
 	end
-	return { nickname = known.nickname, revision = known.revision, firstHand = known.firstHand, heard = known.heard }
+	return {
+		nickname = known.nickname,
+		revision = known.revision,
+		firstHand = known.firstHand,
+		source = known.source,
+		heard = known.heard,
+	}
 end
 
 -- Finds the identities whose character name or nickname contains the text,
@@ -117,7 +236,7 @@ function Memory:search(text)
 	local wanted = fold(text)
 	local found = {}
 	for name, known in pairs(self.identities) do
-		if known.nickname and (fold(name):find(wanted, 1, true) or fold(known.nickname):find(wanted, 1, true)) then
+		if shows(known) and (fold(name):find(wanted, 1, true) or fold(known.nickname):find(wanted, 1, true)) then
 			local identity = self:recall(name)
 			identity.name = name
 			found[#found + 1] = identity
@@ -133,15 +252,68 @@ end
 function Memory:count()
 	local count = 0
 	for _, known in pairs(self.identities) do
-		if known.nickname then
+		if shows(known) then
 			count = count + 1
 		end
 	end
 	return count
 end
 
--- Whether it holds an identity for a character: a nickname, or that the
+-- Whether it heard a character itself (first-hand): a nickname, or that the
 -- character has none (it unregistered or is anonymous).
 function Memory:knows(name)
-	return self.identities[name] ~= nil
+	local known = self.identities[name]
+	return known ~= nil and known.firstHand == true
+end
+
+local function hash(text)
+	local value = 5381
+	for i = 1, #text do
+		value = (value * 33 + text:byte(i)) % HASH_MODULUS
+	end
+	return value
+end
+
+local function bucketOf(name)
+	return hash(name) % Memory.BUCKETS
+end
+
+-- The digest of the memory, for a sync (decision 0002): each identity, hashed
+-- with its revision and nickname, summed in the bucket of its character's
+-- name; 8 hexadecimal digits a bucket. How it was heard does not count, so two
+-- memories holding the same identities give the same digest. A disputed
+-- identity is left out, as it is never passed on.
+function Memory:digest()
+	local sums = {}
+	for bucket = 1, Memory.BUCKETS do
+		sums[bucket] = 0
+	end
+	for name, known in pairs(self.identities) do
+		if not known.disputed then
+			local bucket = bucketOf(name) + 1
+			local value = hash(name .. "\n" .. known.revision .. "\n" .. (known.nickname or ""))
+			sums[bucket] = (sums[bucket] + value) % HASH_MODULUS
+		end
+	end
+	for bucket, sum in ipairs(sums) do
+		-- Two halves: string.format's %x takes at most 32-bit signed integers on some builds.
+		sums[bucket] = string.format("%04x%04x", math.floor(sum / 65536), sum % 65536)
+	end
+	return table.concat(sums)
+end
+
+-- What to pass on to a peer, from its digest: every identity in a bucket whose
+-- digest differs from this memory's, as { name, nickname, revision }, removals
+-- included; never a disputed one. The peer keeps what is newer than what it
+-- holds. mine: this memory's digest, when the caller has it already.
+function Memory:missing(digest, mine)
+	mine = mine or self:digest()
+	local found = {}
+	for name, known in pairs(self.identities) do
+		local first = bucketOf(name) * 8 + 1
+		if not known.disputed and mine:sub(first, first + 7) ~= digest:sub(first, first + 7) then
+			found[#found + 1] = { name = name, nickname = known.nickname, revision = known.revision }
+		end
+	end
+	return found
 end

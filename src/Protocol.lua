@@ -11,12 +11,27 @@
 --   1:U:<revision>              removal: the character unregistered
 --   1:N:<revision>              anonymous: the character is kept anonymous
 --
+-- A sync (decision 0002) adds, by whisper:
+--
+--   1:D:<digest>                the sender's memory hashed in buckets: 1024
+--                               lowercase hexadecimal digits
+--   1:I:<identity>[\n<identity>...]
+--                               identities passed on, each
+--                               <revision>:<name>[:<nickname>], a removal
+--                               without a nickname
+--   1:E                         the sender has sent all it had to send
+--
+-- A message longer than 255 bytes goes as chunks of the same version, numbered
+-- from 1 to their count, the pieces of its text in order:
+--
+--   1:C:<index>:<count>:<piece>
+--
 -- The version is a decimal number; a peer drops every other version. The kind
 -- is one capital letter; a peer drops a kind it does not know, so later kinds
--- (chunks, syncs) can join version 1 without breaking older peers. A nickname is
--- the last field, so it may hold ':'. The revision is a positive integer of at
--- most 14 digits (what tostring writes exactly), without leading zeros, so it
--- reads back as the same number.
+-- can join version 1 without breaking older peers. A nickname is the last
+-- field, so it may hold ':'. The revision is a positive integer of at most 14
+-- digits (what tostring writes exactly), without leading zeros, so it reads
+-- back as the same number. A name is a full name, "First Last".
 local _, ns = ...
 
 local Protocol = {}
@@ -26,8 +41,31 @@ Protocol.PREFIX = "Mnemosyne"
 Protocol.VERSION = 1
 Protocol.MAX_MESSAGE_BYTES = 255
 Protocol.MAX_NICKNAME_CHARACTERS = 32
+Protocol.MAX_NAME_BYTES = 64
+Protocol.DIGEST_LENGTH = 1024
+-- The longest message once its chunks are put together: a digest, or a batch of
+-- identities (Sync sends them in batches that fit).
+Protocol.MAX_CHUNKED_BYTES = 4096
+-- Identities in one message: 16 of the longest (a 64-byte name, a 32-character
+-- nickname of 4-byte characters, a 14-digit revision) fit MAX_CHUNKED_BYTES. A
+-- peer's message with more is dropped, so one costs the reader little.
+Protocol.MAX_IDENTITIES = 16
 
-local KIND_LETTER = { announcement = "A", ask = "Q", answer = "R", removal = "U", anonymous = "N" }
+local CHUNK_HEADER_BYTES = #"1:C:99:99:" -- the longest chunk header
+local CHUNK_BYTES = Protocol.MAX_MESSAGE_BYTES - CHUNK_HEADER_BYTES
+local MAX_CHUNKS = math.ceil(Protocol.MAX_CHUNKED_BYTES / CHUNK_BYTES)
+local CHUNK_TIMEOUT = 60 -- seconds before a message whose chunks stopped coming is dropped
+
+local KIND_LETTER = {
+	announcement = "A",
+	ask = "Q",
+	answer = "R",
+	removal = "U",
+	anonymous = "N",
+	digest = "D",
+	identities = "I",
+	done = "E",
+}
 local KIND_NAME = {}
 for name, letter in pairs(KIND_LETTER) do
 	KIND_NAME[letter] = name
@@ -66,17 +104,17 @@ local function readCharacter(text, i)
 	return codePoint, size
 end
 
--- Checks a nickname against the rules: 1 to 32 UTF-8 characters, no '|' (the
--- client's escape character: colors, textures, links), no control character.
--- Returns true, or false and why: "empty", "long", "escape", "control" or
--- "encoding".
-function Protocol.checkNickname(nickname)
-	if type(nickname) ~= "string" or nickname == "" then
+-- Checks text from a peer: valid UTF-8, no '|' (the client's escape character:
+-- colors, textures, links), no control character, at most maxCharacters
+-- UTF-8 characters. Returns true, or false and why: "empty", "long",
+-- "escape", "control" or "encoding".
+local function checkText(text, maxCharacters)
+	if type(text) ~= "string" or text == "" then
 		return false, "empty"
 	end
 	local count, i = 0, 1
-	while i <= #nickname do
-		local codePoint, size = readCharacter(nickname, i)
+	while i <= #text do
+		local codePoint, size = readCharacter(text, i)
 		if not codePoint then
 			return false, "encoding"
 		elseif codePoint == 0x7C then
@@ -85,12 +123,25 @@ function Protocol.checkNickname(nickname)
 			return false, "control"
 		end
 		count = count + 1
-		if count > Protocol.MAX_NICKNAME_CHARACTERS then
+		if count > maxCharacters then
 			return false, "long"
 		end
 		i = i + size
 	end
 	return true
+end
+
+-- Checks a nickname against the rules: 1 to 32 UTF-8 characters, no '|', no
+-- control character. Returns true, or false and why: "empty", "long",
+-- "escape", "control" or "encoding".
+function Protocol.checkNickname(nickname)
+	return checkText(nickname, Protocol.MAX_NICKNAME_CHARACTERS)
+end
+
+-- Whether a peer's text is a full name: two words joined by one space, at most
+-- 64 bytes, and text a nickname could be.
+local function isFullName(name)
+	return #name <= Protocol.MAX_NAME_BYTES and name:find("^%S+ %S+$") ~= nil and checkText(name, #name)
 end
 
 local function readRevision(text)
@@ -104,6 +155,16 @@ end
 -- Self, which checked it.
 function Protocol.write(message)
 	local text = Protocol.VERSION .. ":" .. KIND_LETTER[message.kind]
+	if message.digest then
+		return text .. ":" .. message.digest
+	elseif message.identities then
+		local lines = {}
+		for i, identity in ipairs(message.identities) do
+			local nickname = identity.nickname and ":" .. identity.nickname or ""
+			lines[i] = identity.revision .. ":" .. identity.name .. nickname
+		end
+		return text .. ":" .. table.concat(lines, "\n")
+	end
 	if message.revision then
 		text = text .. ":" .. tostring(message.revision)
 	end
@@ -113,24 +174,80 @@ function Protocol.write(message)
 	return text
 end
 
--- Reads wire text from a peer. Returns the message table, or nil and why it
--- was dropped: "malformed", "oversized", "version" or "nickname".
-function Protocol.read(text)
-	if type(text) ~= "string" then
+-- Reads one identity passed on, "<revision>:<name>[:<nickname>]". Returns it,
+-- or nil and why it was dropped.
+local function readIdentity(line)
+	local revisionText, name, nickname = line:match("^([^:]*):([^:]*):?(.*)$")
+	local revision = readRevision(revisionText)
+	if not revision or not isFullName(name) then
 		return nil, "malformed"
 	end
-	if #text > Protocol.MAX_MESSAGE_BYTES then
-		return nil, "oversized"
+	if line:sub(#revisionText + #name + 2, #revisionText + #name + 2) == ":" then
+		if not Protocol.checkNickname(nickname) then
+			return nil, "nickname"
+		end
+		return { name = name, nickname = nickname, revision = revision }
 	end
+	return { name = name, revision = revision }
+end
+
+-- Splits wire text into its version, kind letter and the rest. Returns them,
+-- or nil and why the text was dropped: "malformed", or "version" for an older
+-- version, "newer" for a newer one.
+local function readHeader(text)
 	local version, letter, rest = text:match("^(%d+):(%u)(.*)$")
 	if not version then
 		return nil, "malformed"
 	end
 	if version ~= tostring(Protocol.VERSION) then
-		return nil, "version"
+		local newer = version:sub(1, 1) ~= "0" and tonumber(version) > Protocol.VERSION
+		return nil, newer and "newer" or "version"
+	end
+	return letter, rest
+end
+
+-- Reads a whole message from a peer, chunks put together. Returns the message
+-- table, or nil and why it was dropped: "malformed", "oversized", "version",
+-- "newer" or "nickname".
+local function readWhole(text, maxBytes)
+	if type(text) ~= "string" then
+		return nil, "malformed"
+	end
+	if #text > maxBytes then
+		return nil, "oversized"
+	end
+	local letter, rest = readHeader(text)
+	if not letter then
+		return nil, rest
 	end
 	local kind = KIND_NAME[letter]
-	if kind == "ask" then
+	if kind == "digest" then
+		local digest = rest:match("^:(%x+)$")
+		if not digest or #digest ~= Protocol.DIGEST_LENGTH or digest:find("%u") then
+			return nil, "malformed"
+		end
+		return { kind = kind, digest = digest }
+	elseif kind == "identities" then
+		if rest:sub(1, 1) ~= ":" then
+			return nil, "malformed"
+		end
+		-- Each identity stands alone: one that does not parse is dropped, the
+		-- others kept, so one odd name never holds back the rest of a sync.
+		local identities, reason, count = {}, nil, 0
+		for line in (rest:sub(2) .. "\n"):gmatch("([^\n]*)\n") do
+			count = count + 1
+			if count > Protocol.MAX_IDENTITIES then
+				return nil, "oversized"
+			end
+			local identity, why = readIdentity(line)
+			identities[#identities + 1] = identity
+			reason = reason or why
+		end
+		if not identities[1] then
+			return nil, reason
+		end
+		return { kind = kind, identities = identities }
+	elseif kind == "ask" or kind == "done" then
 		if rest ~= "" then
 			return nil, "malformed"
 		end
@@ -153,6 +270,80 @@ function Protocol.read(text)
 		return { kind = kind, nickname = nickname, revision = revision }
 	end
 	return nil, "malformed"
+end
+
+-- Reads wire text from a peer, one message of at most 255 bytes. Returns the
+-- message table, or nil and why it was dropped: "malformed", "oversized",
+-- "version", "newer" or "nickname".
+function Protocol.read(text)
+	return readWhole(text, Protocol.MAX_MESSAGE_BYTES)
+end
+
+-- Splits wire text into messages of at most 255 bytes: the text itself when it
+-- fits, its chunks otherwise. Trusts its input: at most MAX_CHUNKED_BYTES.
+function Protocol.split(text)
+	if #text <= Protocol.MAX_MESSAGE_BYTES then
+		return { text }
+	end
+	local count = math.ceil(#text / CHUNK_BYTES)
+	local chunks = {}
+	for index = 1, count do
+		local piece = text:sub((index - 1) * CHUNK_BYTES + 1, index * CHUNK_BYTES)
+		chunks[index] = Protocol.VERSION .. ":C:" .. index .. ":" .. count .. ":" .. piece
+	end
+	return chunks
+end
+
+local Reader = {}
+Reader.__index = Reader
+
+-- A reader puts each sender's chunks back together. clock: returns the time,
+-- in seconds.
+function Protocol.newReader(clock)
+	return setmetatable({ clock = clock, pending = {} }, Reader)
+end
+
+-- Reads wire text from a peer. Returns the message table once it is whole;
+-- nil alone while chunks of it are still to come; or nil and why it was
+-- dropped: the reasons of Protocol.read, and "incomplete" for chunks out of
+-- order or that stopped coming for a minute.
+function Reader:read(sender, text)
+	if type(text) ~= "string" or #text > Protocol.MAX_MESSAGE_BYTES then
+		return Protocol.read(text)
+	end
+	local letter, rest = readHeader(text)
+	if letter ~= "C" then
+		return Protocol.read(text)
+	end
+	local now = self.clock()
+	for other, pending in pairs(self.pending) do
+		if now - pending.at > CHUNK_TIMEOUT then
+			self.pending[other] = nil
+		end
+	end
+	local indexText, countText, piece = rest:match("^:([1-9]%d?):([1-9]%d?):(.*)$")
+	local index, count = tonumber(indexText), tonumber(countText)
+	if not index or index > count then
+		return nil, "malformed"
+	end
+	if count > MAX_CHUNKS then
+		return nil, "oversized"
+	end
+	local pending = self.pending[sender]
+	if index == 1 then
+		pending = { count = count, pieces = {}, at = now }
+		self.pending[sender] = pending
+	elseif not pending or pending.count ~= count or #pending.pieces ~= index - 1 then
+		self.pending[sender] = nil
+		return nil, "incomplete"
+	end
+	pending.pieces[index] = piece
+	pending.at = now
+	if index < count then
+		return nil
+	end
+	self.pending[sender] = nil
+	return readWhole(table.concat(pending.pieces), Protocol.MAX_CHUNKED_BYTES)
 end
 
 -- Makes text from a peer safe to print in the chat frame, for the debug log:
