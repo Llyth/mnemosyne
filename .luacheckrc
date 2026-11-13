@@ -16,9 +16,13 @@ globals = {
 
 -- Read from the client. Add each one with the code that first uses it.
 read_globals = {
+	"BNET_CLIENT_WOW",
+	"BNGetNumFriends",
 	"BugGrabber",
 	"C_AddOns",
+	"C_BattleNet",
 	"C_ChatInfo",
+	"C_GuildInfo",
 	"C_Timer",
 	"ChatFrameUtil",
 	"CommunitiesFrame",
@@ -28,8 +32,10 @@ read_globals = {
 	"EventUtil",
 	"GameTooltip",
 	"GetBuildInfo",
+	"GetGuildRosterInfo",
 	"GetLocale",
 	"GetNumGroupMembers",
+	"GetNumGuildMembers",
 	"GetNumSubgroupMembers",
 	"GetServerTime",
 	"GetTime",

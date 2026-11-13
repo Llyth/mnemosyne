@@ -11,7 +11,8 @@ local settings, strangers
 -- Asks the player's character behind a unit ("mouseover" or "target"), unless
 -- the switch is off, in combat or lockdown (nothing would go out), or the
 -- unit is no player, hides its surname (a first name alone is no full name to
--- whisper) or is of the other faction (whispers do not reach it).
+-- whisper), is of the other faction (whispers do not reach it) or is out of
+-- scope (Client.inScope).
 local function meet(unit)
 	if not settings.askStrangers or Client.isPaused() then
 		return
@@ -29,7 +30,7 @@ local function meet(unit)
 		return
 	end
 	local name, player = GetUnitName(unit), Client.playerName()
-	if isKnown(name) and player and strangers:ask(name, player) then
+	if isKnown(name) and player and Client.inScope(name) and strangers:ask(name, player) then
 		Client.ask(name)
 	end
 end

@@ -17,6 +17,7 @@ src\Sync.lua
 src\News.lua
 src\Recognition.lua
 src\Strangers.lua
+src\Scope.lua
 src\Report.lua
 src\Locales\enUS.lua
 src\Locales\frFR.lua
