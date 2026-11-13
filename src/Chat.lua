@@ -33,14 +33,30 @@ local SHOWN = {
 	CHAT_MSG_COMMUNITIES_CHANNEL = true,
 }
 
+-- The chat lines whose sender and GUID surely belong to the same character
+-- teach the GUID map. A whisper you send names its recipient, and a
+-- Communities line can come from a Battle.net account: neither teaches it.
+local TEACHES = {}
+for event in pairs(SHOWN) do
+	if event ~= "CHAT_MSG_WHISPER_INFORM" and event ~= "CHAT_MSG_COMMUNITIES_CHANNEL" then
+		TEACHES[event] = true
+	end
+end
+
 -- Called by the chat frame for every line it shows, only when the name it
--- passes is readable; returns the new name, or nil to leave it as it is.
+-- passes is readable; returns the new name, or nil to leave it as it is. The
+-- line teaches first: the chat frame may show it before the frame below hears
+-- it, and a name another character took must not show its old nickname.
 ChatFrameUtil.AddSenderNameFilter(function(event, decorated, _, sender, ...)
 	if not ns.recognition or not SHOWN[event] or not isKnown(sender) then
 		return nil
 	end
 	local guid = select(10, ...)
-	return ns.recognition:chatName(decorated, sender, isKnown(guid) and guid ~= "" and guid or nil)
+	guid = isKnown(guid) and guid ~= "" and guid or nil
+	if TEACHES[event] then
+		ns.recognition:learn(guid, sender)
+	end
+	return ns.recognition:chatName(decorated, sender, guid)
 end)
 
 -- Raid units count the player (raid1 to raidN); party units do not (party1
@@ -75,13 +91,8 @@ frame:SetScript("OnEvent", function(_, event, ...)
 	end
 end)
 frame:RegisterEvent("GROUP_ROSTER_UPDATE")
--- The chat lines whose sender and GUID surely belong to the same character
--- teach the GUID map. A whisper you send names its recipient, and a
--- Communities line can come from a Battle.net account: neither teaches it.
-for event in pairs(SHOWN) do
-	if event ~= "CHAT_MSG_WHISPER_INFORM" and event ~= "CHAT_MSG_COMMUNITIES_CHANNEL" then
-		frame:RegisterEvent(event)
-	end
+for event in pairs(TEACHES) do
+	frame:RegisterEvent(event)
 end
 
 -- The tooltip on a character's name in a chat line: who plays it, and when it

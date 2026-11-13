@@ -152,6 +152,26 @@ describe("Several peers", function()
 		assert.equal("Tony", d.memory:recall(a.name).nickname)
 	end)
 
+	it("hides a reused name's old identity until the character that took the name speaks first-hand", function()
+		announce(a, b)
+		b.memory:see(a.name, "Player-1-00000001") -- B saw Anna Conda in chat
+		sync(b, d)
+		-- Anna Conda is deleted; another player takes the name, and D sees the new character in chat.
+		d.memory:see(a.name, "Player-1-00000002")
+		assert.is_nil(d.memory:recall(a.name))
+		assert.is_false(d.memory:knows(a.name))
+		now = now + 6 * HOUR
+		sync(b, d)
+		assert.is_nil(d.memory:recall(a.name))
+		local taken = newPeer(a.name)
+		now = now + 1
+		taken.characters:register(a.name, "Zed")
+		announce(taken, d)
+		assert.equal("Zed", d.memory:recall(a.name).nickname)
+		d.memory:see(a.name, "Player-1-00000002")
+		assert.equal("Zed", d.memory:recall(a.name).nickname)
+	end)
+
 	it("takes at most 1,000 new identities a day from one peer", function()
 		local mallory = newPeer("Mallory Knox")
 		for i = 1, 1500 do

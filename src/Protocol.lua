@@ -18,7 +18,8 @@
 --   1:I:<identity>[\n<identity>...]
 --                               identities passed on, each
 --                               <revision>:<name>[:<nickname>], a removal
---                               without a nickname
+--                               without a nickname, followed by a line
+--                               G:<guid> when its character's GUID is known
 --   1:E                         the sender has sent all it had to send
 --
 -- A message longer than 255 bytes goes as chunks of the same version, numbered
@@ -31,7 +32,9 @@
 -- can join version 1 without breaking older peers. A nickname is the last
 -- field, so it may hold ':'. The revision is a positive integer of at most 14
 -- digits (what tostring writes exactly), without leading zeros, so it reads
--- back as the same number. A name is a full name, "First Last".
+-- back as the same number. A name is a full name, "First Last". A GUID has a
+-- line of its own, so an older peer drops it as an identity it cannot read and
+-- keeps the rest.
 local _, ns = ...
 
 local Protocol = {}
@@ -46,10 +49,12 @@ Protocol.DIGEST_LENGTH = 1024
 -- The longest message once its chunks are put together: a digest, or a batch of
 -- identities (Sync sends them in batches that fit).
 Protocol.MAX_CHUNKED_BYTES = 4096
--- Identities in one message: 16 of the longest (a 64-byte name, a 32-character
--- nickname of 4-byte characters, a 14-digit revision) fit MAX_CHUNKED_BYTES. A
--- peer's message with more is dropped, so one costs the reader little.
-Protocol.MAX_IDENTITIES = 16
+-- Lines of identities and GUIDs in one message: 16 of the longest (a 64-byte
+-- name, a 32-character nickname of 4-byte characters, a 14-digit revision; a
+-- GUID's line is shorter) fit MAX_CHUNKED_BYTES. A peer's message with more is
+-- dropped, so one costs the reader little.
+Protocol.MAX_LINES = 16
+Protocol.MAX_GUID_BYTES = 32 -- a character's GUID, "Player-<server>-<id>", is about 20
 
 local CHUNK_HEADER_BYTES = #"1:C:99:99:" -- the longest chunk header
 local CHUNK_BYTES = Protocol.MAX_MESSAGE_BYTES - CHUNK_HEADER_BYTES
@@ -159,9 +164,12 @@ function Protocol.write(message)
 		return text .. ":" .. message.digest
 	elseif message.identities then
 		local lines = {}
-		for i, identity in ipairs(message.identities) do
+		for _, identity in ipairs(message.identities) do
 			local nickname = identity.nickname and ":" .. identity.nickname or ""
-			lines[i] = identity.revision .. ":" .. identity.name .. nickname
+			lines[#lines + 1] = identity.revision .. ":" .. identity.name .. nickname
+			if identity.guid then
+				lines[#lines + 1] = "G:" .. identity.guid
+			end
 		end
 		return text .. ":" .. table.concat(lines, "\n")
 	end
@@ -172,6 +180,23 @@ function Protocol.write(message)
 		text = text .. ":" .. message.nickname
 	end
 	return text
+end
+
+-- Splits identities into batches, each the identities of one message: at most
+-- MAX_LINES lines, a GUID taking a line of its own.
+function Protocol.batch(identities)
+	local batches, lines = {}, Protocol.MAX_LINES
+	for _, identity in ipairs(identities) do
+		local cost = identity.guid and 2 or 1
+		if lines + cost > Protocol.MAX_LINES then
+			batches[#batches + 1] = {}
+			lines = 0
+		end
+		local batch = batches[#batches]
+		batch[#batch + 1] = identity
+		lines = lines + cost
+	end
+	return batches
 end
 
 -- Reads one identity passed on, "<revision>:<name>[:<nickname>]". Returns it,
@@ -232,19 +257,30 @@ local function readWhole(text, maxBytes)
 			return nil, "malformed"
 		end
 		-- Each identity stands alone: one that does not parse is dropped, the
-		-- others kept, so one odd name never holds back the rest of a sync.
-		local identities, reason, count = {}, nil, 0
+		-- others kept, so one odd name never holds back the rest of a sync. A
+		-- GUID goes with the identity on the line just before it; one that is
+		-- not a character's is dropped, and its identity kept.
+		local identities, reason, count, last = {}, nil, 0, nil
 		for line in (rest:sub(2) .. "\n"):gmatch("([^\n]*)\n") do
 			count = count + 1
-			if count > Protocol.MAX_IDENTITIES then
+			if count > Protocol.MAX_LINES then
 				return nil, "oversized"
 			end
-			local identity, why = readIdentity(line)
-			identities[#identities + 1] = identity
-			reason = reason or why
+			local guid = line:match("^G:(.*)$")
+			if guid then
+				if last and #guid <= Protocol.MAX_GUID_BYTES and guid:find("^Player%-%d+%-%x+$") then
+					last.guid = guid
+				end
+				last = nil
+			else
+				local identity, why = readIdentity(line)
+				identities[#identities + 1] = identity
+				reason = reason or why
+				last = identity
+			end
 		end
 		if not identities[1] then
-			return nil, reason
+			return nil, reason or "malformed"
 		end
 		return { kind = kind, identities = identities }
 	elseif kind == "ask" or kind == "done" then

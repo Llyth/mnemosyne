@@ -137,6 +137,25 @@ describe("Sync", function()
 		assert.equal(101, count)
 	end)
 
+	it("sends identities with GUIDs in batches of at most 16 lines, a GUID taking a line", function()
+		for i = 1, 20 do
+			memory:hear("Anna Conda" .. i, { nickname = "Ann", revision = 900 })
+			memory:see("Anna Conda" .. i, "Player-1-" .. i)
+		end
+		local outgoing = sync:receive("Barb Dwyer", { kind = "digest", digest = emptyDigest() })
+		local count, guids = 0, 0
+		for _, out in ipairs(outgoing) do
+			local _, lines = out.text:gsub("\n", "")
+			assert.is_true(lines + 1 <= Protocol.MAX_LINES)
+			for _, identity in ipairs(decode(out.text).identities or {}) do
+				count = count + 1
+				guids = guids + (identity.guid and 1 or 0)
+			end
+		end
+		assert.equal(21, count)
+		assert.equal(20, guids)
+	end)
+
 	it("passes on at most what a peer keeps in a day from one peer, the rest in later syncs", function()
 		for i = 1, Memory.MAX_CHANGES_PER_PEER do
 			memory:hear("Anna Conda" .. i, { nickname = "Ann", revision = 900 })
@@ -170,6 +189,17 @@ describe("Sync", function()
 		assert.equal("Ann", identity.nickname)
 		assert.is_false(identity.firstHand)
 		assert.equal("Barb Dwyer", identity.source)
+	end)
+
+	it("learns the GUID a peer passes on with an identity", function()
+		sync:request("Barb Dwyer", now)
+		sync:receive("Barb Dwyer", { kind = "digest", digest = emptyDigest() })
+		sync:receive("Barb Dwyer", {
+			kind = "identities",
+			identities = { { name = "Anna Conda", nickname = "Ann", revision = 901, guid = "Player-1-00000001" } },
+		})
+		memory:see("Anna Conda", "Player-1-00000002")
+		assert.is_nil(memory:recall("Anna Conda"))
 	end)
 
 	it("drops identities a peer sends before its digest", function()
