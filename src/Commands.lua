@@ -31,13 +31,15 @@ end
 function commands.status()
 	local characters = ns.characters
 	local name = Client.playerName()
-	say(L.STATUS_IDENTITIES:format(ns.memory:count()))
+	say(L.STATUS_IDENTITIES:format(ns.recognition:count()))
 	say(L.STATUS_CHARACTERS:format(characters:count("registered"), characters:count("anonymous")))
 	local state = characters:state(name)
 	if state == "registered" then
 		say(L.STATUS_REGISTERED:format(characters:registration(name).nickname))
 	elseif state == "anonymous" then
 		say(L.STATUS_ANONYMOUS)
+	elseif state == "unregistered" then
+		say(L.STATUS_UNREGISTERED)
 	else
 		say(L.STATUS_NOT_ASKED)
 	end

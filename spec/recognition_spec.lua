@@ -287,6 +287,12 @@ describe("Recognition", function()
 			assert.equal(2, #recognition:search(""))
 		end)
 
+		it("leaves second-hand identities out of the count", function()
+			assert.equal(1, recognition:count())
+			settings.showSecondHand = true
+			assert.equal(2, recognition:count())
+		end)
+
 		it("still shows first-hand identities", function()
 			assert.equal("Hugh Jass (Tony)", recognition:chatName("Hugh Jass", "Hugh Jass"))
 		end)

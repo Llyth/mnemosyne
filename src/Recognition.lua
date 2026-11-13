@@ -67,6 +67,11 @@ function Recognition:search(text)
 	return found
 end
 
+-- How many identities show (Recognition:shows).
+function Recognition:count()
+	return self.memory:count(not self.settings.showSecondHand)
+end
+
 -- An identity's nickname as shown: marked with ~ when heard second-hand.
 function Recognition:nickname(identity)
 	if identity.source then

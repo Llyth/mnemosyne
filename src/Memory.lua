@@ -321,11 +321,12 @@ function Memory:search(text)
 	return found
 end
 
--- How many identities it holds.
-function Memory:count()
+-- How many identities show (a nickname, not disputed); only first-hand ones
+-- when firstHandOnly is true.
+function Memory:count(firstHandOnly)
 	local count = 0
 	for _, known in pairs(self.identities) do
-		if shows(known) then
+		if shows(known) and not (firstHandOnly and known.source) then
 			count = count + 1
 		end
 	end
