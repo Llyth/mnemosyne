@@ -73,8 +73,8 @@ it does:
 
 ## Using it
 
-Everything has a place in the settings panel (Options, AddOns, Mnemosyne, also
-in the addon drawer next to the minimap). The same actions as commands:
+Everything is done with commands for now. A settings panel (Options, AddOns,
+Mnemosyne, also in the addon drawer next to the minimap) comes later.
 
 | Command | What it does |
 | --- | --- |
@@ -93,13 +93,14 @@ Mnemosyne keeps everything on your computer, in the game's saved variables, and
 sends nothing outside the game.
 
 When you hover or target a character Mnemosyne doesn't know, it whispers that
-character an ask, invisible in chat, at most once a day per character. Turn off
-**Ask strangers** in the settings to send nothing when you just hover people.
+character an ask, invisible in chat, at most once a day per character. A switch
+to turn this off, **Ask strangers**, comes with the settings panel; until then
+it cannot be turned off.
 
-Syncs pass along every nickname you know, second-hand. Turn off **Pass on what
-I know** to share only your own registrations, and **Show second-hand** to see
-only what characters said about themselves (both on by default; the settings
-panel that holds them is coming). When a player with a newer Mnemosyne talks
+Syncs pass along every nickname you know, second-hand. The settings panel will
+bring two switches, both on by default: **Pass on what I know**, off to share
+only your own registrations, and **Show second-hand**, off to see only what
+characters said about themselves. Until it comes, both stay on. When a player with a newer Mnemosyne talks
 to yours, it tells you once a session that a newer version exists.
 
 When you register a character, its nickname spreads to every player who has
@@ -108,8 +109,9 @@ shared: an anonymous character only tells other players who have Mnemosyne that
 it is anonymous, so they forget any nickname they held for it. Unregistering
 spreads the same way, but more slowly than the nickname did.
 
-Forgetting a character removes it from your own memory and keeps it out until
-you undo it. Nobody else is told.
+Forgetting a character is coming: it will remove the character from your own
+memory and keep it out until you undo it, without telling anyone. It is not
+there yet.
 
 ## Reporting a problem
 
