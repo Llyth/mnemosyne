@@ -13,7 +13,7 @@ local settings, strangers
 -- unit is no player, hides its surname (a first name alone is no full name to
 -- whisper) or is of the other faction (whispers do not reach it).
 local function meet(unit)
-	if not settings.askStrangers or InCombatLockdown() or C_ChatInfo.InChatMessagingLockdown() then
+	if not settings.askStrangers or Client.isPaused() then
 		return
 	end
 	local isPlayer = UnitIsPlayer(unit)

@@ -99,7 +99,8 @@ local function compose(job)
 	end
 end
 
-local function isPaused()
+-- In combat or in lockdown: no addon message would go out.
+function Client.isPaused()
 	return InCombatLockdown() or C_ChatInfo.InChatMessagingLockdown()
 end
 
@@ -112,7 +113,7 @@ local function flush()
 	tokens = math.min(BURST, tokens + (now - refilledAt) * REFILL)
 	bytes = math.min(BYTES_PER_SECOND, bytes + (now - refilledAt) * BYTES_PER_SECOND)
 	refilledAt = now
-	while (queue[1] or syncQueue[1]) and not isPaused() do
+	while (queue[1] or syncQueue[1]) and not Client.isPaused() do
 		local jobs, at = queue, 1
 		if not queue[1] then
 			-- Syncs take turns, the peer served longest ago first, so each keeps
