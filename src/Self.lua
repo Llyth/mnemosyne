@@ -2,9 +2,10 @@
 -- Pure: it takes its saved table and the clock (the server time) as arguments
 -- (decision 0004).
 --
--- A character is in one of three states: "notAsked" (never registered, or
--- unregistered since), "registered" (with a nickname) or "anonymous" (its
--- player chose not to register it). Each change gets a revision: the server time, or the previous revision plus
+-- A character is in one of four states: "notAsked" (Mnemosyne has not asked
+-- about it yet), "registered" (with a nickname), "anonymous" (its player chose
+-- not to register it) or "unregistered" (its player withdrew its registration).
+-- Each change gets a revision: the server time, or the previous revision plus
 -- one if that is later, so it always moves forward (decision 0001).
 local _, ns = ...
 
@@ -68,15 +69,17 @@ function Self:registration(name)
 		and { nickname = character.nickname, anonymous = character.anonymous, revision = character.revision }
 end
 
--- A character's state: "notAsked", "registered" or "anonymous".
+-- A character's state: "notAsked", "registered", "anonymous" or "unregistered".
 function Self:state(name)
 	local character = self.characters[name]
-	if character and character.nickname then
+	if not character then
+		return "notAsked"
+	elseif character.nickname then
 		return "registered"
-	elseif character and character.anonymous then
+	elseif character.anonymous then
 		return "anonymous"
 	end
-	return "notAsked"
+	return "unregistered"
 end
 
 -- How many of this account's characters are in a state.
@@ -91,8 +94,9 @@ function Self:count(state)
 end
 
 -- What the registration prompt offers for a character, or nil when it should
--- not prompt (the character is registered or anonymous). A character not asked
--- yet is prompted at each login until its player answers. The offer pre-fills
+-- not prompt (the character is registered, anonymous or unregistered: its
+-- player has decided). A character not asked yet is prompted at each login
+-- until its player answers. The offer pre-fills
 -- the nickname of the player's latest registered character, or else what peers
 -- say about this one (heard: Memory's identity for it, if any, flagged
 -- fromPeers). The pre-fill is only an offer: nothing changes until the player
