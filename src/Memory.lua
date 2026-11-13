@@ -17,7 +17,9 @@ ns.Memory = Memory
 
 Memory.MAX_SECOND_HAND = 20000
 Memory.MAX_NEW_PER_PEER = 1000
-Memory.BUCKETS = 128 -- of the digest, 8 hexadecimal digits each (Protocol.DIGEST_LENGTH)
+Memory.BUCKETS = 128 -- of the digest, DIGITS each (BUCKETS * DIGITS = Protocol.DIGEST_LENGTH)
+
+local DIGITS = 8 -- hexadecimal, a bucket of the digest
 
 local DAY = 24 * 60 * 60
 local HASH_MODULUS = 4294967296 -- 2^32: the hashes stay exact in a Lua number
@@ -87,6 +89,55 @@ local function fold(text)
 	return (text:gsub("[\192-\223][\128-\191]", FOLDED):lower())
 end
 
+local function hash(text)
+	local value = 5381
+	for i = 1, #text do
+		value = (value * 33 + text:byte(i)) % HASH_MODULUS
+	end
+	return value
+end
+
+local function bucketOf(name)
+	return hash(name) % Memory.BUCKETS
+end
+
+-- Adds (sign 1) or takes out (sign -1) an identity's hash, with its revision
+-- and nickname, in the sum of its bucket for the digest. A disputed identity
+-- is left out.
+local function sum(self, name, known, sign)
+	if known and not known.disputed then
+		local bucket = bucketOf(name) + 1
+		local value = hash(name .. "\n" .. known.revision .. "\n" .. (known.nickname or ""))
+		self.sums[bucket] = (self.sums[bucket] + sign * value) % HASH_MODULUS
+	end
+end
+
+-- Stores an identity (or nil to drop it), keeping the digest's sums in step.
+local function store(self, name, known)
+	sum(self, name, self.identities[name], -1)
+	self.identities[name] = known
+	sum(self, name, known, 1)
+end
+
+-- Queues a second-hand identity to be dropped after the ones heard before it.
+-- An entry stays live while the identity it holds is the one stored for its
+-- name; once stale entries outnumber the live ones, the queue keeps the live
+-- ones only, in order, so a long session of changes cannot grow it unbounded.
+local function queue(self, name, known)
+	self.queueEnd = self.queueEnd + 1
+	self.queue[self.queueEnd] = { name = name, known = known }
+	if self.queueEnd - self.queueStart + 1 > 2 * self.secondHand + 1000 then
+		local live = {}
+		for at = self.queueStart, self.queueEnd do
+			local entry = self.queue[at]
+			if self.identities[entry.name] == entry.known then
+				live[#live + 1] = entry
+			end
+		end
+		self.queue, self.queueStart, self.queueEnd = live, 1, #live
+	end
+end
+
 -- saved: the table Memory keeps its identities in (MnemosyneDB.memory), and
 -- how many new second-hand identities each peer brought today. Counts older
 -- than a day are let go here.
@@ -100,16 +151,30 @@ function Memory.new(saved, clock)
 			saved.newFrom[peer] = nil
 		end
 	end
-	local secondHand = 0
-	for _, known in pairs(saved.identities) do
+	local self = setmetatable({
+		identities = saved.identities,
+		newFrom = saved.newFrom,
+		secondHand = 0,
+		clock = clock,
+		sums = {},
+		queue = {},
+		queueStart = 1,
+		queueEnd = 0,
+	}, Memory)
+	for bucket = 1, Memory.BUCKETS do
+		self.sums[bucket] = 0
+	end
+	for name, known in pairs(saved.identities) do
+		sum(self, name, known, 1)
 		if not known.firstHand then
-			secondHand = secondHand + 1
+			self.secondHand = self.secondHand + 1
+			queue(self, name, known)
 		end
 	end
-	return setmetatable(
-		{ identities = saved.identities, newFrom = saved.newFrom, secondHand = secondHand, clock = clock },
-		Memory
-	)
+	table.sort(self.queue, function(a, b)
+		return a.known.heard < b.known.heard
+	end)
+	return self
 end
 
 -- Counts one new second-hand identity from a peer. Returns false once the peer
@@ -127,18 +192,20 @@ local function countNew(self, peer, now)
 	return true
 end
 
--- Drops the second-hand identity heard the longest ago.
--- shortcut: scans every identity for each one dropped, at most 1,000 times a
--- day per peer; index them by when heard if it ever shows in a profile.
+-- Drops the second-hand identity heard the longest ago: the first in the queue
+-- still live (its identity still the one stored). heard only grows, so the queue
+-- stays in the order heard.
 local function dropOldest(self)
-	local oldest, oldestHeard
-	for name, known in pairs(self.identities) do
-		if not known.firstHand and not (oldestHeard and oldestHeard <= known.heard) then
-			oldest, oldestHeard = name, known.heard
+	while true do
+		local oldest = self.queue[self.queueStart]
+		self.queue[self.queueStart] = nil
+		self.queueStart = self.queueStart + 1
+		if self.identities[oldest.name] == oldest.known then
+			store(self, oldest.name, nil)
+			self.secondHand = self.secondHand - 1
+			return
 		end
 	end
-	self.identities[oldest] = nil
-	self.secondHand = self.secondHand - 1
 end
 
 local function hearSecondHand(self, name, heard, known)
@@ -155,6 +222,7 @@ local function hearSecondHand(self, name, heard, known)
 			if known.disputed or known.nickname == heard.nickname then
 				return false
 			end
+			sum(self, name, known, -1)
 			known.disputed = true
 			return true
 		end
@@ -167,13 +235,15 @@ local function hearSecondHand(self, name, heard, known)
 		end
 		self.secondHand = self.secondHand + 1
 	end
-	self.identities[name] = {
+	local stored = {
 		nickname = heard.nickname,
 		revision = heard.revision,
 		firstHand = false,
 		source = heard.source,
 		heard = now,
 	}
+	store(self, name, stored)
+	queue(self, name, stored)
 	return true
 end
 
@@ -198,12 +268,12 @@ function Memory:hear(name, heard)
 	if known and not known.firstHand then
 		self.secondHand = self.secondHand - 1
 	end
-	self.identities[name] = {
+	store(self, name, {
 		nickname = heard.nickname,
 		revision = heard.revision,
 		firstHand = true,
 		heard = self.clock(),
-	}
+	})
 	return true
 end
 
@@ -266,52 +336,35 @@ function Memory:knows(name)
 	return known ~= nil and known.firstHand == true
 end
 
-local function hash(text)
-	local value = 5381
-	for i = 1, #text do
-		value = (value * 33 + text:byte(i)) % HASH_MODULUS
-	end
-	return value
-end
-
-local function bucketOf(name)
-	return hash(name) % Memory.BUCKETS
-end
-
 -- The digest of the memory, for a sync (decision 0002): each identity, hashed
 -- with its revision and nickname, summed in the bucket of its character's
 -- name; 8 hexadecimal digits a bucket. How it was heard does not count, so two
 -- memories holding the same identities give the same digest. A disputed
--- identity is left out, as it is never passed on.
+-- identity is left out, as it is never passed on. The sums are kept as the
+-- identities change (store), so a digest only writes them out.
 function Memory:digest()
-	local sums = {}
-	for bucket = 1, Memory.BUCKETS do
-		sums[bucket] = 0
-	end
-	for name, known in pairs(self.identities) do
-		if not known.disputed then
-			local bucket = bucketOf(name) + 1
-			local value = hash(name .. "\n" .. known.revision .. "\n" .. (known.nickname or ""))
-			sums[bucket] = (sums[bucket] + value) % HASH_MODULUS
-		end
-	end
-	for bucket, sum in ipairs(sums) do
+	local digits = {}
+	for bucket, total in ipairs(self.sums) do
 		-- Two halves: string.format's %x takes at most 32-bit signed integers on some builds.
-		sums[bucket] = string.format("%04x%04x", math.floor(sum / 65536), sum % 65536)
+		digits[bucket] = string.format("%04x%04x", math.floor(total / 65536), total % 65536)
 	end
-	return table.concat(sums)
+	return table.concat(digits)
 end
 
 -- What to pass on to a peer, from its digest: every identity in a bucket whose
 -- digest differs from this memory's, as { name, nickname, revision }, removals
 -- included; never a disputed one. The peer keeps what is newer than what it
--- holds. mine: this memory's digest, when the caller has it already.
-function Memory:missing(digest, mine)
-	mine = mine or self:digest()
+-- holds.
+function Memory:missing(digest)
+	local mine = self:digest()
+	local differs = {}
+	for bucket = 0, Memory.BUCKETS - 1 do
+		local first = bucket * DIGITS + 1
+		differs[bucket] = mine:sub(first, first + DIGITS - 1) ~= digest:sub(first, first + DIGITS - 1)
+	end
 	local found = {}
 	for name, known in pairs(self.identities) do
-		local first = bucketOf(name) * 8 + 1
-		if not known.disputed and mine:sub(first, first + 7) ~= digest:sub(first, first + 7) then
+		if not known.disputed and differs[bucketOf(name)] then
 			found[#found + 1] = { name = name, nickname = known.nickname, revision = known.revision }
 		end
 	end
