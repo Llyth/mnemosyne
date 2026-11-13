@@ -318,6 +318,71 @@ describe("Memory, second-hand", function()
 		assert.equal(Memory.MAX_SECOND_HAND + 1, memory:count())
 	end)
 
+	-- Fills the memory with as many second-hand identities as it keeps, one a second.
+	local function fill()
+		for i = 1, Memory.MAX_SECOND_HAND do
+			now = 1000 + i
+			hearFrom("Peer" .. math.ceil(i / Memory.MAX_NEW_PER_PEER), "Hugh Jass" .. i, "Tony", 900)
+		end
+	end
+
+	it("drops an identity heard again only after the ones heard since", function()
+		fill()
+		now = now + 1
+		assert.is_true(hearFrom("Barb Dwyer", "Hugh Jass1", "Antoine", 901))
+		assert.is_true(hearFrom("Barb Dwyer", "Anna Conda", "Ann", 900))
+		assert.equal("Antoine", memory:recall("Hugh Jass1").nickname)
+		assert.is_nil(memory:recall("Hugh Jass2"))
+	end)
+
+	it("keeps recalling first-hand a character heard second-hand first, when the memory is full", function()
+		hearFrom("Barb Dwyer", "Anna Conda", "Annie", 900)
+		memory:hear("Anna Conda", { nickname = "Ann", revision = 901 })
+		fill()
+		now = now + 1
+		assert.is_true(hearFrom("Barb Dwyer", "Barb Dwyer", "Barb", 900))
+		assert.is_true(memory:recall("Anna Conda").firstHand)
+		assert.equal(Memory.MAX_SECOND_HAND + 1, memory:count())
+	end)
+
+	it("keeps its drop queue small however often an identity changes", function()
+		for revision = 1, 10000 do
+			now = 1000 + revision
+			hearFrom("Barb Dwyer", "Anna Conda", "Ann", revision)
+		end
+		assert.is_true(memory.queueEnd - memory.queueStart < 2000)
+	end)
+
+	it("still drops the identity heard first once its drop queue is compacted", function()
+		for revision = 1, 10000 do
+			now = 1000 + revision
+			hearFrom("Barb Dwyer", "Anna Conda", "Ann", revision)
+		end
+		fill() -- its last identity drops Anna Conda
+		now = now + 1
+		assert.is_true(hearFrom("Zed", "Ella Vator", "Ella", 900))
+		assert.is_nil(memory:recall("Anna Conda"))
+		assert.is_nil(memory:recall("Hugh Jass1"))
+		assert.is_not_nil(memory:recall("Hugh Jass2"))
+	end)
+
+	it("keeps its digest the same as one hashed anew, whatever it hears", function()
+		fill()
+		math.randomseed(42)
+		for _ = 1, 2000 do
+			now = now + 1
+			local name = "Hugh Jass" .. math.random(Memory.MAX_SECOND_HAND + 100)
+			local nickname = ({ "Tony", "Antoine" })[math.random(3)] -- nil a third of the time: a removal
+			local revision = 900 + math.random(3)
+			if math.random(4) == 1 then
+				memory:hear(name, { nickname = nickname, revision = revision })
+			else
+				hearFrom("Peer" .. math.random(100), name, nickname, revision)
+			end
+		end
+		assert.equal(Memory.new(saved, clock):digest(), memory:digest())
+	end)
+
 	describe("digest", function()
 		local other
 
