@@ -4,7 +4,8 @@
 -- with the Settings panel's own templates, what the rest decides. The
 -- registration buttons run the commands and the prompt's Keep anonymous, the
 -- switches are the saved settings (Client's DEFAULTS), the Status is the status
--- command's, and Recognition:rows gives the list of identities.
+-- command's, with a button for the report command, and Recognition:rows gives
+-- the list of identities.
 local addonName, ns = ...
 
 local L = ns.L
@@ -144,6 +145,11 @@ end
 
 -- The status, whose lines may wrap: the list goes below them.
 y = y + header(content, y, L.PANEL_STATUS)
+-- On the header's line. commands.report is looked up on click (ReportWindow loads
+-- after this file); its window is DIALOG strata, above the Settings panel's HIGH.
+button(content, L.PANEL_REPORT, WIDTH - 130, y - 33, 130, function()
+	commands.report()
+end)
 local status = text(content, "GameFontHighlight", INDENT, y, WIDTH - INDENT)
 status:SetSpacing(4)
 

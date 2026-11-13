@@ -91,7 +91,8 @@ the minimap and `/mnemosyne` alone open it too. It has:
   **Ask strangers** and **Offer a report after an error** (see
   [Privacy](#privacy)). Each is saved for all your characters and applies at
   once.
-- **Status**: what `/mnemosyne status` says.
+- **Status**: what `/mnemosyne status` says, and a **Report a bug** button that
+  opens the same window as `/mnemosyne report`.
 - **Identities**: the characters you know, searched by name or nickname,
   ignoring case and accents, each with its nickname, whether you heard it
   first-hand or from whom, and when; disputed ones are listed as disputed. Forget
@@ -142,8 +143,9 @@ like anything you heard first-hand.
 
 ## Reporting a problem
 
-Type `/mnemosyne report` in the game. It shows a link to copy (Ctrl+C) and open
-in your browser: a [bug report](https://github.com/Llyth/mnemosyne/issues/new?template=bug_report.yml)
+Type `/mnemosyne report` in the game, or click **Report a bug** in the settings
+panel's Status. Either opens a window with a link to copy (Ctrl+C) and open in
+your browser: a [bug report](https://github.com/Llyth/mnemosyne/issues/new?template=bug_report.yml)
 already filled in with the debug report, where you only add what you did. If the
 link does not open, copy the full report from the same window and paste it in the
 form. When Mnemosyne hits one of its own errors, it offers the same report once
