@@ -269,7 +269,7 @@ describe("Memory, second-hand", function()
 	end)
 
 	it("accepts at most 1,000 new second-hand identities from one peer a day", function()
-		for i = 1, Memory.MAX_NEW_PER_PEER do
+		for i = 1, Memory.MAX_CHANGES_PER_PEER do
 			assert.is_true(hearFrom("Mallory Knox", "Hugh Jass" .. i, "Tony", 900))
 		end
 		assert.is_false(hearFrom("Mallory Knox", "Anna Conda", "Ann", 900))
@@ -279,15 +279,41 @@ describe("Memory, second-hand", function()
 		assert.is_true(hearFrom("Mallory Knox", "Barb Dwyer", "Barb", 900))
 	end)
 
-	it("counts a later revision of an identity it holds apart from the new ones", function()
-		for i = 1, Memory.MAX_NEW_PER_PEER do
-			hearFrom("Mallory Knox", "Hugh Jass" .. i, "Tony", 900)
+	it("counts every change from one peer toward its 1,000 a day: later revisions and disputes too", function()
+		local half = Memory.MAX_CHANGES_PER_PEER / 2
+		for i = 1, Memory.MAX_CHANGES_PER_PEER do
+			hearFrom("Barb Dwyer", "Hugh Jass" .. i, "Tony", 900)
 		end
-		assert.is_true(hearFrom("Mallory Knox", "Hugh Jass1", "Antoine", 901))
+		for i = 1, half do
+			assert.is_true(hearFrom("Mallory Knox", "Hugh Jass" .. i, "Mallory", 901))
+			assert.is_true(hearFrom("Mallory Knox", "Hugh Jass" .. (half + i), "Mallory", 900))
+		end
+		assert.is_false(hearFrom("Mallory Knox", "Hugh Jass1", "Mal", 902))
+		assert.equal("Mallory", memory:recall("Hugh Jass1").nickname)
+		memory:hear("Anna Conda", { nickname = "Ann", revision = 900 })
+		assert.is_false(hearFrom("Mallory Knox", "Anna Conda", "Mallory", 901))
+		assert.equal("Ann", memory:recall("Anna Conda").nickname)
+		now = now + DAY
+		assert.is_true(hearFrom("Mallory Knox", "Hugh Jass1", "Mal", 902))
 	end)
 
-	it("keeps counting a peer's new identities after a reload", function()
-		for i = 1, Memory.MAX_NEW_PER_PEER do
+	it("counts removals from one peer toward its 1,000 a day", function()
+		for i = 1, Memory.MAX_CHANGES_PER_PEER do
+			assert.is_true(hearFrom("Mallory Knox", "Hugh Jass" .. i, nil, 900))
+		end
+		assert.is_false(hearFrom("Mallory Knox", "Anna Conda", "Ann", 900))
+	end)
+
+	it("does not count a copy it refuses toward the peer's 1,000 a day", function()
+		hearFrom("Barb Dwyer", "Hugh Jass", "Tony", 900)
+		for _ = 1, Memory.MAX_CHANGES_PER_PEER do
+			hearFrom("Mallory Knox", "Hugh Jass", "Tony", 900)
+		end
+		assert.is_true(hearFrom("Mallory Knox", "Anna Conda", "Ann", 900))
+	end)
+
+	it("keeps counting a peer's changes after a reload", function()
+		for i = 1, Memory.MAX_CHANGES_PER_PEER do
 			hearFrom("Mallory Knox", "Hugh Jass" .. i, "Tony", 900)
 		end
 		memory = Memory.new(saved, clock)
@@ -297,7 +323,7 @@ describe("Memory, second-hand", function()
 	it("keeps at most 20,000 second-hand identities, dropping the oldest heard first", function()
 		local peer = 0
 		for i = 1, Memory.MAX_SECOND_HAND do
-			if i % Memory.MAX_NEW_PER_PEER == 1 then
+			if i % Memory.MAX_CHANGES_PER_PEER == 1 then
 				peer = peer + 1
 			end
 			now = 1000 + i
@@ -322,7 +348,7 @@ describe("Memory, second-hand", function()
 	local function fill()
 		for i = 1, Memory.MAX_SECOND_HAND do
 			now = 1000 + i
-			hearFrom("Peer" .. math.ceil(i / Memory.MAX_NEW_PER_PEER), "Hugh Jass" .. i, "Tony", 900)
+			hearFrom("Peer" .. math.ceil(i / Memory.MAX_CHANGES_PER_PEER), "Hugh Jass" .. i, "Tony", 900)
 		end
 	end
 

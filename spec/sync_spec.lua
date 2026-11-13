@@ -138,7 +138,7 @@ describe("Sync", function()
 	end)
 
 	it("passes on at most what a peer keeps in a day from one peer, the rest in later syncs", function()
-		for i = 1, Memory.MAX_NEW_PER_PEER do
+		for i = 1, Memory.MAX_CHANGES_PER_PEER do
 			memory:hear("Anna Conda" .. i, { nickname = "Ann", revision = 900 })
 		end
 		local passedOn, count = {}, 0
@@ -152,9 +152,9 @@ describe("Sync", function()
 			sync:receive("Barb Dwyer", { kind = "done" })
 			now = now + Sync.COOLDOWN
 		end
-		assert.equal(2 * Memory.MAX_NEW_PER_PEER, count)
+		assert.equal(2 * Memory.MAX_CHANGES_PER_PEER, count)
 		assert.is_true(passedOn["Hugh Jass"])
-		for i = 1, Memory.MAX_NEW_PER_PEER do
+		for i = 1, Memory.MAX_CHANGES_PER_PEER do
 			assert.is_true(passedOn["Anna Conda" .. i])
 		end
 	end)
