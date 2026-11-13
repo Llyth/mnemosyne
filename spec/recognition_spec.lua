@@ -124,6 +124,58 @@ describe("Recognition", function()
 		end)
 	end)
 
+	describe("in the Communities window", function()
+		local function line(name, shown, text)
+			return ("[|HplayerCommunity:%s:7:1:1700000000:2|h%s|h]: %s"):format(name, shown, text)
+		end
+
+		it("shows a known character's nickname after its name", function()
+			assert.equal(
+				line("Hugh Jass", "Hugh Jass (Tony)", "hi"),
+				recognition:communitiesLine(line("Hugh Jass", "Hugh Jass", "hi"))
+			)
+		end)
+
+		it("keeps the color and the timestamp of the line", function()
+			local colored = "12:30 " .. line("Hugh Jass", "|cffc69b6dHugh Jass|r", "hi")
+			assert.equal(
+				"12:30 " .. line("Hugh Jass", "|cffc69b6dHugh Jass|r (Tony)", "hi"),
+				recognition:communitiesLine(colored)
+			)
+		end)
+
+		it("adds the nickname to the sender only, not to a character linked in the message", function()
+			local said = line("Hugh Jass", "Hugh Jass", line("Hugh Jass", "Hugh Jass", "hi"))
+			assert.equal(
+				line("Hugh Jass", "Hugh Jass (Tony)", line("Hugh Jass", "Hugh Jass", "hi")),
+				recognition:communitiesLine(said)
+			)
+		end)
+
+		it("leaves the line of a character it does not know as it is", function()
+			assert.is_nil(recognition:communitiesLine(line("Anna Conda", "Anna Conda", "hi")))
+		end)
+
+		it("leaves a Battle.net friend's line as it is", function()
+			assert.is_nil(recognition:communitiesLine("[|HBNplayerCommunity:Hugh Jass:1:7:1:1:2|hHugh Jass|h]: hi"))
+		end)
+
+		it("leaves a Battle.net friend's line as it is when it links a character", function()
+			local said = "[|HBNplayerCommunity:Anna Conda:1:7:1:1:2|hAnna Conda|h]: "
+				.. line("Hugh Jass", "Hugh Jass", "hi")
+			assert.is_nil(recognition:communitiesLine(said))
+		end)
+
+		it("leaves a line without a character's link as it is", function()
+			assert.is_nil(recognition:communitiesLine("Message of the day: raid at nine"))
+		end)
+
+		it("leaves every line as it is when chat recognition is off", function()
+			settings.chat = false
+			assert.is_nil(recognition:communitiesLine(line("Hugh Jass", "Hugh Jass", "hi")))
+		end)
+	end)
+
 	describe("says when an identity was last heard", function()
 		local function heardAgo(seconds)
 			now = 1000 + seconds

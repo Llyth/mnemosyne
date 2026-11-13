@@ -18,9 +18,11 @@ read_globals = {
 	"C_ChatInfo",
 	"C_Timer",
 	"ChatFrameUtil",
+	"CommunitiesFrame",
 	"CreateFrame",
 	"Enum",
 	"EventRegistry",
+	"EventUtil",
 	"GameTooltip",
 	"GetNumGroupMembers",
 	"GetNumSubgroupMembers",
@@ -46,6 +48,7 @@ read_globals = {
 	"UnitIsPlayer",
 	"UnitName",
 	"UnitNameUnmodified",
+	"hooksecurefunc",
 	"issecretvalue",
 }
 
