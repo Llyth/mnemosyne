@@ -10,6 +10,7 @@ globals = {
 	"MnemosyneDB",
 	"SLASH_MNEMOSYNE1",
 	"SlashCmdList",
+	"StaticPopupDialogs",
 }
 
 -- Read from the client. Add each one with the code that first uses it.
@@ -36,6 +37,9 @@ read_globals = {
 	"LE_PARTY_CATEGORY_HOME",
 	"LE_PARTY_CATEGORY_INSTANCE",
 	"NameUtil",
+	"StaticPopup_Show",
+	"StaticPopup_StandardEditBoxOnEscapePressed",
+	"StaticPopup_StandardNonEmptyTextHandler",
 	"TooltipDataProcessor",
 	"UnitGUID",
 	"UnitIsPlayer",

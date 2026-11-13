@@ -9,6 +9,7 @@
 --   1:Q                         ask: the receivers answer who plays them
 --   1:R:<revision>:<nickname>   answer to an ask
 --   1:U:<revision>              removal: the character unregistered
+--   1:N:<revision>              anonymous: the character is kept anonymous
 --
 -- The version is a decimal number; a peer drops every other version. The kind
 -- is one capital letter; a peer drops a kind it does not know, so later kinds
@@ -26,7 +27,7 @@ Protocol.VERSION = 1
 Protocol.MAX_MESSAGE_BYTES = 255
 Protocol.MAX_NICKNAME_CHARACTERS = 32
 
-local KIND_LETTER = { announcement = "A", ask = "Q", answer = "R", removal = "U" }
+local KIND_LETTER = { announcement = "A", ask = "Q", answer = "R", removal = "U", anonymous = "N" }
 local KIND_NAME = {}
 for name, letter in pairs(KIND_LETTER) do
 	KIND_NAME[letter] = name
@@ -134,7 +135,7 @@ function Protocol.read(text)
 			return nil, "malformed"
 		end
 		return { kind = kind }
-	elseif kind == "removal" then
+	elseif kind == "removal" or kind == "anonymous" then
 		local revision = readRevision(rest:match("^:(.*)$"))
 		if not revision then
 			return nil, "malformed"
@@ -152,4 +153,11 @@ function Protocol.read(text)
 		return { kind = kind, nickname = nickname, revision = revision }
 	end
 	return nil, "malformed"
+end
+
+-- Makes text from a peer safe to print in the chat frame, for the debug log:
+-- '|' doubled, so escape sequences show as text, and control characters
+-- replaced by '?'.
+function Protocol.printable(text)
+	return (text:gsub("|", "||"):gsub("%c", "?"))
 end

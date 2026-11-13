@@ -5,6 +5,7 @@
 local addonName, ns = ...
 
 local Protocol = ns.Protocol
+local Debug = ns.Debug
 
 local Client = {}
 ns.Client = Client
@@ -58,8 +59,9 @@ end
 -- a job that waited through a lockdown carries the latest nickname, or the
 -- removal if the character unregistered meanwhile. Every character asks,
 -- registered or not. A character that unregistered keeps answering asks with
--- its removal: that is how the removal reaches peers who were offline when it
--- was announced. Returns nothing to drop the job.
+-- its removal, and an anonymous one with "anonymous": that is how the change
+-- reaches peers who were offline when it was announced. Returns nothing to
+-- drop the job.
 local function compose(job)
 	local registration = ns.characters:registration(playerName)
 	local message
@@ -67,6 +69,8 @@ local function compose(job)
 		message = { kind = "ask" }
 	elseif not registration then
 		return
+	elseif registration.anonymous then
+		message = { kind = "anonymous", revision = registration.revision }
 	elseif not registration.nickname then
 		message = { kind = "removal", revision = registration.revision }
 	else
@@ -104,6 +108,7 @@ local function flush()
 				return
 			end
 			local result = C_ChatInfo.SendAddonMessage(Protocol.PREFIX, text, chatType, target)
+			Debug.sent(text, chatType, target, result)
 			if RETRY[result] then
 				tokens = 0
 				return
@@ -140,7 +145,8 @@ local function enqueue(kind, channel, target)
 end
 
 -- Tells the guild and the group the character's registration has changed: its
--- nickname, or its removal; with ask, also asks who the others are.
+-- nickname, its removal or that it is anonymous; with ask, also asks who the
+-- others are.
 function Client.announce(ask)
 	for _, channel in ipairs({ "GUILD", "GROUP" }) do
 		enqueue("announce", channel)
@@ -166,6 +172,7 @@ function handlers.ADDON_LOADED(name)
 	db.schema = db.schema or SCHEMA
 	db.memory = db.memory or {}
 	db.characters = db.characters or {}
+	db.debug = db.debug == true
 	ns.memory = ns.Memory.new(db.memory, GetServerTime)
 	ns.characters = ns.Self.new(db.characters, GetServerTime)
 	db.settings = db.settings or {}
@@ -225,28 +232,37 @@ end
 -- Everything a peer sends is untrusted: it is read only through Protocol, and
 -- an identity is stored under the sender the server gives, never a name in
 -- the message.
-function handlers.CHAT_MSG_ADDON(prefix, text, _, sender)
+function handlers.CHAT_MSG_ADDON(prefix, text, channel, sender)
 	local isKnown = Client.isKnown
-	if not (isKnown(prefix) and isKnown(text) and isKnown(sender)) then
+	if not isKnown(prefix) or prefix ~= Protocol.PREFIX then
 		return
 	end
-	if prefix ~= Protocol.PREFIX or sender == "" or sender == playerName or not playerName then
+	if not (isKnown(text) and isKnown(sender) and isKnown(channel)) then
+		Debug.dropped("?", "secret", "?")
 		return
 	end
-	local message = Protocol.read(text)
+	if sender == "" or sender == playerName or not playerName then
+		return
+	end
+	local message, reason = Protocol.read(text)
 	if not message then
+		Debug.dropped(sender, reason, text)
 		return
 	end
+	Debug.received(sender, channel, text)
 	if message.kind == "ask" then
 		local now = GetTime()
 		if answeredAt[sender] and now - answeredAt[sender] < ANSWER_COOLDOWN then
+			Debug.dropped(sender, "cooldown", text)
 			return
 		end
 		if enqueue("answer", "WHISPER", sender) then
 			answeredAt[sender] = now
+		else
+			Debug.dropped(sender, "unqueued", text)
 		end
-	else
-		ns.memory:hear(sender, { nickname = message.nickname, revision = message.revision })
+	elseif not ns.memory:hear(sender, { nickname = message.nickname, revision = message.revision }) then
+		Debug.dropped(sender, "older", text)
 	end
 end
 

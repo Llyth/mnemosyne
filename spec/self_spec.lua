@@ -75,4 +75,113 @@ describe("Self", function()
 		characters:register("Hugh Jass", "Tony")
 		assert.same({ nickname = "Tony", revision = 1000 }, Self.new(saved, clock):registration("Hugh Jass"))
 	end)
+
+	describe("states", function()
+		it("has not asked about a character never registered", function()
+			assert.equal("notAsked", characters:state("Hugh Jass"))
+		end)
+
+		it("calls a character with a nickname registered", function()
+			characters:register("Hugh Jass", "Tony")
+			assert.equal("registered", characters:state("Hugh Jass"))
+		end)
+
+		it("keeps a character anonymous with a later revision", function()
+			characters:register("Hugh Jass", "Tony")
+			assert.is_true(characters:keepAnonymous("Hugh Jass"))
+			assert.equal("anonymous", characters:state("Hugh Jass"))
+			assert.same({ anonymous = true, revision = 1001 }, characters:registration("Hugh Jass"))
+		end)
+
+		it("keeps a character never registered anonymous, at the server's time", function()
+			assert.is_true(characters:keepAnonymous("Hugh Jass"))
+			assert.same({ anonymous = true, revision = 1000 }, characters:registration("Hugh Jass"))
+		end)
+
+		it("does not keep an anonymous character anonymous again", function()
+			characters:keepAnonymous("Hugh Jass")
+			now = 2000
+			assert.is_false(characters:keepAnonymous("Hugh Jass"))
+			assert.equal(1000, characters:registration("Hugh Jass").revision)
+		end)
+
+		it("registers an anonymous character when its player changes their mind", function()
+			characters:keepAnonymous("Hugh Jass")
+			characters:register("Hugh Jass", "Tony")
+			assert.equal("registered", characters:state("Hugh Jass"))
+			assert.same({ nickname = "Tony", revision = 1001 }, characters:registration("Hugh Jass"))
+		end)
+
+		it("does not unregister an anonymous character", function()
+			characters:keepAnonymous("Hugh Jass")
+			assert.is_false(characters:unregister("Hugh Jass"))
+			assert.equal("anonymous", characters:state("Hugh Jass"))
+		end)
+
+		it("asks again about a character once it unregistered", function()
+			characters:register("Hugh Jass", "Tony")
+			characters:unregister("Hugh Jass")
+			assert.equal("notAsked", characters:state("Hugh Jass"))
+		end)
+
+		it("remembers an anonymous character in its saved table", function()
+			characters:keepAnonymous("Hugh Jass")
+			assert.equal("anonymous", Self.new(saved, clock):state("Hugh Jass"))
+		end)
+
+		it("counts the characters in each state", function()
+			characters:register("Hugh Jass", "Tony")
+			characters:register("Anna Conda", "Tony")
+			characters:keepAnonymous("Barb Dwyer")
+			assert.equal(2, characters:count("registered"))
+			assert.equal(1, characters:count("anonymous"))
+		end)
+	end)
+
+	describe("the registration prompt", function()
+		it("prompts for a character not asked yet, with nothing to pre-fill", function()
+			assert.same({}, characters:prompt("Hugh Jass"))
+		end)
+
+		it("does not prompt for a registered character", function()
+			characters:register("Hugh Jass", "Tony")
+			assert.is_nil(characters:prompt("Hugh Jass"))
+		end)
+
+		it("does not prompt for an anonymous character", function()
+			characters:keepAnonymous("Hugh Jass")
+			assert.is_nil(characters:prompt("Hugh Jass"))
+			assert.is_nil(Self.new(saved, clock):prompt("Hugh Jass"))
+		end)
+
+		it("prompts again at the next login when the player asked to be asked later", function()
+			characters:prompt("Hugh Jass")
+			assert.same({}, Self.new(saved, clock):prompt("Hugh Jass"))
+		end)
+
+		it("pre-fills the nickname of the player's latest registered character", function()
+			characters:register("Anna Conda", "Tony")
+			now = 2000
+			characters:register("Barb Dwyer", "Antoine")
+			characters:keepAnonymous("Paige Turner")
+			assert.same({ nickname = "Antoine" }, characters:prompt("Hugh Jass"))
+		end)
+
+		it("pre-fills what peers say about the character when no other character is registered", function()
+			local heard = { nickname = "Tony", revision = 900, firstHand = false, heard = 950 }
+			assert.same({ nickname = "Tony", fromPeers = true }, characters:prompt("Hugh Jass", heard))
+		end)
+
+		it("prefers the player's other characters to what peers say", function()
+			characters:register("Anna Conda", "Antoine")
+			local heard = { nickname = "Tony", revision = 900, firstHand = false, heard = 950 }
+			assert.same({ nickname = "Antoine" }, characters:prompt("Hugh Jass", heard))
+		end)
+
+		it("never adopts what peers say without the player's click", function()
+			characters:prompt("Hugh Jass", { nickname = "Tony", revision = 900, firstHand = false, heard = 950 })
+			assert.is_nil(characters:registration("Hugh Jass"))
+			assert.equal("notAsked", characters:state("Hugh Jass"))
+		end)
+	end)
 end)

@@ -25,6 +25,12 @@ describe("Protocol", function()
 			assert.same(message, roundTrip(message))
 		end)
 
+		it("carries an anonymous character's answer", function()
+			local message = { kind = "anonymous", revision = 1731500001 }
+			assert.same(message, roundTrip(message))
+			assert.equal("1:N:1731500001", Protocol.write(message))
+		end)
+
 		it("keeps a nickname as typed, accents, other alphabets and separators included", function()
 			for _, nickname in ipairs({ "Éloïse", "トニー", "Tony: the tank", " Tony ", "😀" }) do
 				local message = { kind = "announcement", nickname = nickname, revision = 7 }
@@ -100,6 +106,14 @@ describe("Protocol", function()
 			assertDropped("1:U:5:Tony", "malformed")
 		end)
 
+		it("drops an anonymous answer without a valid revision, or with a nickname", function()
+			assertDropped("1:N", "malformed")
+			assertDropped("1:N:", "malformed")
+			assertDropped("1:N:0", "malformed")
+			assertDropped("1:N:abc", "malformed")
+			assertDropped("1:N:5:Tony", "malformed")
+		end)
+
 		it("drops an ask with anything after it", function()
 			assertDropped("1:Q:", "malformed")
 			assertDropped("1:Q:Tony", "malformed")
@@ -171,6 +185,21 @@ describe("Protocol", function()
 		it("refuses what is not text", function()
 			assert.is_false((Protocol.checkNickname(nil)))
 			assert.is_false((Protocol.checkNickname(42)))
+		end)
+	end)
+
+	describe("makes a peer's text printable", function()
+		it("shows escape sequences as text instead of running them", function()
+			assert.equal("1:A:5:||cffff0000Tony||r", Protocol.printable("1:A:5:|cffff0000Tony|r"))
+			assert.equal("||Hplayer:X||h[X]||h", Protocol.printable("|Hplayer:X|h[X]|h"))
+		end)
+
+		it("replaces control characters", function()
+			assert.equal("To?ny?", Protocol.printable("To\nny\0"))
+		end)
+
+		it("keeps other text as it is", function()
+			assert.equal("1:R:5:Éloïse: the tank", Protocol.printable("1:R:5:Éloïse: the tank"))
 		end)
 	end)
 end)
