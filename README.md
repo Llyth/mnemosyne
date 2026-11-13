@@ -43,7 +43,10 @@ you join it, and a stranger's when you hover them. Other players also pass along
 what they learned before you, second-hand: two copies of Mnemosyne sync their
 memories privately by whisper, in the background, at login with the first few
 players who answer, with each new group member who has Mnemosyne, and when you
-type `/mnemosyne sync`, at most once every 6 hours with the same player.
+type `/mnemosyne sync`, at most once every 6 hours with the same player. When a
+sync brings you a nickname that is new to you or newer, or an unregistration,
+Mnemosyne posts it to your guild once, after a few seconds, unless a guildmate
+posted it first, so the whole guild learns it at once.
 
 Anyone can pass along something false, so a nickname heard from the character
 itself always wins and shows plainly, `Hugh Jass (Tony)`. One heard second-hand
@@ -102,7 +105,7 @@ character an ask, invisible in chat, at most once a day per character. A switch
 to turn this off, **Ask strangers**, comes with the settings panel; until then
 it cannot be turned off.
 
-Syncs pass along every nickname you know, second-hand. The settings panel will
+Syncs and guild posts pass along every nickname you know, second-hand. The settings panel will
 bring two switches, both on by default: **Pass on what I know**, off to share
 only your own registrations, and **Show second-hand**, off to see only what
 characters said about themselves. Until it comes, both stay on. When a player with a newer Mnemosyne talks

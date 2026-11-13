@@ -7,3 +7,5 @@ The guild and group channels carry only short messages. Announcements: a charact
 Everything goes out through one paced queue, about 1 KB per second in all, announcements and asks ahead of syncs, paused in combat and during lockdown (a boss encounter, a Mythic+ run, a PvP match, when the client blocks addon messages). A sync cut short starts again from the digest next time.
 
 **Update, 2026-11-13.** A sync passes on at most 1,000 identities, what a peer keeps in a day from one peer (`Memory.MAX_CHANGES_PER_PEER`), starting at a point that moves with the clock so later syncs pass on the rest. A whole memory of 20,000 identities took about 830 KB and 14 minutes of the queue, which the peer mostly dropped, and nearly filled the sync queue, so a sync running beside it was cut; 1,000 take about 43 KB and 45 seconds.
+
+**Update, 2026-11-13.** At most 30 news wait for their delay at once (`News.MAX_WAITING`); a sync that brings more, such as a first sync of a whole memory, posts 30 and leaves the rest to syncs, since the guild mostly holds them already. News heard is second-hand, with the guildmate as source, and is never posted again.

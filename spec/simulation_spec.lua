@@ -1,8 +1,9 @@
 -- The multi-peer simulation (docs/agents/testing.md): several peers, each with
--- its own Memory, Self, Sync and Protocol reader, wired through an in-memory
--- transport that carries wire text, chunks included, the way Client would.
-local ns = require("spec.helpers.addon")("Protocol", "Memory", "Self", "Sync")
-local Memory, Protocol, Self, Sync = ns.Memory, ns.Protocol, ns.Self, ns.Sync
+-- its own Memory, Self, Sync, News and Protocol reader, wired through an
+-- in-memory transport that carries wire text, chunks included, the way Client
+-- would.
+local ns = require("spec.helpers.addon")("Protocol", "Memory", "Self", "Sync", "News")
+local Memory, News, Protocol, Self, Sync = ns.Memory, ns.News, ns.Protocol, ns.Self, ns.Sync
 
 describe("Several peers", function()
 	local HOUR, DAY = 60 * 60, 24 * 60 * 60
@@ -34,7 +35,13 @@ describe("Several peers", function()
 			local peer = peers[wire.to]
 			local message = peer.reader:read(wire.from, wire.text)
 			if message and (message.kind == "digest" or message.kind == "identities" or message.kind == "done") then
-				post(wire.to, peer.sync:receive(wire.from, message))
+				local outgoing, learned = peer.sync:receive(wire.from, message)
+				post(wire.to, outgoing)
+				for _, identity in ipairs(learned or {}) do
+					peer.news:add(identity)
+				end
+			elseif message and message.kind == "news" then
+				peer.news:receive(wire.from, message.identity)
 			elseif message then
 				peer.memory:hear(wire.from, { nickname = message.nickname, revision = message.revision })
 			end
@@ -50,7 +57,11 @@ describe("Several peers", function()
 			characters = characters,
 			sync = Sync.new({}, clock, memory, { passOn = true }, characters),
 			reader = Protocol.newReader(clock),
+			delay = 0, -- what its randomness draws for each news delay
 		}
+		peer.news = News.new(clock, function()
+			return peer.delay
+		end, memory, characters, { passOn = true })
 		peers[name] = peer
 		return peer
 	end
@@ -170,6 +181,64 @@ describe("Several peers", function()
 		assert.equal("Zed", d.memory:recall(a.name).nickname)
 		d.memory:see(a.name, "Player-1-00000002")
 		assert.equal("Zed", d.memory:recall(a.name).nickname)
+	end)
+
+	-- Lets the time pass, a second at a time: each guildmate posts its news due
+	-- to the others, who hear it at once. Returns how many posts went out.
+	local function guildWaits(guild, seconds)
+		local posts = 0
+		for _ = 0, seconds do
+			for _, peer in ipairs(guild) do
+				-- One post a second at most, as Client takes them.
+				local identity = peer.news:due()
+				if identity then
+					posts = posts + 1
+					local text = Protocol.write({ kind = "news", identity = identity })
+					for _, other in ipairs(guild) do
+						if other ~= peer then
+							post(peer.name, { { peer = other.name, text = text } })
+						end
+					end
+				end
+			end
+			run()
+			now = now + 1
+		end
+		return posts
+	end
+
+	it("lets a whole guild hear a change once, from the first guildmate whose delay ends", function()
+		local e = newPeer("Ella Vator")
+		local guild = { b, c, d, e }
+		local stranger = newPeer("Xavier Ray")
+		announce(a, stranger)
+		b.delay, c.delay = 20, 5
+		sync(b, stranger)
+		sync(c, stranger)
+		assert.equal(1, guildWaits(guild, News.MAX_DELAY))
+		for _, peer in ipairs({ d, e }) do
+			local identity = peer.memory:recall(a.name)
+			assert.equal("Tony", identity.nickname, peer.name)
+			assert.equal(c.name, identity.source, peer.name)
+		end
+		assert.equal(stranger.name, b.memory:recall(a.name).source)
+		assert.equal(0, guildWaits(guild, News.MAX_DELAY))
+	end)
+
+	it("lets a guild hear an unregistration a sync brought", function()
+		local guild = { b, c, d }
+		local revision = a.characters:registration(a.name).revision
+		for _, peer in ipairs(guild) do
+			peer.memory:hear(a.name, { nickname = "Tony", revision = revision, source = "Zed Ex" })
+		end
+		local stranger = newPeer("Xavier Ray")
+		now = now + 1
+		a.characters:unregister(a.name)
+		announce(a, stranger)
+		sync(b, stranger)
+		assert.equal(1, guildWaits(guild, News.MAX_DELAY))
+		assert.is_nil(c.memory:recall(a.name))
+		assert.is_nil(d.memory:recall(a.name))
 	end)
 
 	it("takes at most 1,000 new identities a day from one peer", function()

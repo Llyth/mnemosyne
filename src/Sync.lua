@@ -169,11 +169,13 @@ function Sync:request(peer, heard)
 end
 
 -- Takes a sync message from a peer, read by Protocol: a digest, identities or
--- the end of the peer's part. Returns what to send. Identities count only
--- inside a sync with that peer, after its digest, and are heard second-hand,
--- with the peer as source; only one that changes the memory keeps the sync
--- going. A second digest in a sync this side already answered (a peer that
--- reloaded, or cut its sync before the answer came) gets only this side's
+-- the end of the peer's part. Returns what to send, and the identities that
+-- changed the memory (the news), marked disputed when they made one
+-- disputed. Identities count only inside a sync with that
+-- peer, after its digest, and are heard second-hand, with the peer as source;
+-- only one that changes the memory keeps the sync going. A second digest in a
+-- sync this side already answered (a peer that reloaded, or cut its sync
+-- before the answer came) gets only this side's
 -- digest, so the peer can answer and end its sync: the answer is not sent
 -- again, and what the peer lacks comes in a later sync. A peer this side will
 -- not answer (sending its digest again during the cooldown, a third time in the
@@ -207,20 +209,25 @@ function Sync:receive(peer, message)
 	elseif not session then
 		return outgoing
 	elseif message.kind == "identities" and session.answered then
+		local learned = {}
 		for _, identity in ipairs(message.identities) do
-			if
-				not self.characters:registration(identity.name)
-				and self.memory:hear(identity.name, {
+			local changed, how
+			if not self.characters:registration(identity.name) then
+				changed, how = self.memory:hear(identity.name, {
 					nickname = identity.nickname,
 					revision = identity.revision,
 					source = peer,
 					guid = identity.guid,
 				})
-			then
+			end
+			if changed then
 				-- Only what is new: a peer re-sending what this side knows would hold a place forever.
 				session.active = now
+				identity.disputed = how == "disputed" or nil
+				learned[#learned + 1] = identity
 			end
 		end
+		return outgoing, learned
 	elseif message.kind == "done" then
 		self.sessions[peer] = nil
 		self.synced[peer] = now
