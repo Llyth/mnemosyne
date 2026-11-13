@@ -168,6 +168,11 @@ function handlers.ADDON_LOADED(name)
 	db.characters = db.characters or {}
 	ns.memory = ns.Memory.new(db.memory, GetServerTime)
 	ns.characters = ns.Self.new(db.characters, GetServerTime)
+	db.settings = db.settings or {}
+	if db.settings.chat == nil then
+		db.settings.chat = true -- chat recognition; the settings panel exposes it later
+	end
+	ns.recognition = ns.Recognition.new(ns.memory, db.settings, ns.L, GetServerTime)
 	C_ChatInfo.RegisterAddonMessagePrefix(Protocol.PREFIX)
 	for event in pairs(handlers) do
 		if event ~= "ADDON_LOADED" then

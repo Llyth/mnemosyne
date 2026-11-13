@@ -17,4 +17,11 @@ ns.L = {
 	HELP_REGISTER = "/mnemosyne register <nickname>: register the character you are playing",
 	HELP_UNREGISTER = "/mnemosyne unregister: withdraw its registration; Mnemosyne users forget it",
 	TOOLTIP_PLAYED_BY = "Played by %s",
+	-- The sender's name in a chat line, then the nickname: "Hugh Jass (Tony)".
+	CHAT_NAME = "%s (%s)",
+	-- |4singular:plural; picks the word for the number before it.
+	HEARD_NOW = "Last heard just now",
+	HEARD_MINUTES = "Last heard %d |4minute:minutes; ago",
+	HEARD_HOURS = "Last heard %d |4hour:hours; ago",
+	HEARD_DAYS = "Last heard %d |4day:days; ago",
 }
