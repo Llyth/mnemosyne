@@ -57,7 +57,9 @@ function Recognition:recall(name, guid)
 	end
 	local own = self.characters and self.characters:registration(name)
 	if own then
-		return own.nickname and { name = name, nickname = own.nickname, revision = own.revision } or nil
+		-- Heard when it registered: its revision is the server time of the change.
+		return own.nickname and { name = name, nickname = own.nickname, revision = own.revision, heard = own.revision }
+			or nil
 	end
 	local identity = self.memory:recall(name)
 	if identity and not self:shows(identity) then

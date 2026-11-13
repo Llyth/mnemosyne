@@ -408,6 +408,13 @@ describe("Recognition", function()
 			assert.equal("Tony2", recognition:recall("Hugh Jass").nickname)
 		end)
 
+		it("gives the tooltip on a registered one's name in chat, from when it registered", function()
+			characters:register("Zed Zulu", "Llyth")
+			now = now + 2 * 3600
+			local tooltip = recognition:chatTooltip("player:Zed Zulu:42:SAY:")
+			assert.same({ "Llyth", ns.L.HEARD:format("2 |4hour:hours; ago") }, { tooltip.nickname, tooltip.heard })
+		end)
+
 		it("shows nothing for one kept anonymous or unregistered", function()
 			characters:keepAnonymous("Hugh Jass")
 			assert.is_nil(recognition:recall("Hugh Jass"))
