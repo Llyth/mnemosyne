@@ -247,3 +247,17 @@ function Sync:tick()
 	end
 	return startWaiting(self, now)
 end
+
+-- The peers synced in the last 6 hours, as { peer, at }, the most recent first.
+function Sync:recent()
+	local now, recent = self.clock(), {}
+	for peer, at in pairs(self.synced) do
+		if isCooling(self, peer, now) then
+			recent[#recent + 1] = { peer = peer, at = at }
+		end
+	end
+	table.sort(recent, function(a, b)
+		return a.at > b.at
+	end)
+	return recent
+end

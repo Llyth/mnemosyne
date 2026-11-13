@@ -498,4 +498,16 @@ describe("Sync", function()
 			sent(sync:receive("Anna Conda", { kind = "done" }))
 		)
 	end)
+
+	describe("its recent syncs", function()
+		it("lists the peers synced in the last 6 hours, the most recent first", function()
+			saved["Anna Conda"] = now - 2 * HOUR
+			saved["Cole Slaw"] = now - HOUR
+			saved["Barb Dwyer"] = now - Sync.COOLDOWN
+			assert.same({
+				{ peer = "Cole Slaw", at = now - HOUR },
+				{ peer = "Anna Conda", at = now - 2 * HOUR },
+			}, sync:recent())
+		end)
+	end)
 end)

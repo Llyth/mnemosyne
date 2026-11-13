@@ -19,11 +19,12 @@ ns.L = {
 	TOOLTIP_PLAYED_BY = "Played by %s",
 	-- The sender's name in a chat line, then the nickname: "Hugh Jass (Tony)".
 	CHAT_NAME = "%s (%s)",
+	HEARD = "Last heard %s", -- an AGO_ string: "Last heard 5 minutes ago"
 	-- |4singular:plural; picks the word for the number before it.
-	HEARD_NOW = "Last heard just now",
-	HEARD_MINUTES = "Last heard %d |4minute:minutes; ago",
-	HEARD_HOURS = "Last heard %d |4hour:hours; ago",
-	HEARD_DAYS = "Last heard %d |4day:days; ago",
+	AGO_NOW = "just now",
+	AGO_MINUTES = "%d |4minute:minutes; ago",
+	AGO_HOURS = "%d |4hour:hours; ago",
+	AGO_DAYS = "%d |4day:days; ago",
 	-- The registration prompt.
 	PROMPT = "Who plays %s?\n\n"
 		.. "Your nickname will be shared with every player who has Mnemosyne, through other players too.",
@@ -85,4 +86,49 @@ ns.L = {
 	FORGET_FULL_NAME = "Type the character's full name, first and last: /mnemosyne forget <character>",
 	FORGOTTEN_NONE = "No character is forgotten. Type a character's full name: /mnemosyne forget <character>",
 	NEWER_VERSION = "A newer Mnemosyne exists: update it, or some messages from other players stay ignored.",
+	-- The settings panel (Options, AddOns, Mnemosyne).
+	HELP_PANEL = "/mnemosyne: open the settings panel",
+	PANEL_CHARACTER = "This character",
+	PANEL_NICKNAME = "Nickname",
+	PANEL_REGISTER = "Register",
+	PANEL_CHANGE = "Change",
+	PANEL_UNREGISTER = "Unregister",
+	PANEL_CANNOT_REGISTER = "This account cannot send addon messages here (a trial account), so it cannot register a "
+		.. "character: Mnemosyne only listens.",
+	PANEL_SWITCHES = "Options",
+	PANEL_TOOLTIP = "Show on tooltips",
+	PANEL_TOOLTIP_HELP = "Show who plays a character on its tooltip.",
+	PANEL_CHAT = "Show in chat",
+	PANEL_CHAT_HELP = "Show who plays a character after its name in chat, and on its name's tooltip.",
+	PANEL_SECOND_HAND = "Show second-hand",
+	PANEL_SECOND_HAND_HELP = "Show what other players passed on, in grey and marked with ~. "
+		.. "Off, you see only what characters said about themselves.",
+	PANEL_PASS_ON = "Pass on what I know",
+	PANEL_PASS_ON_HELP = "Pass on every nickname you know when you sync with another player, and post to your "
+		.. "guild the new ones a sync brings. "
+		.. "Off, you share only your own registrations.",
+	PANEL_ASK_STRANGERS = "Ask strangers",
+	PANEL_ASK_STRANGERS_HELP = "Whisper an ask, invisible in chat, to a character you hover or target and do not "
+		.. "know, at most once a day per character.",
+	PANEL_OFFER_REPORT = "Offer a report after an error",
+	PANEL_OFFER_REPORT_HELP = "When Mnemosyne hits one of its own errors, offer the debug report once a session.",
+	PANEL_STATUS = "Status",
+	PANEL_IDENTITIES = "Identities",
+	PANEL_SEARCH = "Search names and nicknames",
+	PANEL_COLUMN_CHARACTER = "Character",
+	PANEL_COLUMN_NICKNAME = "Nickname",
+	PANEL_COLUMN_HEARD = "Heard",
+	PANEL_COLUMN_AGO = "Last heard",
+	PANEL_FORGET = "Forget",
+	PANEL_UNDO = "Undo",
+	PANEL_NONE = "No identity found.",
+	PANEL_FIRST_HAND = "first-hand",
+	PANEL_FIRST_HAND_FORGOTTEN = "first-hand, forgotten", -- heard from the character after you forgot it
+	PANEL_FROM = "from %s", -- a second-hand identity's source
+	PANEL_DISPUTED = "disputed",
+	PANEL_FORGOTTEN = "forgotten",
+	STATUS_PEERS = "Peers heard this session: %d",
+	STATUS_SYNCS = "Synced in the last 6 hours: %s",
+	STATUS_SYNC = "%s (%s)", -- a peer and how long ago: "Anna Conda (5 minutes ago)"
+	STATUS_NO_SYNC = "No sync in the last 6 hours.",
 }

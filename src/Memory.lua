@@ -93,6 +93,11 @@ local function fold(text)
 	return (text:gsub("[\192-\223][\128-\191]", FOLDED):lower())
 end
 
+-- Whether a character's name or nickname contains the folded text.
+local function matches(wanted, name, nickname)
+	return fold(name):find(wanted, 1, true) or (nickname and fold(nickname):find(wanted, 1, true))
+end
+
 local function hash(text)
 	local value = 5381
 	for i = 1, #text do
@@ -358,10 +363,48 @@ function Memory:search(text)
 	local wanted = fold(text)
 	local found = {}
 	for name, known in pairs(self.identities) do
-		if shows(known) and (fold(name):find(wanted, 1, true) or fold(known.nickname):find(wanted, 1, true)) then
+		if shows(known) and matches(wanted, name, known.nickname) then
 			local identity = self:recall(name)
 			identity.name = name
 			found[#found + 1] = identity
+		end
+	end
+	table.sort(found, function(a, b)
+		return a.name < b.name
+	end)
+	return found
+end
+
+-- Lists, for the settings panel, every identity with a nickname, disputed
+-- ones included (marked disputed) and stale ones left out (hidden, as recall
+-- hides them), and every forgotten character (marked
+-- forgotten, with its identity if heard first-hand since), whose name or
+-- nickname contains the text, ignoring case and accents. Returns a list of
+-- { name, nickname, firstHand, source, heard, disputed, forgotten }, copies,
+-- sorted by name.
+function Memory:list(text)
+	local wanted = fold(text)
+	local found, listed = {}, {}
+	for name, known in pairs(self.identities) do
+		if known.nickname and not known.stale and matches(wanted, name, known.nickname) then
+			listed[name] = {
+				name = name,
+				nickname = known.nickname,
+				firstHand = known.firstHand,
+				source = known.source,
+				heard = known.heard,
+				disputed = known.disputed,
+			}
+			found[#found + 1] = listed[name]
+		end
+	end
+	for name in pairs(self.forgottenNames) do
+		if not listed[name] and matches(wanted, name) then
+			listed[name] = { name = name }
+			found[#found + 1] = listed[name]
+		end
+		if listed[name] then
+			listed[name].forgotten = true
 		end
 	end
 	table.sort(found, function(a, b)

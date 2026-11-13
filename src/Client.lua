@@ -265,6 +265,15 @@ function Client.sync()
 	return count
 end
 
+-- How many peers were heard this session.
+function Client.peerCount()
+	local count = 0
+	for _ in pairs(peersHeard) do
+		count = count + 1
+	end
+	return count
+end
+
 -- Tells the guild and the group the character's registration has changed: its
 -- nickname, its removal or that it is anonymous; with ask, also asks who the
 -- others are.
@@ -283,14 +292,16 @@ function Client.ask(name)
 	return enqueue("ask", "WHISPER", name)
 end
 
--- The settings and their defaults, all on; the settings panel exposes them later.
+-- The settings and their defaults, all on: the switches of the settings panel.
 local DEFAULTS = {
+	tooltip = true, -- tooltip recognition
 	chat = true, -- chat recognition
 	showSecondHand = true, -- "Show second-hand"
 	passOn = true, -- "Pass on what I know"
 	askStrangers = true, -- "Ask strangers"
 	offerReport = true, -- offer the debug report after an error
 }
+Client.DEFAULTS = DEFAULTS
 
 local frame = CreateFrame("Frame")
 local handlers = {}

@@ -6,6 +6,7 @@
 ## SavedVariables: MnemosyneDB
 ## IconTexture: Interface\Icons\INV_Misc_Book_09
 ## Category: Social
+## AddonCompartmentFunc: Mnemosyne_OnAddonCompartmentClick
 
 # The pure modules first (decision 0004), then the locales, then the adapters.
 src\Protocol.lua
@@ -23,5 +24,6 @@ src\Interface.lua
 src\Chat.lua
 src\Commands.lua
 src\Prompt.lua
+src\Panel.lua
 src\Encounter.lua
 src\ReportWindow.lua

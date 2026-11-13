@@ -8,6 +8,7 @@ exclude_files = { ".lua/", ".release/", ".venv/", ".claude/" }
 -- Written by the addon: its saved variables and slash command globals.
 globals = {
 	"MnemosyneDB",
+	"Mnemosyne_OnAddonCompartmentClick",
 	"SLASH_MNEMOSYNE1",
 	"SlashCmdList",
 	"StaticPopupDialogs",
@@ -43,6 +44,7 @@ read_globals = {
 	"LE_PARTY_CATEGORY_HOME",
 	"LE_PARTY_CATEGORY_INSTANCE",
 	"NameUtil",
+	"Settings",
 	"StaticPopup_Show",
 	"StaticPopup_StandardEditBoxOnEscapePressed",
 	"StaticPopup_StandardNonEmptyTextHandler",

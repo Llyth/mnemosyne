@@ -60,9 +60,10 @@ most 20,000 second-hand nicknames, and take at most 1,000 changes a day (new
 nicknames, newer ones, removed ones and disputed ones) from any one player; a
 sync passes on at most 1,000 too, the rest in later syncs.
 
-Nicknames show on tooltips and in chat: every chat type except emotes
-(channels and Communities included), in the Communities window too, and when
-you hover a name in a chat line. Nameplates and unit frames come later.
+Nicknames show on tooltips and in chat (the **Show on tooltips** and **Show in
+chat** switches turn each off): every chat type except emotes (channels and
+Communities included), in the Communities window too, and when you hover a name
+in a chat line. Nameplates and unit frames come later.
 
 ## Installing
 
@@ -79,18 +80,35 @@ it does:
 
 ## Using it
 
-Everything is done with commands for now. A settings panel (Options, AddOns,
-Mnemosyne, also in the addon drawer next to the minimap) comes later.
+The settings panel is in Options, AddOns, Mnemosyne; the addon drawer next to
+the minimap and `/mnemosyne` alone open it too. It has:
+
+- **This character**: its registration, the nickname to register or change,
+  Unregister and Keep anonymous, working like the commands and the first-login
+  question. A trial account sees why it cannot register.
+- **Options**, the switches, all on until you turn them off: **Show on
+  tooltips**, **Show in chat**, **Show second-hand**, **Pass on what I know**,
+  **Ask strangers** and **Offer a report after an error** (see
+  [Privacy](#privacy)). Each is saved for all your characters and applies at
+  once.
+- **Status**: what `/mnemosyne status` says.
+- **Identities**: the characters you know, searched by name or nickname,
+  ignoring case and accents, each with its nickname, whether you heard it
+  first-hand or from whom, and when; disputed ones are listed as disputed. Forget
+  drops one (as `/mnemosyne forget` does) and Undo takes the forgetting back.
+  Second-hand ones are listed only while **Show second-hand** is on, and the
+  first 50 found show.
 
 | Command | What it does |
 | --- | --- |
+| `/mnemosyne` | Open the settings panel |
 | `/mnemosyne register <nickname>` | Register the character you are playing |
 | `/mnemosyne unregister` | Withdraw its registration; peers forget it |
 | `/mnemosyne lookup <text>` | Find characters by name or by nickname, ignoring case and accents; a second-hand nickname shows with who passed it on |
 | `/mnemosyne forget <character>` | Forget a character (its full name): drop its nickname from your memory and refuse what other players pass on about it; what the character says itself still counts. Without a name, lists the characters you forgot |
 | `/mnemosyne unforget <character>` | Undo forget: learn about the character from other players again |
 | `/mnemosyne sync` | Sync with the players heard this session who have Mnemosyne (at most once every 6 hours each) |
-| `/mnemosyne status` | How many identities you know (second-hand ones only while **Show second-hand** is on), how many of your characters are registered or anonymous, and this character's registration (registered, anonymous, unregistered, or not registered yet) |
+| `/mnemosyne status` | How many identities you know (second-hand ones only while **Show second-hand** is on), how many of your characters are registered or anonymous, how many players who have Mnemosyne you heard this session, whom you synced with in the last 6 hours, and this character's registration (registered, anonymous, unregistered, or not registered yet) |
 | `/mnemosyne report` | A debug report to paste in a bug report |
 | `/mnemosyne debug` | Log every message sent and received in the chat frame, or stop |
 | `/mnemosyne help` | The list of commands |
@@ -101,14 +119,13 @@ Mnemosyne keeps everything on your computer, in the game's saved variables, and
 sends nothing outside the game.
 
 When you hover or target a character Mnemosyne doesn't know, it whispers that
-character an ask, invisible in chat, at most once a day per character. A switch
-to turn this off, **Ask strangers**, comes with the settings panel; until then
-it cannot be turned off.
+character an ask, invisible in chat, at most once a day per character. Turn
+**Ask strangers** off in the settings panel to stop it.
 
-Syncs and guild posts pass along every nickname you know, second-hand. The settings panel will
-bring two switches, both on by default: **Pass on what I know**, off to share
-only your own registrations, and **Show second-hand**, off to see only what
-characters said about themselves. Until it comes, both stay on. When a player with a newer Mnemosyne talks
+Syncs and guild posts pass along every nickname you know, second-hand. Two
+switches of the settings panel, both on by default, change that: **Pass on what
+I know**, off to share only your own registrations, and **Show second-hand**, off
+to see only what characters said about themselves. When a player with a newer Mnemosyne talks
 to yours, it tells you once a session that a newer version exists.
 
 When you register a character, its nickname spreads to every player who has
@@ -130,7 +147,8 @@ in your browser: a [bug report](https://github.com/Llyth/mnemosyne/issues/new?te
 already filled in with the debug report, where you only add what you did. If the
 link does not open, copy the full report from the same window and paste it in the
 form. When Mnemosyne hits one of its own errors, it offers the same report once
-per session, until you click **Don't ask again**. Nothing is sent by itself.
+per session, until you click **Don't ask again** (the **Offer a report after an
+error** switch turns it back on). Nothing is sent by itself.
 
 The report holds the Mnemosyne version, the game's build and locale, your
 settings, how many identities and characters you have, the last errors and the
