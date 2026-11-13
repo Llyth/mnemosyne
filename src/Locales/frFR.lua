@@ -61,6 +61,10 @@ L.STATUS_CANNOT_SEND = "Ce compte ne peut pas envoyer de messages d'addon ici (c
 	.. "Mnemosyne ne fait qu'écouter."
 L.DEBUG_ON = "Journal de débogage activé : chaque message envoyé et reçu s'affiche ici. /mnemosyne debug l'arrête."
 L.DEBUG_OFF = "Journal de débogage désactivé."
+L.HELP_ECHO = "/mnemosyne echo : un pair de test qui renvoie ce que vous envoyez, pour tester seul, ou arrêter"
+L.ECHO_ON =
+	"Pair écho activé : Echo Mnemosyne renvoie ce que vous lui chuchotez ou diffusez. /mnemosyne echo l'arrête."
+L.ECHO_OFF = "Pair écho désactivé : Echo Mnemosyne est oublié."
 L.DEBUG_SENT = "envoyé sur %s : %s"
 L.DEBUG_NOT_SENT = "non envoyé sur %s (%s) : %s"
 L.DEBUG_RECEIVED = "reçu de %s sur %s : %s"

@@ -78,6 +78,7 @@ function commands.help()
 	say(L.HELP_UNFORGET)
 	say(L.HELP_STATUS)
 	say(L.HELP_DEBUG)
+	say(L.HELP_ECHO)
 	say(L.HELP_REPORT)
 	say(L.HELP_HELP)
 end
