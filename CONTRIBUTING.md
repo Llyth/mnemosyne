@@ -33,6 +33,18 @@ uv run pre-commit install      # once per clone; all its worktrees share it
 script again after a version in it changes. StyLua comes from its pre-commit
 hook, which downloads the release binary.
 
+A worktree has no `.lua/` of its own. Once `scripts/setup-lua.sh` has run in the
+main checkout, link the worktree to that build once, from the worktree's root, or
+run `scripts/setup-lua.sh` in the worktree instead:
+
+```sh
+ln -s ../../../.lua .lua       # a worktree under .claude/worktrees/
+```
+
+Without `.lua/`, `git push` fails on the busted hook ("Executable
+`.lua/bin/busted` not found"): push with `SKIP=busted git push` and let CI run
+the tests.
+
 ## Project layout
 
 | Path | Purpose |

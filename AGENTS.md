@@ -54,6 +54,13 @@ Rules for agents working in this repository.
 - **Run the pre-commit hooks before pushing.** `uv run pre-commit run --all-files`
   (luacheck, StyLua, gitleaks, zizmor, shellcheck, markdownlint, whitespace and
   file hygiene) catches locally what review would otherwise ask for.
+  - The luacheck hook, and busted on push, run `.lua/bin/`, which is git-ignored
+    and so missing from a new worktree. Link it to the main checkout's build once
+    per worktree (`ln -s ../../../.lua .lua` from the worktree's root; the main
+    checkout must have run `scripts/setup-lua.sh` first), or build it in the
+    worktree with `scripts/setup-lua.sh` (needs `gcc` and `make`).
+  - With neither possible, run `SKIP=luacheck,busted uv run pre-commit run --all-files`,
+    push with `SKIP=busted git push`, and let CI run luacheck and busted.
 - **One feature, one pull request.** Don't aggregate: a new setting, a refactor, a
   CI change and a dependency bump each get their own branch, worktree and pull
   request, even when they come from the same request.
