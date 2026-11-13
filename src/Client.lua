@@ -390,7 +390,8 @@ function handlers.CHAT_MSG_ADDON(prefix, text, channel, sender)
 		end
 		return
 	end
-	Debug.received(sender, channel, text, message.kind)
+	-- The whole message as read, not only its last chunk.
+	Debug.received(sender, channel, Debug.isOn() and Protocol.write(message) or text, message.kind)
 	peersHeard[sender] = GetServerTime()
 	local kind = message.kind
 	if kind == "digest" or kind == "identities" or kind == "done" then

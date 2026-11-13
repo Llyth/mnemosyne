@@ -137,7 +137,9 @@ local offered = false
 local frame = CreateFrame("Frame")
 
 local function offer()
-	if offered or not MnemosyneDB.settings.offerReport then
+	-- Guarded: an error here would be caught and offer again, every frame.
+	local settings = MnemosyneDB.settings
+	if offered or not (settings and settings.offerReport) then
 		return
 	end
 	if InCombatLockdown() then
