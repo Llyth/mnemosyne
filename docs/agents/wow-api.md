@@ -52,5 +52,7 @@ Open, to settle in the game and record here:
 - whether EllesmereUI: Standalone Chat calls the sender name filters and the hyperlink callbacks.
 - whether `UnitName` gives no surname for a character that hides it ("My Secondary Name"): asking a stranger relies on it to never whisper a first name alone;
 - whether addon whispers reach a character of the other faction (asking a stranger skips them, by `UnitFactionGroup`).
+- whether an error in Mnemosyne still reaches its handler (`seterrorhandler`, chained to the previous one) with an error-catching addon such as BugGrabber loaded, and whether its message names the file as `Interface/AddOns/Mnemosyne/...`;
+- whether `BasicFrameTemplateWithInset`, `InputBoxTemplate` and `UIPanelScrollFrameTemplate` exist on Forever, for the report window.
 
 `/dump select(4, GetBuildInfo())` prints the Interface number; `/dump WOW_PROJECT_ID` the project.

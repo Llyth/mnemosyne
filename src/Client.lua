@@ -192,6 +192,14 @@ function handlers.ADDON_LOADED(name)
 		db.settings.chat = true -- chat recognition; the settings panel exposes it later
 	end
 	ns.recognition = ns.Recognition.new(ns.memory, db.settings, ns.L, GetServerTime)
+	-- The debug report (src/Report.lua): its events, the caught errors, the
+	-- salt of its name hashes, and whether to offer it after an error.
+	db.events = db.events or {}
+	db.errors = db.errors or {}
+	db.salt = db.salt or ("%08x"):format(math.random(0, 0x7fffffff))
+	if db.settings.offerReport == nil then
+		db.settings.offerReport = true
+	end
 	C_ChatInfo.RegisterAddonMessagePrefix(Protocol.PREFIX)
 	for event in pairs(handlers) do
 		if event ~= "ADDON_LOADED" then

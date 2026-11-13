@@ -75,7 +75,7 @@ in the addon drawer next to the minimap). The same actions as commands:
 | `/mnemosyne lookup <text>` | Find characters by name or by nickname, ignoring case and accents |
 | `/mnemosyne sync` | Sync with the peers you can reach now (coming) |
 | `/mnemosyne status` | How many identities you know, how many of your characters are registered or anonymous, and this character's registration |
-| `/mnemosyne report` | A debug report to paste in a bug report (coming) |
+| `/mnemosyne report` | A debug report to paste in a bug report |
 | `/mnemosyne debug` | Log every message sent and received in the chat frame, or stop |
 | `/mnemosyne help` | The list of commands |
 
@@ -99,11 +99,18 @@ you undo it. Nobody else is told.
 
 ## Reporting a problem
 
-Type `/mnemosyne report` in the game (coming). It shows a link to copy (Ctrl+C) and open
+Type `/mnemosyne report` in the game. It shows a link to copy (Ctrl+C) and open
 in your browser: a [bug report](https://github.com/Llyth/mnemosyne/issues/new?template=bug_report.yml)
-already filled in with the debug report, where you only add what you did. When
-Mnemosyne hits an error, it offers the same link. Nothing is sent by itself, and
-the report replaces other players' names and nicknames with short codes. For a
+already filled in with the debug report, where you only add what you did. If the
+link does not open, copy the full report from the same window and paste it in the
+form. When Mnemosyne hits one of its own errors, it offers the same report once
+per session, until you click **Don't ask again**. Nothing is sent by itself.
+
+The report holds the Mnemosyne version, the game's build and locale, your
+settings, how many identities and characters you have, the last errors and the
+last 200 messages sent, received or dropped (kept across a `/reload`). It never
+holds a nickname or a message's text, and it replaces other players' names with
+short codes. For a
 security problem, follow [SECURITY.md](SECURITY.md) instead.
 
 ## More documentation

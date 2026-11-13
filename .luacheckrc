@@ -15,6 +15,7 @@ globals = {
 
 -- Read from the client. Add each one with the code that first uses it.
 read_globals = {
+	"C_AddOns",
 	"C_ChatInfo",
 	"C_Timer",
 	"ChatFrameUtil",
@@ -24,6 +25,8 @@ read_globals = {
 	"EventRegistry",
 	"EventUtil",
 	"GameTooltip",
+	"GetBuildInfo",
+	"GetLocale",
 	"GetNumGroupMembers",
 	"GetNumSubgroupMembers",
 	"GetServerTime",
@@ -43,13 +46,17 @@ read_globals = {
 	"StaticPopup_StandardEditBoxOnEscapePressed",
 	"StaticPopup_StandardNonEmptyTextHandler",
 	"TooltipDataProcessor",
+	"UIParent",
+	"UISpecialFrames",
 	"UnitFactionGroup",
 	"UnitGUID",
 	"UnitIsPlayer",
 	"UnitName",
 	"UnitNameUnmodified",
+	"geterrorhandler",
 	"hooksecurefunc",
 	"issecretvalue",
+	"seterrorhandler",
 }
 
 files["spec/"] = { std = "+busted" }

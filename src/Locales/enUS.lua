@@ -55,4 +55,13 @@ ns.L = {
 	DEBUG_NOT_SENT = "not sent on %s (%s): %s",
 	DEBUG_RECEIVED = "received from %s on %s: %s",
 	DEBUG_DROPPED = "dropped from %s (%s): %s",
+	-- The debug report.
+	HELP_REPORT = "/mnemosyne report: a debug report to paste in a bug report",
+	REPORT_TITLE = "Mnemosyne debug report",
+	REPORT_LINK = "Copy this link (Ctrl+C) and open it in your browser: it opens a bug report already filled in.",
+	REPORT_TEXT = "If the link does not open, copy the whole report (Ctrl+C) and paste it in the bug report:",
+	REPORT_OFFER = "Mnemosyne hit an error. Would you report it? The report hides other players' names.",
+	REPORT_SHOW = "Show the report",
+	REPORT_NOT_NOW = "Not now",
+	REPORT_NEVER = "Don't ask again",
 }
