@@ -13,7 +13,9 @@ Recognition.__index = Recognition
 ns.Recognition = Recognition
 
 local MINUTE, HOUR, DAY = 60, 3600, 86400
-local GREY = "|cff808080" -- a second-hand nickname's color in chat
+local PURPLE = { 0.62, 0.55, 0.95 } -- a first-hand nickname's color in a tooltip
+local GREY = { 0.5, 0.5, 0.5 } -- a second-hand nickname's color in a tooltip
+local GREY_CODE = "|cff808080" -- the same grey, in chat
 
 -- memory: the Memory to recall identities from.
 -- settings: the saved settings (MnemosyneDB.settings); settings.chat switches
@@ -65,6 +67,38 @@ function Recognition:search(text)
 	return found
 end
 
+-- An identity's nickname as shown: marked with ~ when heard second-hand.
+function Recognition:nickname(identity)
+	if identity.source then
+		return self.L.SECOND_HAND:format(identity.nickname)
+	end
+	return identity.nickname
+end
+
+-- An identity's line in a lookup, from a found identity ({ name, nickname,
+-- source }): with who passed it on when heard second-hand.
+function Recognition:lookupLine(identity)
+	if identity.source then
+		return self.L.LOOKUP_FOUND_SECOND_HAND:format(identity.name, self:nickname(identity), identity.source)
+	end
+	return self.L.LOOKUP_FOUND:format(identity.name, identity.nickname)
+end
+
+-- The tooltip lines that say who plays a character, from its identity
+-- ({ nickname, source }), as { { text, r, g, b }, ... }: in Mnemosyne's color
+-- when heard first-hand; in grey, marked with ~ and with who passed it on,
+-- when heard second-hand.
+function Recognition:playedBy(identity)
+	local playedBy = self.L.TOOLTIP_PLAYED_BY:format(self:nickname(identity))
+	if not identity.source then
+		return { { playedBy, PURPLE[1], PURPLE[2], PURPLE[3] } }
+	end
+	return {
+		{ playedBy, GREY[1], GREY[2], GREY[3] },
+		{ self.L.HEARD_FROM:format(identity.source), GREY[1], GREY[2], GREY[3] },
+	}
+end
+
 -- The sender's name in a chat line with its player's nickname after it, a
 -- second-hand one in grey and marked with ~; or nil to leave the line as it
 -- is (an unknown character, or chat recognition off).
@@ -78,9 +112,9 @@ function Recognition:chatName(decorated, name, guid)
 	if not identity then
 		return nil
 	end
-	local nickname = identity.nickname
+	local nickname = self:nickname(identity)
 	if identity.source then
-		nickname = GREY .. self.L.SECOND_HAND:format(nickname) .. "|r"
+		nickname = GREY_CODE .. nickname .. "|r"
 	end
 	return self.L.CHAT_NAME:format(decorated, nickname)
 end
