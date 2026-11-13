@@ -1,0 +1,59 @@
+name: PR meta
+
+# Sets up a pull request in one job (one runner start): assigns it to the person
+# who opened it, so every pull request has an owner without a manual step, and
+# labels it from its title, so the release notes and version bump
+# (.github/configs/draft-release.yml) are right without a manual step.
+on:
+  pull_request:
+    types: [opened, reopened, edited]
+
+permissions: {}
+
+jobs:
+  meta:
+    # Fork pull requests get a read-only token and can't be labelled or edited.
+    # Dependabot pull requests can: the job's `permissions` below apply to them
+    # too. An edit that does not change the title (a description edit) changes
+    # nothing here: skip it, so it does not start a runner (a billed minute).
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      (github.event.action != 'edited' || github.event.changes.title)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read # the autolabeler reads its config
+      pull-requests: write # add labels and the assignee
+    steps:
+      # Bots (Dependabot) own nothing; a title edit does not re-assign.
+      - name: Assign the author
+        if: >-
+          github.event.action != 'edited' &&
+          github.event.pull_request.user.type != 'Bot'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          NUMBER: ${{ github.event.pull_request.number }}
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+        run: gh pr edit "$NUMBER" --add-assignee "$AUTHOR"
+      # The autolabeler of release-drafter; same version as the release job
+      # (cloudposse/github-action-auto-release) uses.
+      - uses: release-drafter/release-drafter/autolabeler@978bb0b30c5ee8cdd332ced253758157150d43f0 # v7.10.0
+        with:
+          config-name: configs/draft-release.yml
+      # The autolabeler knows only the first words listed in the config. A title it does
+      # not know gets no label, and the release notes then list the pull request above
+      # the first section. So a pull request with none of the labels the notes sort by
+      # gets `chore` (a patch, under Maintenance). Keep the list in step with the
+      # categories in configs/draft-release.yml; a hand-set label replaces `chore`.
+      - name: Label a title that matched nothing
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          labels=$(gh pr view "$NUMBER" --json labels --jq '.labels[].name')
+          if ! grep -qxE 'major|minor|feature|enhancement|bug|fix|dependencies|github_actions|python:uv|docker|documentation|chore|no-release' <<<"$labels"; then
+            gh pr edit "$NUMBER" --add-label chore
+            echo "::warning::The title starts with a word the autolabeler does not know, so the pull request got chore. Start with a word from AGENTS.md, or set the label by hand."
+          fi

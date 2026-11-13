@@ -1,0 +1,106 @@
+# release-drafter (v7 `categories` and `when` form) config for
+# cloudposse/github-action-auto-release. The next version comes from the labels
+# of the pull requests merged since the last release: the highest bump wins.
+name-template: 'v$RESOLVED_VERSION'
+tag-template: 'v$RESOLVED_VERSION'
+
+categories:
+  # Only pull requests that change the addon players install are released: what
+  # goes into the zip (the .toc, src/) and how it is packaged (.pkgmeta). Tests,
+  # docs, CI and tooling never reach the release notes or bump the version,
+  # whatever their title or label. A pull request counts if any of its files
+  # matches. Keep in sync with the `paths` filter in .github/workflows/release.yml.
+  - type: pre-include
+    when:
+      paths:
+        - 'Mnemosyne.toc'
+        - 'src/**'
+        - '.pkgmeta'
+
+  # `no-release` pull requests are left out of the notes and the version bump.
+  # Dependabot's dev-tools group (pre-commit, hererocks) gets it from its title,
+  # see the autolabeler below.
+  - type: pre-exclude
+    when:
+      label: no-release
+
+  # Release notes sections, in order. `exclusive` lists a pull request under the
+  # first section it matches only. A category's `semver-increment` (patch when
+  # omitted) is the bump its pull requests contribute; the highest one wins.
+  - title: '💥 Breaking changes'
+    semver-increment: major
+    exclusive: true
+    when:
+      label: major
+  - title: '✨ Features'
+    semver-increment: minor
+    exclusive: true
+    when:
+      labels:
+        - minor
+        - enhancement
+        - feature
+  - title: '🐛 Bug fixes'
+    exclusive: true
+    when:
+      labels:
+        - bug
+        - fix
+  - title: '📦 Dependencies'
+    exclusive: true
+    when:
+      labels:
+        - dependencies
+        - github_actions
+        - python:uv
+  - title: '📚 Documentation'
+    exclusive: true
+    when:
+      label: documentation
+  - title: '🧹 Maintenance'
+    exclusive: true
+    when:
+      label: chore
+
+  # Fallback for pull requests that match no section: a patch.
+  - type: version-resolver
+    semver-increment: patch
+
+change-template: '- $TITLE (#$NUMBER) @$AUTHOR'
+template: |
+  $CHANGES
+
+# Labels added to pull requests from their title by .github/workflows/
+# pr-meta.yml (labels are only ever added, never removed, so a label set by
+# hand stays). It matches the first word of an imperative title ("Add ...",
+# "Fix ...") and conventional commit prefixes ("feat:", "fix(roster):", "ci:",
+# "feat!:"), which is what agents write. Dependabot also sets its own labels.
+# Titles are case-insensitive; `\b` ends the word.
+autolabeler:
+  # Breaking: `type!:` or BREAKING in the title. Also set by hand.
+  - label: major
+    title:
+      - '/^\w+(\([^)]*\))?!:/'
+      - '/\bBREAKING( CHANGE)?\b/i'
+  - label: enhancement
+    title:
+      - '/^(feat|feature|perf)(\([^)]*\))?!?:/i'
+      - '/^(add|implement|introduce|support|enable|allow|create|expose|provide|extend|improve|enhance|optimi[sz]e|show|display|render)\b/i'
+  - label: bug
+    title:
+      - '/^(fix|bugfix|hotfix)(\([^)]*\))?!?:/i'
+      - '/^(fix|fixes|fixed|bugfix|hotfix|correct|repair|resolve|prevent|revert)\b/i'
+  - label: documentation
+    title:
+      - '/^docs?(\([^)]*\))?!?:/i'
+      - '/^(docs?|document|documentation|readme)\b/i'
+  # Not user-facing: CI, refactoring, tooling, cleanup, dependency bumps.
+  - label: chore
+    title:
+      - '/^(chore|refactor|ci|build|test|tests|style|deps)(\([^)]*\))?!?:/i'
+      - '/^(refactor|simplify|clean|cleanup|tidy|rename|move|remove|drop|replace|switch|migrate|update|upgrade|bump|pin|use|harden|group|skip|scan|check|lint|format|label|run|test|configure|tighten|restrict|deprecate|merge|reword|rewrite|reorder|tweak|polish|align)\b/i'
+  # Dependabot's dev-tools group (dependabot.yml): development tools only, so
+  # not part of a release.
+  - label: no-release
+    title:
+      - '/\bdev-tools\b/i'

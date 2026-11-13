@@ -1,0 +1,5 @@
+# A pure core, two adapters, no libraries
+
+The rules live in four pure modules that never call the WoW API: `Memory` (identities, first-hand wins, revisions, disputes, the cap, digests), `Self` (your characters' registrations), `Protocol` (the wire format, chunking, validating what peers send) and `Sync` (the digest exchange and its cooldowns). They take the clock and their saved tables as arguments, so busted tests them outside the game, including a simulation of several peers wired by an in-memory transport. Two adapters face the game: `Client` (events, addon messages, the paced queue, lockdown, saved variables) and `Interface` (the registration prompt, the settings panel, tooltip and chat recognition, slash commands, locales). We chose this over one file per feature (registration, recognition, tooltip, commands...), which would make thin modules over the same data and leave the rules untestable outside the client.
+
+No library is embedded (Ace3, ChatThrottleLib, LibDeflate), against the habit of most addons: the queue, the hash and the locale table are small, and nothing then waits on a library's support for WoW Forever.

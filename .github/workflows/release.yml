@@ -1,0 +1,156 @@
+name: Release
+
+# Runs when code reaches `main` (CI, which gates pull requests, is ci.yml).
+# Every merge that changes the addon updates the draft release notes. A release
+# is published, with its zip attached, only on a manual run with `publish`
+# ticked. Manual runs work from `main` only; the draft is published after its
+# zip is attached (docs/decisions/0002-releases-from-main-with-the-packager.md).
+on:
+  push:
+    branches: [main]
+    # Only changes to the addon players install. Keep in sync with the
+    # pre-include category in .github/configs/draft-release.yml.
+    paths:
+      - 'Mnemosyne.toc'
+      - 'src/**'
+      - '.pkgmeta'
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish the release now instead of only updating the draft
+        type: boolean
+        default: false
+
+permissions: {}
+
+# One run at a time, so two quick merges can't race on the same draft.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  # A manual run can pick any branch, and a release run writes tags: only
+  # `main` may run it. A run from another ref fails here, red, instead of every
+  # job being skipped, green.
+  main-only:
+    if: github.ref != 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    steps:
+      - run: |
+          echo "::error::the release workflow runs from main only (this run is on $GITHUB_REF)"
+          exit 1
+
+  release:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write # create the draft and its tag
+      pull-requests: read # read the merged PRs' titles and labels
+    outputs:
+      resolved_version: ${{ steps.drafter.outputs.resolved_version }}
+    steps:
+      # Version bump and notes come from the PR labels, see
+      # .github/configs/draft-release.yml.
+      - id: drafter
+        uses: cloudposse/github-action-auto-release@8f9b7192d095af697c5900235e4aecf930663f28 # v4.0.1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          # Always a draft here: publishing is the `publish` job, after the zip
+          # is attached.
+          publish: false
+          # Must be set: the action pastes it into a JavaScript comparison.
+          prerelease: false
+          latest: true
+      # A publishing run must have a version to publish (the action leaves it
+      # empty when nothing is releasable).
+      - name: Refuse to publish nothing
+        if: github.event_name == 'workflow_dispatch' && inputs.publish && steps.drafter.outputs.resolved_version == ''
+        run: |
+          echo "::error::no release version was resolved: nothing to publish"
+          exit 1
+
+  # Builds the zip with the BigWigsMods packager, which replaces
+  # @project-version@ in the .toc with the release tag, uploads it to
+  # CurseForge, and attaches it to the draft with the release.json WoWUp reads
+  # (docs/decisions/0005-distribution.md). The tag exists only locally here:
+  # GitHub creates it when the draft is published.
+  package:
+    needs: release
+    if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.publish && needs.release.outputs.resolved_version != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write # upload the zip to the draft
+    env:
+      TAG: v${{ needs.release.outputs.resolved_version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # the packager reads the version from git
+          persist-credentials: false
+      - name: Tag the commit locally
+        run: git tag "$TAG"
+      # Upload to CurseForge and Wago only once their projects exist: the
+      # repository variables CF_PROJECT_ID and WAGO_PROJECT_ID, with the secrets
+      # CF_API_TOKEN and WAGO_API_TOKEN (CONTRIBUTING.md, Releases). With
+      # neither variable, build only (-d). No GitHub token is given to the
+      # packager: the zip is attached below, to the draft.
+      - name: Choose the uploads
+        id: uploads
+        env:
+          CF_PROJECT_ID: ${{ vars.CF_PROJECT_ID }}
+          WAGO_PROJECT_ID: ${{ vars.WAGO_PROJECT_ID }}
+        run: |
+          args=()
+          if [[ -n $CF_PROJECT_ID ]]; then
+            args+=(-p "$CF_PROJECT_ID")
+          else
+            echo "::notice::CF_PROJECT_ID is not set: CurseForge upload skipped"
+          fi
+          if [[ -n $WAGO_PROJECT_ID ]]; then
+            args+=(-a "$WAGO_PROJECT_ID")
+          else
+            echo "::notice::WAGO_PROJECT_ID is not set: Wago upload skipped"
+          fi
+          (( ${#args[@]} )) || args=(-d)
+          echo "args=${args[*]}" >> "$GITHUB_OUTPUT"
+      - uses: BigWigsMods/packager@01e8631a69c69d7654c788d152630d5fed9e3812 # v2.7.0
+        env:
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          WAGO_API_TOKEN: ${{ secrets.WAGO_API_TOKEN }}
+        with:
+          args: ${{ steps.uploads.outputs.args }}
+          pandoc: false
+      # The packager writes release.json only when it uploads to GitHub itself.
+      # WoWUp picks the zip from it by flavor; same fields as the packager's.
+      - name: Write release.json
+        run: |
+          zip=$(basename .release/*.zip)
+          interface=$(sed -n 's/^## Interface: *\([0-9]*\).*/\1/p' Mnemosyne.toc)
+          jq -n --arg tag "$TAG" --arg zip "$zip" --argjson interface "$interface" '{releases: [{
+            name: "Mnemosyne", version: $tag, filename: $zip, nolib: false,
+            metadata: [{flavor: "forever", interface: $interface}]
+          }]}' > .release/release.json
+          cat .release/release.json
+      - name: Attach the zip and release.json to the draft
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "$TAG" .release/*.zip .release/release.json --repo "$GITHUB_REPOSITORY" --clobber
+
+  # The draft becomes the published, latest release only once its zip is
+  # attached: a failed build leaves a draft, not a release without a download.
+  publish:
+    needs: [release, package]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.publish && needs.release.outputs.resolved_version != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write # publish the release
+    steps:
+      - name: Publish the draft
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: v${{ needs.release.outputs.resolved_version }}
+        run: gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest

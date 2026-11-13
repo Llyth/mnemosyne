@@ -1,0 +1,3 @@
+# StyLua's defaults (tabs, the usual style of WoW addons), with the line length
+# luacheck allows.
+column_width = 120

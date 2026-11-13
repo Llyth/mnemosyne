@@ -1,0 +1,38 @@
+name: Cache warm
+
+# A cache written by a pull request is visible to that branch only, so every new
+# pull request would start cold (uv and the Lua build). Caches written on `main`
+# are visible to all branches: this refills them after each merge that can
+# change them. It tests nothing and publishes nothing.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - 'scripts/setup-lua.sh'
+      - '.github/actions/**'
+      - '.github/workflows/cache-warm.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One run per merge, none cancelled: a run cancelled by the next merge would
+# leave its caches cold.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  warm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Restores or writes the uv cache and the .lua cache, exactly as ci.yml does.
+      - uses: $/.github/actions/setup

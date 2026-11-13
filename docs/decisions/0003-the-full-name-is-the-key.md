@@ -1,0 +1,7 @@
+# The full name is the key
+
+An identity is stored under the character's full name, `First Last`, exactly as the sender of an addon message gives it. On WoW Forever a full name is unique within the region and there are no realms, and the sender is set by the server, so a peer cannot speak first-hand for another character. We chose it over the GUID, which survives a rename, because no addon message carries the sender's GUID: a GUID inside the message would be a claim anyone could copy. A renamed character registers again as a new identity; the old one stays, with when it was last heard, until it is forgotten or the cap pushes it out.
+
+Forever lets a player hide their surname in the world ("My Secondary Name"), so a tooltip can give only a first name, and first names repeat. For that case Mnemosyne keeps, for the session only, which GUID goes with which full name, learned from chat lines (they carry both) and from group members; the GUID is a lookup aid there, never a key.
+
+A full name can come back: after a character is deleted or renamed, another player can take the name, and a stranger without Mnemosyne would show the old nickname forever, since nothing would ever correct it. So an identity also carries its character's GUID when Mnemosyne has seen it reliably (in a chat line or a group), and syncs pass it along. When the full name shows up with another GUID, the identity is stale: hidden everywhere until the new character speaks first-hand. A forged GUID can only hide an identity, never change it.

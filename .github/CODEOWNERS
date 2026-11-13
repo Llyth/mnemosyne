@@ -1,0 +1,15 @@
+# Code owners: GitHub requests a review from the owner of every file a pull
+# request changes. The last matching pattern wins.
+
+# Everything
+* @Llyth
+
+# Sensitive paths, listed on their own so the intent is visible: what other
+# players' addons send us, and what reaches players.
+/src/Protocol.lua @Llyth
+/src/Nickname.lua @Llyth
+/.pkgmeta @Llyth
+/.github/workflows/ @Llyth
+/docs/decisions/ @Llyth
+/SECURITY.md @Llyth
+/AGENTS.md @Llyth
