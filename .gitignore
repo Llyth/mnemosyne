@@ -1,5 +1,6 @@
-# Project-local Lua and LuaRocks (scripts/setup-lua.sh)
-/.lua/
+# Project-local Lua and LuaRocks (scripts/setup-lua.sh); no trailing slash, so
+# it also ignores the .lua symlink a worktree makes to the main checkout's
+/.lua
 
 # Packager output (BigWigsMods packager)
 /.release/
