@@ -250,6 +250,27 @@ describe("Protocol for syncs", function()
 			assert.same(message, roundTripSplit(message))
 		end)
 
+		it("carries the GUID of an identity that has one", function()
+			local message = {
+				kind = "identities",
+				identities = {
+					{ name = "Hugh Jass", nickname = "Tony", revision = 900, guid = "Player-1-0A1B2C3D" },
+					{ name = "Anna Conda", revision = 901 },
+					{ name = "Cole Slaw", revision = 902, guid = "Player-4184-00000001" },
+				},
+			}
+			assert.same(message, roundTripSplit(message))
+		end)
+
+		it("puts each GUID on a line of its own, which an older peer drops as an identity it cannot read", function()
+			local text = Protocol.write({
+				kind = "identities",
+				identities = { { name = "Hugh Jass", nickname = "Tony", revision = 900, guid = "Player-1-0A1B2C3D" } },
+			})
+			assert.equal("1:I:900:Hugh Jass:Tony\nG:Player-1-0A1B2C3D", text)
+			assert.is_nil(("G:Player-1-0A1B2C3D"):match("^[1-9]%d*:"))
+		end)
+
 		it("carries the end of a sync", function()
 			assert.same({ kind = "done" }, roundTripSplit({ kind = "done" }))
 		end)
@@ -277,12 +298,55 @@ describe("Protocol for syncs", function()
 
 		it("drops identities that hold more than a batch, so one message never costs more than 16", function()
 			local lines = {}
-			for i = 1, Protocol.MAX_IDENTITIES + 1 do
+			for i = 1, Protocol.MAX_LINES + 1 do
 				lines[i] = "1:Peer" .. i .. " Last"
 			end
 			assertDropped("1:I:" .. table.concat(lines, "\n"), "oversized")
 			lines[#lines] = nil
-			assert.equal(Protocol.MAX_IDENTITIES, #readSplit("1:I:" .. table.concat(lines, "\n")).identities)
+			assert.equal(Protocol.MAX_LINES, #readSplit("1:I:" .. table.concat(lines, "\n")).identities)
+		end)
+
+		it("counts a GUID's line toward the 16 lines of a batch", function()
+			local lines = {}
+			for i = 1, Protocol.MAX_LINES / 2 do
+				lines[#lines + 1] = "1:Peer" .. i .. " Last"
+				lines[#lines + 1] = "G:Player-1-0000000" .. i
+			end
+			assert.equal(Protocol.MAX_LINES / 2, #readSplit("1:I:" .. table.concat(lines, "\n")).identities)
+			lines[#lines + 1] = "1:Hugh Jass"
+			assertDropped("1:I:" .. table.concat(lines, "\n"), "oversized")
+		end)
+
+		it("drops a GUID that does not look like a character's, and keeps its identity", function()
+			for _, guid in ipairs({
+				"",
+				"Creature-0-1-2-3-4-5",
+				"Player-1-|cffff0000",
+				"Player-1-0A1B2C3D\0",
+				"Player--0A1B2C3D",
+				"Player-1-" .. string.rep("0", 30),
+			}) do
+				assert.same(
+					{ kind = "identities", identities = { { name = "Hugh Jass", revision = 900 } } },
+					readSplit("1:I:900:Hugh Jass\nG:" .. guid),
+					guid
+				)
+			end
+		end)
+
+		it("gives a GUID only to the identity on the line just before it", function()
+			assert.same(
+				{ kind = "identities", identities = { { name = "Hugh Jass", revision = 900 } } },
+				readSplit("1:I:G:Player-1-00000001\n900:Hugh Jass\n0:Anna Conda\nG:Player-1-00000002")
+			)
+			assert.same({
+				kind = "identities",
+				identities = { { name = "Hugh Jass", revision = 900, guid = "Player-1-00000001" } },
+			}, readSplit("1:I:900:Hugh Jass\nG:Player-1-00000001\nG:Player-1-00000002"))
+		end)
+
+		it("drops identities made of GUIDs alone", function()
+			assertDropped("1:I:G:Player-1-00000001", "malformed")
 		end)
 
 		it("drops only the identities that do not parse, and keeps the others", function()

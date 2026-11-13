@@ -26,11 +26,16 @@ function Recognition.new(memory, settings, L, clock)
 end
 
 -- Learns that a GUID belongs to a full name, from a chat line or a group
--- member, for this session. Only a character the memory knows is learned, so
--- the map stays small in busy channels; a missing GUID teaches nothing.
+-- member: the memory sees it (an identity whose name shows up with another
+-- GUID goes stale), and the map keeps it for this session. Only a character
+-- the memory knows is mapped, so the map stays small in busy channels; a
+-- missing GUID teaches nothing.
 function Recognition:learn(guid, fullName)
-	if guid and guid ~= "" and self.memory:recall(fullName) then
-		self.fullNames[guid] = fullName
+	if guid and guid ~= "" then
+		self.memory:see(fullName, guid)
+		if self.memory:recall(fullName) then
+			self.fullNames[guid] = fullName
+		end
 	end
 end
 

@@ -550,3 +550,173 @@ describe("Memory, second-hand", function()
 		end)
 	end)
 end)
+
+describe("Memory, stale", function()
+	local OLD, NEW = "Player-1-00000001", "Player-1-00000002"
+	local now, memory
+
+	local function clock()
+		return now
+	end
+
+	local function hearFrom(source, name, nickname, revision, guid)
+		return memory:hear(name, { nickname = nickname, revision = revision, source = source, guid = guid })
+	end
+
+	-- What the memory passes on to a peer that holds nothing.
+	local function passedOn()
+		return memory:missing(Memory.new({}, clock):digest())
+	end
+
+	before_each(function()
+		now = 1000
+		memory = Memory.new({}, clock)
+		memory:hear("Hugh Jass", { nickname = "Tony", revision = 900 })
+	end)
+
+	it("keeps the GUID it sees a character with, and passes it on", function()
+		memory:see("Hugh Jass", OLD)
+		assert.same({ { name = "Hugh Jass", nickname = "Tony", revision = 900, guid = OLD } }, passedOn())
+		assert.equal("Tony", memory:recall("Hugh Jass").nickname)
+	end)
+
+	it("learns nothing from the GUID of a character it does not know", function()
+		memory:see("Anna Conda", OLD)
+		assert.is_nil(memory.identities["Anna Conda"])
+	end)
+
+	it("keeps showing a character seen again with the same GUID", function()
+		memory:see("Hugh Jass", OLD)
+		memory:see("Hugh Jass", OLD)
+		assert.equal("Tony", memory:recall("Hugh Jass").nickname)
+	end)
+
+	it("hides a stale identity everywhere: its full name shows up with another GUID", function()
+		memory:see("Hugh Jass", OLD)
+		memory:see("Hugh Jass", NEW)
+		assert.is_nil(memory:recall("Hugh Jass"))
+		assert.same({}, memory:search("Tony"))
+		assert.equal(0, memory:count())
+	end)
+
+	it("does not count a stale identity as known, so it asks the new character", function()
+		memory:see("Hugh Jass", OLD)
+		memory:see("Hugh Jass", NEW)
+		assert.is_false(memory:knows("Hugh Jass"))
+	end)
+
+	it("never passes on a stale identity, but keeps it in its digest so peers holding it still match", function()
+		local other = Memory.new({}, clock)
+		other:hear("Hugh Jass", { nickname = "Tony", revision = 900, source = "Barb Dwyer" })
+		memory:see("Hugh Jass", OLD)
+		memory:see("Hugh Jass", NEW)
+		assert.equal(other:digest(), memory:digest())
+		assert.same({}, passedOn())
+	end)
+
+	it("lets the new character's first-hand message replace a stale identity, whatever its revision", function()
+		memory:see("Hugh Jass", OLD)
+		memory:see("Hugh Jass", NEW)
+		now = 2000
+		assert.is_true(memory:hear("Hugh Jass", { nickname = "Bob", revision = 800 }))
+		assert.same({ nickname = "Bob", revision = 800, firstHand = true, heard = 2000 }, memory:recall("Hugh Jass"))
+		memory:see("Hugh Jass", NEW)
+		assert.equal("Bob", memory:recall("Hugh Jass").nickname)
+		assert.equal(NEW, passedOn()[1].guid)
+	end)
+
+	it("never lets a second-hand copy replace a stale identity", function()
+		hearFrom("Barb Dwyer", "Anna Conda", "Ann", 900)
+		memory:see("Anna Conda", OLD)
+		memory:see("Anna Conda", NEW)
+		assert.is_false(hearFrom("Cole Slaw", "Anna Conda", "Ann", 1900, NEW))
+		assert.is_nil(memory:recall("Anna Conda"))
+	end)
+
+	it("keeps the GUID while the character repeats its registration first-hand", function()
+		memory:see("Hugh Jass", OLD)
+		memory:hear("Hugh Jass", { nickname = "Tony", revision = 900 })
+		memory:see("Hugh Jass", NEW)
+		assert.is_nil(memory:recall("Hugh Jass"))
+	end)
+
+	it("keeps the GUID through a new registration, so a name taken since goes stale when seen", function()
+		memory:see("Hugh Jass", OLD)
+		memory:hear("Hugh Jass", { nickname = "Bob", revision = 1900 })
+		memory:see("Hugh Jass", NEW)
+		assert.is_nil(memory:recall("Hugh Jass"))
+	end)
+
+	it("keeps the GUID it holds when a peer passes on a later revision, so a forged GUID cannot stop a hide", function()
+		hearFrom("Barb Dwyer", "Anna Conda", "Ann", 900)
+		memory:see("Anna Conda", OLD)
+		hearFrom("Cole Slaw", "Anna Conda", "Annie", 1900)
+		hearFrom("Mallory Knox", "Anna Conda", "Annie", 1901, NEW)
+		memory:see("Anna Conda", NEW)
+		assert.is_nil(memory:recall("Anna Conda"))
+	end)
+
+	it("learns the GUID passed on with a second-hand identity, and passes it on", function()
+		hearFrom("Barb Dwyer", "Anna Conda", "Ann", 900, OLD)
+		local passed = memory:missing(Memory.new({}, clock):digest())
+		table.sort(passed, function(a, b)
+			return a.name < b.name
+		end)
+		assert.equal(OLD, passed[1].guid)
+	end)
+
+	it("lets a GUID passed on only hide an identity, never change it", function()
+		hearFrom("Mallory Knox", "Anna Conda", "Ann", 900, NEW)
+		memory:see("Anna Conda", OLD)
+		assert.is_nil(memory:recall("Anna Conda"))
+		memory:see("Hugh Jass", OLD)
+		assert.is_false(hearFrom("Mallory Knox", "Hugh Jass", "Tony", 900, NEW))
+		hearFrom("Barb Dwyer", "Cole Slaw", "Cole", 900, OLD)
+		assert.is_false(hearFrom("Mallory Knox", "Cole Slaw", "Cole", 900, NEW))
+		memory:see("Cole Slaw", OLD)
+		assert.equal("Cole", memory:recall("Cole Slaw").nickname)
+	end)
+
+	it("shows again an identity a forged GUID hid once the character speaks first-hand", function()
+		hearFrom("Mallory Knox", "Anna Conda", "Ann", 900, NEW)
+		memory:hear("Anna Conda", { nickname = "Ann", revision = 900 })
+		memory:see("Anna Conda", OLD)
+		assert.is_false(memory:knows("Anna Conda")) -- so it is asked
+		memory:hear("Anna Conda", { nickname = "Ann", revision = 900 })
+		memory:see("Anna Conda", OLD)
+		assert.equal("Ann", memory:recall("Anna Conda").nickname)
+	end)
+
+	it("keeps a stale second-hand identity in its drop queue", function()
+		hearFrom("Barb Dwyer", "Anna Conda", "Ann", 900)
+		memory:see("Anna Conda", OLD)
+		memory:see("Anna Conda", NEW)
+		local entry = memory.queue[memory.queueEnd]
+		assert.equal(memory.identities["Anna Conda"], entry.known)
+	end)
+
+	it("keeps its digest the same as one hashed anew while identities go stale", function()
+		local saved = {}
+		memory = Memory.new(saved, clock)
+		math.randomseed(7)
+		for _ = 1, 2000 do
+			now = now + 1
+			local name = "Hugh Jass" .. math.random(50)
+			local roll = math.random(3)
+			if roll == 1 then
+				memory:see(name, "Player-1-" .. math.random(2))
+			elseif roll == 2 then
+				memory:hear(name, { nickname = "Tony", revision = 900 + math.random(3) })
+			else
+				hearFrom(
+					"Peer" .. math.random(10),
+					name,
+					"Antoine",
+					900 + math.random(3),
+					"Player-1-" .. math.random(2)
+				)
+			end
+		end
+		assert.equal(Memory.new(saved, clock):digest(), memory:digest())
+	end)
+end)

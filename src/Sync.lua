@@ -98,8 +98,7 @@ local function answer(self, peer, digest, now, outgoing)
 		for i = 1, math.min(#missing, Memory.MAX_CHANGES_PER_PEER) do
 			chosen[i] = missing[(now + i) % #missing + 1]
 		end
-		for first = 1, #chosen, Protocol.MAX_IDENTITIES do
-			local batch = { unpack(chosen, first, first + Protocol.MAX_IDENTITIES - 1) }
+		for _, batch in ipairs(Protocol.batch(chosen)) do
 			send(outgoing, peer, { kind = "identities", identities = batch })
 		end
 	end
@@ -215,6 +214,7 @@ function Sync:receive(peer, message)
 					nickname = identity.nickname,
 					revision = identity.revision,
 					source = peer,
+					guid = identity.guid,
 				})
 			then
 				-- Only what is new: a peer re-sending what this side knows would hold a place forever.

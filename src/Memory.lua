@@ -8,9 +8,11 @@
 -- unregistering and anonymous are revisions without a nickname; at most
 -- 20,000 second-hand identities are kept (the oldest heard dropped first) and
 -- at most 1,000 changes (new, later, removed or disputed) accepted from one
--- peer a day. A forgotten character's second-hand copies are refused (only
--- the player's choice, nobody is told). Staleness joins it later, behind the
--- same hear and recall.
+-- peer a day. Staleness too (decision 0003): an identity keeps its
+-- character's GUID once seen in the game (see) or passed on with it, and goes
+-- stale, hidden until its full name speaks first-hand, when the name shows up
+-- with another GUID. A forgotten character's second-hand copies are refused
+-- (only the player's choice, nobody is told).
 local _, ns = ...
 
 local Memory = {}
@@ -105,7 +107,9 @@ end
 
 -- Adds (sign 1) or takes out (sign -1) an identity's hash, with its revision
 -- and nickname, in the sum of its bucket for the digest. A disputed identity
--- is left out.
+-- is left out. A stale one is not, so peers still holding the same old copy
+-- match; nor is the GUID hashed, or peers that know it and peers that do not
+-- would never match: neither changes a sum.
 local function sum(self, name, known, sign)
 	if known and not known.disputed then
 		local bucket = bucketOf(name) + 1
@@ -123,7 +127,7 @@ end
 
 -- Queues a second-hand identity to be dropped after the ones heard before it.
 -- An entry stays live while the identity it holds is the one stored for its
--- name; once stale entries outnumber the live ones, the queue keeps the live
+-- name; once dead entries outnumber the live ones, the queue keeps the live
 -- ones only, in order, so a long session of changes cannot grow it unbounded.
 local function queue(self, name, known)
 	self.queueEnd = self.queueEnd + 1
@@ -228,7 +232,7 @@ local function hearSecondHand(self, name, heard, known)
 		return false
 	end
 	if known then
-		if known.firstHand or known.revision > heard.revision then
+		if known.firstHand or known.stale or known.revision > heard.revision then
 			return false
 		elseif known.revision == heard.revision and (known.disputed or known.nickname == heard.nickname) then
 			return false
@@ -255,6 +259,10 @@ local function hearSecondHand(self, name, heard, known)
 		firstHand = false,
 		source = heard.source,
 		heard = now,
+		-- The GUID held stays, whatever the peer says: if the name changed hands,
+		-- better hidden until it speaks than shown on another character, and a
+		-- forged GUID never stops it going stale.
+		guid = known and known.guid or heard.guid,
 	}
 	store(self, name, stored)
 	queue(self, name, stored)
@@ -263,14 +271,14 @@ end
 
 -- Hears an identity: heard.nickname and heard.revision, or heard.revision
 -- alone when the character unregistered or is anonymous; heard.source, the
--- peer that passed it on, when it is second-hand. Returns true when the
--- identity changed.
+-- peer that passed it on, and heard.guid, the GUID it passed on with it, when
+-- it is second-hand. Returns true when the identity changed.
 --
--- First-hand (from the character itself), it replaces any second-hand copy,
--- and a revision older than the first-hand one held is ignored. Second-hand,
--- it never replaces a first-hand identity, a later revision wins (but not one
--- more than a day ahead of the clock), and the same revision with another
--- nickname makes the identity disputed.
+-- First-hand (from the character itself), it replaces any second-hand copy
+-- and a stale identity, and a revision older than the first-hand one held is
+-- ignored. Second-hand, it never replaces a first-hand or stale identity, a
+-- later revision wins (but not one more than a day ahead of the clock), and the
+-- same revision with another nickname makes the identity disputed.
 function Memory:hear(name, heard)
 	local known = self.identities[name]
 	if heard.source and self:isForgotten(name) then
@@ -278,29 +286,56 @@ function Memory:hear(name, heard)
 	elseif heard.source then
 		return hearSecondHand(self, name, heard, known)
 	end
-	if known and known.firstHand and known.revision > heard.revision then
+	if known and known.firstHand and not known.stale and known.revision > heard.revision then
 		return false
 	end
 	if known and not known.firstHand then
 		self.secondHand = self.secondHand - 1
 	end
+	-- The GUID stays, even a peer's or one from before a new registration: if it
+	-- is not this character's, the identity goes stale when the character is
+	-- seen, and is asked as a stranger, until it speaks first-hand again.
 	store(self, name, {
 		nickname = heard.nickname,
 		revision = heard.revision,
 		firstHand = true,
 		heard = self.clock(),
+		guid = known and known.guid,
 	})
 	return true
 end
 
--- Whether an identity shows: it has a nickname and is not disputed.
+-- Sees a character's GUID where the game gives it reliably: a chat line or a
+-- group member. An identity without a GUID takes it. One held with another
+-- GUID goes stale: its full name now belongs to another character (the old
+-- one was deleted or renamed), so it is hidden until the name speaks
+-- first-hand, and keeps the new GUID for that character. Neither changes the
+-- digest's sums (sum), so the identity is changed in place, keeping its place
+-- in the drop queue.
+function Memory:see(name, guid)
+	local known = self.identities[name]
+	if known and known.guid ~= guid then
+		if known.guid then
+			known.stale = true
+		end
+		known.guid = guid
+	end
+end
+
+-- Whether an identity is passed on (and shows, with a nickname): neither
+-- disputed nor stale.
+local function passesOn(known)
+	return not known.disputed and not known.stale
+end
+
+-- Whether an identity shows: it has a nickname and is passed on.
 local function shows(known)
-	return known and known.nickname and not known.disputed
+	return known and known.nickname and passesOn(known)
 end
 
 -- Recalls the identity of a character: { nickname, revision, firstHand,
--- source, heard }, a copy, or nil when its player's nickname is not known or
--- is disputed.
+-- source, heard }, a copy, or nil when its player's nickname is not known, is
+-- disputed or is stale.
 function Memory:recall(name)
 	local known = self.identities[name]
 	if not shows(known) then
@@ -334,8 +369,8 @@ function Memory:search(text)
 	return found
 end
 
--- How many identities show (a nickname, not disputed); only first-hand ones
--- when firstHandOnly is true.
+-- How many identities show (a nickname, neither disputed nor stale); only
+-- first-hand ones when firstHandOnly is true.
 function Memory:count(firstHandOnly)
 	local count = 0
 	for _, known in pairs(self.identities) do
@@ -347,10 +382,11 @@ function Memory:count(firstHandOnly)
 end
 
 -- Whether it heard a character itself (first-hand): a nickname, or that the
--- character has none (it unregistered or is anonymous).
+-- character has none (it unregistered or is anonymous). Not a stale identity:
+-- the character that took its name is a stranger.
 function Memory:knows(name)
 	local known = self.identities[name]
-	return known ~= nil and known.firstHand == true
+	return known ~= nil and known.firstHand == true and not known.stale
 end
 
 -- The digest of the memory, for a sync (decision 0002): each identity, hashed
@@ -369,9 +405,9 @@ function Memory:digest()
 end
 
 -- What to pass on to a peer, from its digest: every identity in a bucket whose
--- digest differs from this memory's, as { name, nickname, revision }, removals
--- included; never a disputed one. The peer keeps what is newer than what it
--- holds.
+-- digest differs from this memory's, as { name, nickname, revision, guid },
+-- removals included, guid when known; never a disputed or stale one. The peer
+-- keeps what is newer than what it holds.
 function Memory:missing(digest)
 	local mine = self:digest()
 	local differs = {}
@@ -381,8 +417,8 @@ function Memory:missing(digest)
 	end
 	local found = {}
 	for name, known in pairs(self.identities) do
-		if not known.disputed and differs[bucketOf(name)] then
-			found[#found + 1] = { name = name, nickname = known.nickname, revision = known.revision }
+		if passesOn(known) and differs[bucketOf(name)] then
+			found[#found + 1] = { name = name, nickname = known.nickname, revision = known.revision, guid = known.guid }
 		end
 	end
 	return found
