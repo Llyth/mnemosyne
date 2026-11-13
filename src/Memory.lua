@@ -251,7 +251,7 @@ local function hearSecondHand(self, name, heard, known)
 	elseif known.revision == heard.revision then
 		sum(self, name, known, -1)
 		known.disputed = true
-		return true
+		return true, "disputed"
 	end
 	local stored = {
 		nickname = heard.nickname,
@@ -272,7 +272,8 @@ end
 -- Hears an identity: heard.nickname and heard.revision, or heard.revision
 -- alone when the character unregistered or is anonymous; heard.source, the
 -- peer that passed it on, and heard.guid, the GUID it passed on with it, when
--- it is second-hand. Returns true when the identity changed.
+-- it is second-hand. Returns true when the identity changed, and "disputed"
+-- after it when it became disputed.
 --
 -- First-hand (from the character itself), it replaces any second-hand copy
 -- and a stale identity, and a revision older than the first-hand one held is

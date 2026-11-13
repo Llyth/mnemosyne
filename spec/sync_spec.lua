@@ -202,6 +202,35 @@ describe("Sync", function()
 		assert.is_nil(memory:recall("Anna Conda"))
 	end)
 
+	it("returns the identities a peer passed on that changed the memory, for news", function()
+		sync:request("Barb Dwyer", now)
+		sync:receive("Barb Dwyer", { kind = "digest", digest = emptyDigest() })
+		local ann = { name = "Anna Conda", nickname = "Ann", revision = 901 }
+		local outgoing, learned = sync:receive("Barb Dwyer", {
+			kind = "identities",
+			identities = { ann, { name = "Hugh Jass", nickname = "Tony", revision = 900 } },
+		})
+		assert.same({}, outgoing)
+		assert.same({ ann }, learned)
+	end)
+
+	it("marks a change that made an identity disputed, for news", function()
+		sync:request("Barb Dwyer", now)
+		sync:receive("Barb Dwyer", { kind = "digest", digest = emptyDigest() })
+		local _, learned = sync:receive("Barb Dwyer", {
+			kind = "identities",
+			identities = { { name = "Anna Conda", nickname = "Ann", revision = 901 } },
+		})
+		assert.is_nil(learned[1].disputed)
+		sync:request("Mallory Knox", now)
+		sync:receive("Mallory Knox", { kind = "digest", digest = emptyDigest() })
+		_, learned = sync:receive("Mallory Knox", {
+			kind = "identities",
+			identities = { { name = "Anna Conda", nickname = "Mallory", revision = 901 } },
+		})
+		assert.is_true(learned[1].disputed)
+	end)
+
 	it("drops identities a peer sends before its digest", function()
 		sync:request("Mallory Knox", now)
 		sync:receive("Mallory Knox", {

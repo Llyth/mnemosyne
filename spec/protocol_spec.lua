@@ -502,3 +502,78 @@ describe("Protocol for syncs", function()
 		end)
 	end)
 end)
+
+describe("Protocol for news", function()
+	it("carries one identity, a nickname or a removal, and its GUID when known", function()
+		for _, identity in ipairs({
+			{ name = "Hugh Jass", nickname = "Tony: the tank", revision = 900 },
+			{ name = "Anna Conda", revision = 901 },
+			{ name = "Cole Slaw", nickname = "Cole", revision = 902, guid = "Player-1-0A1B2C3D" },
+			{ name = "Barb Dwyer", revision = 903, guid = "Player-4184-00000001" },
+		}) do
+			local message = { kind = "news", identity = identity }
+			assert.same(message, roundTrip(message))
+		end
+		assert.equal(
+			"1:P:900:Hugh Jass:Tony",
+			Protocol.write({
+				kind = "news",
+				identity = { name = "Hugh Jass", nickname = "Tony", revision = 900 },
+			})
+		)
+		assert.equal(
+			"1:P:900:Hugh Jass:Tony\nG:Player-1-0A1B2C3D",
+			Protocol.write({
+				kind = "news",
+				identity = { name = "Hugh Jass", nickname = "Tony", revision = 900, guid = "Player-1-0A1B2C3D" },
+			})
+		)
+	end)
+
+	it("keeps the news kind apart from the GUID lines of identities: 1:G is no message", function()
+		local message, why = Protocol.read("1:G:900:Hugh Jass:Tony")
+		assert.is_nil(message)
+		assert.equal("malformed", why)
+	end)
+
+	it("fits the longest identity and GUID in one message", function()
+		local text = Protocol.write({
+			kind = "news",
+			identity = {
+				name = "Hugh " .. string.rep("a", 59),
+				nickname = string.rep("😀", 32),
+				revision = 99999999999999,
+				guid = "Player-1-" .. string.rep("F", Protocol.MAX_GUID_BYTES - #"Player-1-"),
+			},
+		})
+		assert.is_true(#text <= Protocol.MAX_MESSAGE_BYTES)
+	end)
+
+	it("drops a GUID in news that does not look like a character's, and keeps its identity", function()
+		for _, guid in ipairs({ "", "Creature-0-1-2-3-4-5", "Player-1-|cffff0000", "Player-1-" .. string.rep("0", 30) }) do
+			assert.same(
+				{ kind = "news", identity = { name = "Hugh Jass", revision = 900 } },
+				Protocol.read("1:P:900:Hugh Jass\nG:" .. guid),
+				guid
+			)
+		end
+	end)
+
+	it("drops news that does not hold exactly one valid identity", function()
+		for text, reason in pairs({
+			["1:P"] = "malformed",
+			["1:P:"] = "malformed",
+			["1:P:900"] = "malformed",
+			["1:P:0:Hugh Jass:Tony"] = "malformed",
+			["1:P:900:Hugh:Tony"] = "malformed",
+			["1:P:900:Hugh Jass:"] = "nickname",
+			["1:P:900:Hugh Jass:|cffff0000Tony|r"] = "nickname",
+			["1:P:900:Hugh Jass:Tony\n901:Anna Conda"] = "nickname",
+			["1:P:G:Player-1-00000001"] = "malformed",
+		}) do
+			local message, why = Protocol.read(text)
+			assert.is_nil(message, text)
+			assert.equal(reason, why, text)
+		end
+	end)
+end)

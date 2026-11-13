@@ -18,6 +18,7 @@ local TICK = 0.25 -- seconds between two looks at the queue
 local MAX_ANSWERS = 20 -- once this many jobs wait, an ask is dropped, not answered
 local BYTES_PER_SECOND = 1000 -- the paced queue's pace, all messages together (decision 0002)
 local SYNC_TICK = 5 -- seconds between two looks at the syncs (cut, start waiting ones)
+local NEWS_TICK = 1 -- seconds between two looks at the news due
 local LOGIN_WINDOW, LOGIN_SYNCS = 60, 3 -- after login, sync with the first 3 peers answering within a minute
 -- Chunks the sync queue holds at most, about a whole memory's worth: what comes
 -- beyond is dropped, so peers asking for syncs one after another cannot grow it.
@@ -83,6 +84,8 @@ end
 local function compose(job)
 	if job.text then
 		return job.text, "WHISPER", job.target, job.kind
+	elseif job.news then
+		return Protocol.write({ kind = "news", identity = job.news }), "GUILD", nil, "news"
 	end
 	local message = ns.characters:message(playerName, job.kind)
 	if not message then
@@ -219,6 +222,20 @@ local function sendSync(outgoing)
 	end
 end
 
+-- Queues one news due, to the guild if any, once the queue is empty: until
+-- then, and in combat or in lockdown, news waits in News, where a guildmate's
+-- post can still cancel it.
+local function postNews()
+	if Client.isPaused() or queue[1] then
+		return
+	end
+	local identity = ns.news:due()
+	if identity and Client.canSend() and IsInGuild() then
+		queue[1] = { news = identity }
+		wake()
+	end
+end
+
 -- Asks Sync for a sync with a peer. Returns whether it started or waits.
 local function requestSync(peer)
 	if not Client.canSend() then
@@ -304,6 +321,7 @@ function handlers.ADDON_LOADED(name)
 	db.asked = db.asked or {}
 	db.syncs = db.syncs or {}
 	ns.sync = ns.Sync.new(db.syncs, GetServerTime, ns.memory, db.settings, ns.characters)
+	ns.news = ns.News.new(GetTime, math.random, ns.memory, ns.characters, db.settings)
 	reader = Protocol.newReader(GetTime)
 	ns.recognition = ns.Recognition.new(ns.memory, db.settings, ns.L, GetServerTime)
 	-- The debug report (src/Report.lua): its events, the caught errors, and
@@ -326,6 +344,7 @@ function handlers.PLAYER_LOGIN()
 	C_Timer.NewTicker(SYNC_TICK, function()
 		sendSync(ns.sync:tick())
 	end)
+	C_Timer.NewTicker(NEWS_TICK, postNews)
 	for _, channel in ipairs({ "GUILD", "GROUP" }) do
 		if isRegistered() then
 			enqueue("announce", channel)
@@ -397,9 +416,21 @@ function handlers.CHAT_MSG_ADDON(prefix, text, channel, sender)
 	local kind = message.kind
 	if kind == "digest" or kind == "identities" or kind == "done" then
 		if channel == "WHISPER" then
-			sendSync(ns.sync:receive(sender, message))
+			local outgoing, learned = ns.sync:receive(sender, message)
+			sendSync(outgoing)
+			for _, identity in ipairs(learned or {}) do
+				ns.news:add(identity)
+			end
 		else
 			Debug.dropped(sender, "channel", text)
+		end
+		return
+	end
+	if kind == "news" then
+		if channel ~= "GUILD" then
+			Debug.dropped(sender, "channel", text)
+		elseif not ns.news:receive(sender, message.identity) then
+			Debug.dropped(sender, "older", text)
 		end
 		return
 	end

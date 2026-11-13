@@ -22,6 +22,13 @@
 --                               G:<guid> when its character's GUID is known
 --   1:E                         the sender has sent all it had to send
 --
+-- News (decision 0002) adds, on the guild channel:
+--
+--   1:P:<identity>              one identity a sync brought the sender new or
+--                               at a later revision, as a sync passes it on,
+--                               its GUID too ("P" for posted: "G" starts a
+--                               GUID's line)
+--
 -- A message longer than 255 bytes goes as chunks of the same version, numbered
 -- from 1 to their count, the pieces of its text in order:
 --
@@ -70,6 +77,7 @@ local KIND_LETTER = {
 	digest = "D",
 	identities = "I",
 	done = "E",
+	news = "P", -- posted; G is a GUID's line, inside identities
 }
 local KIND_NAME = {}
 for name, letter in pairs(KIND_LETTER) do
@@ -155,6 +163,13 @@ local function readRevision(text)
 	end
 end
 
+-- Writes an identity, and its GUID on a line of its own when known.
+local function writeIdentity(identity)
+	local nickname = identity.nickname and ":" .. identity.nickname or ""
+	local guid = identity.guid and "\nG:" .. identity.guid or ""
+	return identity.revision .. ":" .. identity.name .. nickname .. guid
+end
+
 -- Writes a message table ({ kind = ..., nickname = ..., revision = ... }, as
 -- read returns it) as wire text. Trusts its input: the nickname comes from
 -- Self, which checked it.
@@ -164,14 +179,12 @@ function Protocol.write(message)
 		return text .. ":" .. message.digest
 	elseif message.identities then
 		local lines = {}
-		for _, identity in ipairs(message.identities) do
-			local nickname = identity.nickname and ":" .. identity.nickname or ""
-			lines[#lines + 1] = identity.revision .. ":" .. identity.name .. nickname
-			if identity.guid then
-				lines[#lines + 1] = "G:" .. identity.guid
-			end
+		for i, identity in ipairs(message.identities) do
+			lines[i] = writeIdentity(identity)
 		end
 		return text .. ":" .. table.concat(lines, "\n")
+	elseif message.identity then
+		return text .. ":" .. writeIdentity(message.identity)
 	end
 	if message.revision then
 		text = text .. ":" .. tostring(message.revision)
@@ -197,6 +210,14 @@ function Protocol.batch(identities)
 		lines = lines + cost
 	end
 	return batches
+end
+
+-- Reads a GUID passed on with an identity. Returns it, or nil when it is not a
+-- character's.
+local function readGuid(text)
+	if #text <= Protocol.MAX_GUID_BYTES and text:find("^Player%-%d+%-%x+$") then
+		return text
+	end
 end
 
 -- Reads one identity passed on, "<revision>:<name>[:<nickname>]". Returns it,
@@ -268,8 +289,8 @@ local function readWhole(text, maxBytes)
 			end
 			local guid = line:match("^G:(.*)$")
 			if guid then
-				if last and #guid <= Protocol.MAX_GUID_BYTES and guid:find("^Player%-%d+%-%x+$") then
-					last.guid = guid
+				if last then
+					last.guid = readGuid(guid)
 				end
 				last = nil
 			else
@@ -283,6 +304,19 @@ local function readWhole(text, maxBytes)
 			return nil, reason or "malformed"
 		end
 		return { kind = kind, identities = identities }
+	elseif kind == "news" then
+		if rest:sub(1, 1) ~= ":" then
+			return nil, "malformed"
+		end
+		-- Its GUID, if any, as in identities: one that is not a character's is
+		-- dropped, and the identity kept.
+		local line, guid = rest:sub(2):match("^([^\n]*)\nG:(.*)$")
+		local identity, reason = readIdentity(line or rest:sub(2))
+		if not identity then
+			return nil, reason
+		end
+		identity.guid = guid and readGuid(guid)
+		return { kind = kind, identity = identity }
 	elseif kind == "ask" or kind == "done" then
 		if rest ~= "" then
 			return nil, "malformed"
