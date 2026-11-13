@@ -47,6 +47,13 @@ local peersHeard = {} -- peer -> GetServerTime() when last heard, for the sessio
 local loginAt, loginSyncs = 0, 0
 local toldNewer = false -- the notice that a newer Mnemosyne exists, once a session
 
+-- The echo peer (/mnemosyne echo): a made-up peer that sends back, under its
+-- name, what this character whispers to it or broadcasts, so one player alone
+-- can test the receiving side. For the session only.
+Client.ECHO = "Echo Mnemosyne"
+local echoing = false
+local loopBack -- handlers.CHAT_MSG_ADDON, once defined
+
 -- A value read from the game that addon code can use: present and not secret.
 -- A secret value counts as unknown (comparing one raises an error).
 function Client.isKnown(value)
@@ -139,8 +146,22 @@ local function flush()
 			if (costs and tokens < 1) or bytes < #text then
 				return
 			end
-			local result = C_ChatInfo.SendAddonMessage(Protocol.PREFIX, text, chatType, target)
+			local result
+			if echoing and target == Client.ECHO then
+				result = Enum.SendAddonMessageResult.Success -- no such character: never sent
+			else
+				result = C_ChatInfo.SendAddonMessage(Protocol.PREFIX, text, chatType, target)
+			end
 			Debug.sent(text, chatType, target, result, kind)
+			if
+				echoing
+				and result == Enum.SendAddonMessageResult.Success
+				and (target == Client.ECHO or chatType ~= "WHISPER")
+			then
+				C_Timer.After(0, function()
+					loopBack(Protocol.PREFIX, text, chatType, Client.ECHO)
+				end)
+			end
 			if RETRY[result] then
 				tokens = 0
 				return
@@ -294,6 +315,27 @@ function Client.ask(name)
 	return enqueue("ask", "WHISPER", name)
 end
 
+-- Drops what the echo peer left in the memory, so it never reaches a real peer.
+local function forgetEcho()
+	if ns.memory:knows(Client.ECHO) then
+		ns.memory:forget(Client.ECHO)
+		ns.memory:unforget(Client.ECHO)
+	end
+	peersHeard[Client.ECHO] = nil
+end
+
+-- Turns the echo peer on and asks it who plays it, or off and forgets it.
+-- Returns whether it is on.
+function Client.toggleEcho()
+	echoing = not echoing
+	if echoing then
+		Client.ask(Client.ECHO)
+	else
+		forgetEcho()
+	end
+	return echoing
+end
+
 -- The settings and their defaults, all on: the switches of the settings panel.
 local DEFAULTS = {
 	tooltip = true, -- tooltip recognition
@@ -351,6 +393,7 @@ end
 
 function handlers.PLAYER_LOGIN()
 	playerName = GetUnitName("player")
+	forgetEcho() -- left by a session that ended with the echo peer on
 	groupSize = GetNumGroupMembers()
 	inGuild = IsInGuild()
 	loginAt = GetTime()
@@ -472,6 +515,8 @@ function handlers.CHAT_MSG_ADDON(prefix, text, channel, sender)
 		Debug.dropped(sender, "older", text)
 	end
 end
+
+loopBack = handlers.CHAT_MSG_ADDON
 
 frame:SetScript("OnEvent", function(_, event, ...)
 	handlers[event](...)

@@ -1,5 +1,5 @@
 -- Commands: the slash commands that read the memory and the debug log
--- (lookup, status, debug, sync, forget, unforget). Part of the Interface
+-- (lookup, status, debug, echo, sync, forget, unforget). Part of the Interface
 -- adapter (decision 0004): it adds to the commands table of Interface.lua.
 local _, ns = ...
 
@@ -70,6 +70,10 @@ end
 
 function commands.debug()
 	say(ns.Debug.toggle() and L.DEBUG_ON or L.DEBUG_OFF)
+end
+
+function commands.echo()
+	say(Client.toggleEcho() and L.ECHO_ON or L.ECHO_OFF)
 end
 
 function commands.sync()
