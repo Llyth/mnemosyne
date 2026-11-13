@@ -137,6 +137,28 @@ describe("Sync", function()
 		assert.equal(101, count)
 	end)
 
+	it("passes on at most what a peer keeps in a day from one peer, the rest in later syncs", function()
+		for i = 1, Memory.MAX_NEW_PER_PEER do
+			memory:hear("Anna Conda" .. i, { nickname = "Ann", revision = 900 })
+		end
+		local passedOn, count = {}, 0
+		for _ = 1, 2 do
+			for _, out in ipairs(sync:receive("Barb Dwyer", { kind = "digest", digest = emptyDigest() })) do
+				for _, identity in ipairs(decode(out.text).identities or {}) do
+					count = count + 1
+					passedOn[identity.name] = true
+				end
+			end
+			sync:receive("Barb Dwyer", { kind = "done" })
+			now = now + Sync.COOLDOWN
+		end
+		assert.equal(2 * Memory.MAX_NEW_PER_PEER, count)
+		assert.is_true(passedOn["Hugh Jass"])
+		for i = 1, Memory.MAX_NEW_PER_PEER do
+			assert.is_true(passedOn["Anna Conda" .. i])
+		end
+	end)
+
 	it("learns second-hand what a peer it syncs with passes on, with the peer as source", function()
 		sync:request("Barb Dwyer", now)
 		sync:receive("Barb Dwyer", { kind = "digest", digest = emptyDigest() })

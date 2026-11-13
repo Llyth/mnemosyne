@@ -5,13 +5,14 @@
 --
 -- Each peer sends its digest, then, once it has the other's, the identities
 -- the other lacks or holds at an older revision, then the end of its part. A
+-- sync passes on at most what the other keeps in a day from one peer. A
 -- sync with a peer happens at most once every 6 hours; at most 2 run at once
 -- and at most 10 wait, the most recently heard peers first. A sync whose peer
 -- passes on nothing new for 2 minutes, or that lasts 20 minutes, is cut; the
 -- next one starts again from the digest.
 local _, ns = ...
 
-local Protocol = ns.Protocol
+local Memory, Protocol = ns.Memory, ns.Protocol
 
 local Sync = {}
 Sync.__index = Sync
@@ -91,8 +92,14 @@ local function answer(self, peer, digest, now, outgoing)
 				missing[#missing + 1] = identity
 			end
 		end
-		for first = 1, #missing, Protocol.MAX_IDENTITIES do
-			local batch = { unpack(missing, first, first + Protocol.MAX_IDENTITIES - 1) }
+		-- No more than the peer keeps in a day from one peer, from a point that
+		-- moves with the clock, so that later syncs pass on the rest.
+		local chosen = {}
+		for i = 1, math.min(#missing, Memory.MAX_NEW_PER_PEER) do
+			chosen[i] = missing[(now + i) % #missing + 1]
+		end
+		for first = 1, #chosen, Protocol.MAX_IDENTITIES do
+			local batch = { unpack(chosen, first, first + Protocol.MAX_IDENTITIES - 1) }
 			send(outgoing, peer, { kind = "identities", identities = batch })
 		end
 	end
