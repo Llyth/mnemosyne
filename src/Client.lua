@@ -334,8 +334,8 @@ function handlers.PLAYER_LOGIN()
 end
 
 -- When the group grows, a registered character announces itself. It asks only
--- when it joins a group itself: a newcomer asks on its own, so the members
--- already there do not all ask again as a raid fills.
+-- when it joins a group itself: a character that joins asks on its own, so
+-- the members already there do not all ask again as a raid fills.
 function handlers.GROUP_ROSTER_UPDATE()
 	local size = GetNumGroupMembers()
 	if size > groupSize then

@@ -102,11 +102,11 @@ only what characters said about themselves (both on by default; the settings
 panel that holds them is coming). When a player with a newer Mnemosyne talks
 to yours, it tells you once a session that a newer version exists.
 
-When you register a character, its nickname spreads to every Mnemosyne user,
-through other players too. Characters you don't register are never shared: an
-anonymous character only tells other Mnemosyne users that it is anonymous, so
-they forget any nickname they held for it. Unregistering spreads the same way,
-but more slowly than the nickname did.
+When you register a character, its nickname spreads to every player who has
+Mnemosyne, through other players too. Characters you don't register are never
+shared: an anonymous character only tells other players who have Mnemosyne that
+it is anonymous, so they forget any nickname they held for it. Unregistering
+spreads the same way, but more slowly than the nickname did.
 
 Forgetting a character removes it from your own memory and keeps it out until
 you undo it. Nobody else is told.

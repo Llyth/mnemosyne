@@ -106,7 +106,7 @@ end
 
 -- The sender's name in a chat line with its player's nickname after it, a
 -- second-hand one in grey and marked with ~; or nil to leave the line as it
--- is (an unknown character, or chat recognition off).
+-- is (a stranger, or chat recognition off).
 -- decorated: the name as the chat frame shows it, colors included; guid: the
 -- line's GUID, when there is one.
 function Recognition:chatName(decorated, name, guid)
@@ -162,8 +162,8 @@ end
 
 -- The tooltip on a character's name in a chat line, from the line's link:
 -- { name, nickname, heard, source }, source for a second-hand identity only;
--- or nil to show none (not a character's link, an unknown character, or chat
--- recognition off).
+-- or nil to show none (not a character's link, a stranger, or chat recognition
+-- off).
 function Recognition:chatTooltip(link)
 	if not self.settings.chat then
 		return nil

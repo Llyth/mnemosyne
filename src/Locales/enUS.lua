@@ -6,7 +6,7 @@ local _, ns = ...
 
 ns.L = {
 	REGISTERED = "This character is now registered as %s.",
-	UNREGISTERED = "This character is no longer registered. Mnemosyne users will forget its nickname.",
+	UNREGISTERED = "This character is no longer registered. Players who have Mnemosyne will forget its nickname.",
 	NOT_REGISTERED = "This character is not registered.",
 	NICKNAME_EMPTY = "Type the nickname after the command: /mnemosyne register <nickname>",
 	NICKNAME_LONG = "A nickname has at most 32 characters.",
@@ -15,7 +15,7 @@ ns.L = {
 	NICKNAME_ENCODING = "This nickname has characters Mnemosyne cannot read.",
 	HELP = "Commands:",
 	HELP_REGISTER = "/mnemosyne register <nickname>: register the character you are playing",
-	HELP_UNREGISTER = "/mnemosyne unregister: withdraw its registration; Mnemosyne users forget it",
+	HELP_UNREGISTER = "/mnemosyne unregister: withdraw its registration; players who have Mnemosyne forget it",
 	TOOLTIP_PLAYED_BY = "Played by %s",
 	-- The sender's name in a chat line, then the nickname: "Hugh Jass (Tony)".
 	CHAT_NAME = "%s (%s)",
@@ -25,14 +25,16 @@ ns.L = {
 	HEARD_HOURS = "Last heard %d |4hour:hours; ago",
 	HEARD_DAYS = "Last heard %d |4day:days; ago",
 	-- The registration prompt.
-	PROMPT = "Who plays %s?\n\nYour nickname will be shared with every Mnemosyne user, through other players too.",
-	PROMPT_FROM_PEERS = "Who plays %s?\n\nOther Mnemosyne users say it is played by %s. Register to confirm it.\n\n"
-		.. "Your nickname will be shared with every Mnemosyne user, through other players too.",
+	PROMPT = "Who plays %s?\n\n"
+		.. "Your nickname will be shared with every player who has Mnemosyne, through other players too.",
+	PROMPT_FROM_PEERS = "Who plays %s?\n\n"
+		.. "Other players who have Mnemosyne say it is played by %s. Register to confirm it.\n\n"
+		.. "Your nickname will be shared with every player who has Mnemosyne, through other players too.",
 	PROMPT_NICKNAME = "Your nickname",
 	PROMPT_REGISTER = "Register",
 	PROMPT_ANONYMOUS = "Keep anonymous",
 	PROMPT_LATER = "Ask me later",
-	KEPT_ANONYMOUS = "This character is anonymous. Mnemosyne users will not link it to a nickname.",
+	KEPT_ANONYMOUS = "This character is anonymous. Players who have Mnemosyne will not link it to a nickname.",
 	ASK_LATER = "Mnemosyne will ask again at your next login on this character.",
 	-- The other commands.
 	HELP_LOOKUP = "/mnemosyne lookup <text>: find characters by name or by nickname",
