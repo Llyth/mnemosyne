@@ -90,7 +90,16 @@ describe("Sync", function()
 	it("ends its sync with a peer that says it is done, and waits 6 hours before the next", function()
 		sync:request("Barb Dwyer", now)
 		sync:receive("Barb Dwyer", { kind = "done" })
+		now = now + Sync.TIMEOUT
+		sync:tick()
 		assert.same({}, sync:request("Barb Dwyer", now))
+	end)
+
+	it("frees the place of a sync whose peer says it is done before answering", function()
+		sync:request("Anna Conda", now)
+		sync:request("Barb Dwyer", now)
+		sync:request("Cole Slaw", now)
+		assert.same({ "Cole Slaw digest" }, sent(sync:receive("Anna Conda", { kind = "done" })))
 	end)
 
 	it("never passes on an identity whose name is too long for a peer to take", function()
@@ -99,10 +108,20 @@ describe("Sync", function()
 		assert.equal("1:I:900:Hugh Jass:Tony", outgoing[2].text)
 	end)
 
-	it("ignores a second digest in the same sync", function()
-		sync:receive("Barb Dwyer", { kind = "digest", digest = emptyDigest() })
-		assert.same({}, sync:receive("Barb Dwyer", { kind = "digest", digest = emptyDigest() }))
-	end)
+	it(
+		"sends only its digest to a peer that sends its digest again in the same sync, then says its part is done",
+		function()
+			sync:receive("Barb Dwyer", { kind = "digest", digest = emptyDigest() })
+			assert.same(
+				{ "Barb Dwyer digest" },
+				sent(sync:receive("Barb Dwyer", { kind = "digest", digest = emptyDigest() }))
+			)
+			assert.same(
+				{ "Barb Dwyer done" },
+				sent(sync:receive("Barb Dwyer", { kind = "digest", digest = emptyDigest() }))
+			)
+		end
+	)
 
 	it("sends many identities in batches that each fit a chunked message", function()
 		for i = 1, 100 do
@@ -207,6 +226,15 @@ describe("Sync", function()
 		assert.same(expected, started)
 	end)
 
+	it("tells a peer whose digest comes while the waiting list is full that its part is done", function()
+		sync:request("Anna Conda", now)
+		sync:request("Barb Dwyer", now)
+		for i = 1, 10 do
+			sync:request("Peer" .. i, now)
+		end
+		assert.same({ "Cole Slaw done" }, sent(sync:receive("Cole Slaw", { kind = "digest", digest = emptyDigest() })))
+	end)
+
 	it("cuts a sync whose peer stops answering, frees its place, and lets it start again from the digest", function()
 		sync:request("Anna Conda", now)
 		sync:request("Barb Dwyer", now)
@@ -249,6 +277,134 @@ describe("Sync", function()
 			{ "Cole Slaw digest", "Cole Slaw identities", "Cole Slaw done" },
 			sent(sync:receive("Anna Conda", { kind = "done" }))
 		)
+	end)
+
+	it("cuts a sync whose peer sends only what it already knows", function()
+		local known = { { name = "Hugh Jass", nickname = "Tony", revision = 900 } }
+		sync:receive("Mallory Knox", { kind = "digest", digest = emptyDigest() })
+		sync:receive("Ivy League", { kind = "digest", digest = emptyDigest() })
+		for _ = 1, 2 do
+			now = now + 100
+			sync:receive("Mallory Knox", { kind = "identities", identities = known })
+			sync:receive("Ivy League", { kind = "identities", identities = known })
+			sync:tick()
+		end
+		assert.same({ "Barb Dwyer digest" }, sent(sync:request("Barb Dwyer", now)))
+	end)
+
+	it("cuts a sync after 20 minutes, however much the peer passes on", function()
+		sync:receive("Mallory Knox", { kind = "digest", digest = emptyDigest() })
+		sync:receive("Ivy League", { kind = "digest", digest = emptyDigest() })
+		for revision = 1, Sync.MAX_DURATION / 100 do
+			now = now + 100
+			sync:receive(
+				"Mallory Knox",
+				{ kind = "identities", identities = { { name = "Anna Conda", revision = revision } } }
+			)
+			sync:receive(
+				"Ivy League",
+				{ kind = "identities", identities = { { name = "Cole Slaw", revision = revision } } }
+			)
+			sync:tick()
+		end
+		assert.same({ "Barb Dwyer digest" }, sent(sync:request("Barb Dwyer", now)))
+	end)
+
+	describe("between two peers", function()
+		local function newPeer(name)
+			local peer = { name = name, memory = Memory.new({}, clock), reader = Protocol.newReader(clock) }
+			peer.sync = Sync.new({}, clock, peer.memory, { passOn = true }, Self.new({}, clock))
+			return peer
+		end
+
+		-- Delivers to a peer what was sent to it, chunks put together; returns its replies.
+		local function deliver(from, to, outgoing)
+			local replies = {}
+			for _, out in ipairs(outgoing) do
+				if out.peer == to.name then
+					local message
+					for _, chunk in ipairs(Protocol.split(out.text)) do
+						message = to.reader:read(from.name, chunk)
+					end
+					for _, reply in ipairs(to.sync:receive(from.name, message)) do
+						replies[#replies + 1] = reply
+					end
+				end
+			end
+			return replies
+		end
+
+		-- Delivers back and forth until both peers are quiet.
+		local function converse(from, to, outgoing)
+			while #outgoing > 0 do
+				outgoing = deliver(from, to, outgoing)
+				from, to = to, from
+			end
+		end
+
+		it("passes on what changed in its memory between starting the sync and answering", function()
+			local anna, barb = newPeer("Anna Conda"), newPeer("Barb Dwyer")
+			anna.memory:hear("Hugh Jass", { nickname = "Tony", revision = 900 })
+			barb.memory:hear("Hugh Jass", { nickname = "Tony", revision = 900, source = "Cole Slaw" })
+			local outgoing = anna.sync:request(barb.name, now)
+			anna.memory:hear("Hugh Jass", { nickname = "Tom", revision = 950 })
+			converse(anna, barb, outgoing)
+			assert.equal("Tom", barb.memory:recall("Hugh Jass").nickname)
+		end)
+
+		it(
+			"does not send again an answer that was lost to a peer that sends its digest again; the rest comes in a later sync",
+			function()
+				local anna, barb = newPeer("Anna Conda"), newPeer("Barb Dwyer")
+				barb.memory:hear("Bo Nanza", { nickname = "Bo", revision = 900 })
+				deliver(anna, barb, (anna.sync:request(barb.name, now)))
+				anna.sync = Sync.new({}, clock, anna.memory, { passOn = true }, Self.new({}, clock))
+				converse(anna, barb, (anna.sync:request(barb.name, now)))
+				assert.is_nil(anna.memory:recall("Bo Nanza"))
+				now = now + Sync.COOLDOWN
+				anna.sync:tick()
+				converse(anna, barb, (anna.sync:request(barb.name, now)))
+				assert.equal("Bo", anna.memory:recall("Bo Nanza").nickname)
+			end
+		)
+
+		it("sends its answer once to a peer that reloads between its digest and the answer", function()
+			local anna, barb = newPeer("Anna Conda"), newPeer("Barb Dwyer")
+			barb.memory:hear("Bo Nanza", { nickname = "Bo", revision = 900 })
+			local answers = 0
+			local receive = barb.sync.receive
+			function barb.sync.receive(...)
+				local outgoing = receive(...)
+				for _, out in ipairs(outgoing) do
+					answers = answers + (out.kind == "identities" and 1 or 0)
+				end
+				return outgoing
+			end
+			local answer = deliver(anna, barb, (anna.sync:request(barb.name, now)))
+			anna.sync = Sync.new({}, clock, anna.memory, { passOn = true }, Self.new({}, clock))
+			converse(barb, anna, answer)
+			assert.equal("Bo", anna.memory:recall("Bo Nanza").nickname)
+			assert.equal(1, answers)
+		end)
+
+		it("does not answer a waiting peer's digest once the peer has cut its sync, so both still sync", function()
+			local anna, barb = newPeer("Anna Conda"), newPeer("Barb Dwyer")
+			anna.memory:hear("Al Beback", { nickname = "Al", revision = 900 })
+			barb.memory:hear("Bo Nanza", { nickname = "Bo", revision = 900 })
+			barb.sync:request("Cole Slaw", now)
+			barb.sync:request("Dee Lighted", now)
+			converse(anna, barb, (anna.sync:request(barb.name, now)))
+			now = now + Sync.TIMEOUT
+			anna.sync:tick()
+			anna.sync:request("Ivy League", now)
+			anna.sync:request("Mallory Knox", now)
+			converse(barb, anna, barb.sync:receive("Cole Slaw", { kind = "done" }))
+			now = now + Sync.TIMEOUT
+			barb.sync:tick()
+			converse(anna, barb, anna.sync:receive("Ivy League", { kind = "done" }))
+			assert.equal("Bo", anna.memory:recall("Bo Nanza").nickname)
+			assert.equal("Al", barb.memory:recall("Al Beback").nickname)
+		end)
 	end)
 
 	it("makes a peer whose digest comes while it is busy wait its turn, then answers that digest", function()
