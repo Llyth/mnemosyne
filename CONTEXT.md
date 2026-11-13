@@ -76,9 +76,17 @@ _Avoid_: update, broadcast, event
 A message asking a character to say who plays it. A peer answers with its identity, or that it is anonymous.
 _Avoid_: ping, request, query
 
+**Stranger**:
+A character met in the game (hovered or targeted) whose identity you don't know. Mnemosyne asks it who plays it.
+_Avoid_: unknown character, newcomer
+
 **Unregistering**:
 Withdrawing a character's registration. The character tells its peers, and they forget its identity.
 _Avoid_: deleting, opting out
+
+**Removal**:
+The message a character sends when it unregisters: a revision without a nickname, so its peers forget its identity. In a sync, any identity passed on without a nickname is a removal, whether the character unregistered or is anonymous.
+_Avoid_: deletion
 
 **Forgetting**:
 Dropping a character's identity from your own memory and refusing second-hand copies of it until you undo it. A first-hand message from the character still gets through. Nobody else is told.

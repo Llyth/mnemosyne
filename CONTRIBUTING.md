@@ -38,7 +38,7 @@ hook, which downloads the release binary.
 | Path | Purpose |
 | --- | --- |
 | `Mnemosyne.toc` | The addon's manifest: `## Interface: 16001` (WoW Forever), the saved variables, and the files in load order. No flavor suffix ([decision 0006](docs/decisions/0006-forever-only-with-a-plain-toc.md)) |
-| `src/` | The addon's Lua, one file per module: the pure modules `Memory`, `Self`, `Protocol` and `Sync`, the adapters `Client` and `Interface` ([decision 0004](docs/decisions/0004-a-pure-core-two-adapters-no-libraries.md)), and the locale tables in `src/Locales/`, enUS first |
+| `src/` | The addon's Lua, one file per module: the pure modules `Memory`, `Self`, `Protocol`, `Sync`, `Recognition`, `Strangers` and `Report`, the adapters `Client` (with `Encounter`) and `Interface` (with `Chat`, `Commands`, `Prompt` and `ReportWindow`), and `Debug` ([decision 0004](docs/decisions/0004-a-pure-core-two-adapters-no-libraries.md)), and the locale tables in `src/Locales/`, enUS first |
 | `spec/` | The busted tests of the pure modules, and the multi-peer simulation; `spec/helpers/addon.lua` loads pure files the way the client does |
 | `.pkgmeta` | The packager's manifest: what the release zip leaves out |
 | `.luacheckrc`, `stylua.toml`, `.busted` | luacheck (Lua 5.1, the WoW globals the addon may use), StyLua and busted |
