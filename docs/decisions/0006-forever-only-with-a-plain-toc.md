@@ -1,0 +1,5 @@
+# WoW Forever only, with a plain .toc file
+
+Mnemosyne targets one client, WoW Forever (client 1.60.1, `## Interface: 16001`), the only one whose characters have a first and a last name. Its addon API is the Mainline family (Retail 12.x), not the Classic Era API its version number suggests, so code follows Mainline documentation and the rules in [docs/agents/wow-api.md](../agents/wow-api.md).
+
+The addon has one `Mnemosyne.toc`, without a flavor suffix. In November 2026 the suffix of Forever was unsettled: the BigWigsMods packager v2.7.0 reads `_Camelot` as Forever, Wago accepts `_Camelot` and `_Forever`, the WoWUp hub's guide names `_Forever`, and Questie ships both. A client loads the plain file when none carries its suffix, the packager and Wago detect Forever from the Interface number (`16???`), and WoWUp picks the zip from `release.json`'s `forever` flavor. The plain file works whatever suffix wins, so we chose it over guessing. Supporting another client would add a suffixed .toc per client, and a new decision.

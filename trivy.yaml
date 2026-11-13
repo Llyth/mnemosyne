@@ -1,0 +1,15 @@
+# Trivy config for the CI `trivy` job and the weekly scan (trivy.yml). The addon
+# ships no dependency, so the vulnerability scan covers the dev tools in
+# uv.lock; misconfig covers the workflows and secret the whole tree.
+exit-code: 1
+exit-on-eol: 2
+scan:
+  disable-telemetry: true
+  skip-dirs:
+    - .lua
+    - .venv
+    - .release
+  scanners:
+    - vuln
+    - misconfig
+    - secret

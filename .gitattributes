@@ -1,0 +1,3 @@
+# The repo is LF everywhere: normalize line endings on every platform. The
+# client reads LF .toc and .lua files fine.
+* text=auto eol=lf

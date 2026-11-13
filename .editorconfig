@@ -1,0 +1,24 @@
+# Editor-agnostic whitespace baseline. StyLua owns Lua formatting; this only
+# covers what editors apply before/without it.
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+indent_style = space
+indent_size = 2
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# StyLua's style: tabs, the usual style of WoW addons.
+[*.lua]
+indent_style = tab
+indent_size = 4
+
+[{.busted,.luacheckrc}]
+indent_style = tab
+indent_size = 4
+
+# Markdown uses trailing whitespace (two spaces) as a hard line break.
+[*.md]
+trim_trailing_whitespace = false

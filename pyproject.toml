@@ -1,0 +1,18 @@
+# Development tools only: the addon is Lua and ships no Python. uv installs
+# pre-commit and hererocks; hererocks builds the project-local Lua 5.1 and
+# LuaRocks (in .lua/) that run the tests and the linter, see scripts/setup-lua.sh.
+# This is not a package, and its version is not the addon's: the addon's version
+# is the git tag of its release (CONTRIBUTING.md, Releases).
+[project]
+name = "mnemosyne-dev"
+version = "0"
+requires-python = ">=3.14"
+
+[tool.uv]
+package = false
+
+[dependency-groups]
+dev = [
+    "pre-commit==4.7.*",
+    "hererocks==0.25.*",
+]

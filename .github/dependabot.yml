@@ -1,0 +1,43 @@
+version: 2
+updates:
+  # The dev tools uv installs (pre-commit, hererocks): never part of a release,
+  # so the group's title carries `dev-tools`, which gets `no-release`.
+  - package-ecosystem: uv
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      dev-tools:
+        patterns:
+          - "*"
+
+  # The workflows, and the composite action they share (.github/actions/setup).
+  - package-ecosystem: github-actions
+    directories:
+      - /
+      - /.github/actions/*
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch
+
+  # Hook revisions in .pre-commit-config.yaml (StyLua, gitleaks, zizmor, ...),
+  # so they don't drift from the versions CI uses.
+  - package-ecosystem: pre-commit
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch

@@ -1,0 +1,27 @@
+# BigWigsMods packager: what goes into the release zip. Everything not ignored
+# here is copied into Mnemosyne/ inside the zip, so keep development files out.
+package-as: Mnemosyne
+
+enable-nolib-creation: no
+
+ignore:
+  - .claude
+  - .github
+  - .lua
+  - .venv
+  - docs
+  - scripts
+  - spec
+  - graphify-out
+  - .busted
+  - .luacheckrc
+  - stylua.toml
+  - trivy.yaml
+  - pyproject.toml
+  - uv.lock
+  - .python-version
+  - AGENTS.md
+  - CLAUDE.md
+  - CONTEXT.md
+  - CONTRIBUTING.md
+  - SECURITY.md

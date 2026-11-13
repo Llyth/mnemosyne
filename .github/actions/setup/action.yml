@@ -1,0 +1,27 @@
+name: Set up uv and Lua
+description: >-
+  Install uv (cached) and the locked dev tools, then the project-local Lua 5.1
+  with busted and luacheck (scripts/setup-lua.sh), restored from the cache when
+  the script has not changed. Run after checkout.
+
+runs:
+  using: composite
+  steps:
+    - uses: astral-sh/setup-uv@18d369b23da25a81e9458561248e1aafff6a70fa # v10.3.1
+      with:
+        enable-cache: true
+    - name: Install the dev tools
+      shell: bash
+      run: uv sync --locked
+    # Building Lua and the rocks takes about a minute; the script pins every
+    # version, so its hash is the whole cache key. Caches written on `main`
+    # (cache-warm.yml) are visible to every pull request.
+    - id: lua-cache
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: .lua
+        key: lua-${{ runner.os }}-${{ hashFiles('scripts/setup-lua.sh') }}
+    - name: Build Lua and install busted and luacheck
+      if: steps.lua-cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: scripts/setup-lua.sh

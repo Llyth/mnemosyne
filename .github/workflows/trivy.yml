@@ -1,0 +1,28 @@
+name: Trivy
+
+# CI scans pull requests only, so nothing looks at `main` between them: a CVE in
+# a dev tool or a new misconfiguration check published later would go unseen.
+# Once a week this scans `main` with the same config as the `trivy` job in
+# ci.yml. Its runs also write the Trivy caches that pull requests restore.
+on:
+  schedule:
+    - cron: '42 23 * * 0' # Sunday 23:42 UTC
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  trivy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          trivy-config: trivy.yaml
