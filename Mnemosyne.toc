@@ -1,10 +1,16 @@
 ## Interface: 16001
 ## Title: Mnemosyne
-## Notes: Recognize the players you know from Discord behind their WoW Forever characters.
+## Notes: Recognize the players you know behind their WoW Forever characters: the nickname they go by, on their tooltip.
 ## Author: Llyth
 ## Version: @project-version@
 ## SavedVariables: MnemosyneDB
 ## IconTexture: Interface\Icons\INV_Misc_Book_09
 ## Category: Social
 
-# The addon's files, in load order, go below once the design is settled.
+# The pure modules first (decision 0004), then the locales, then the adapters.
+src\Protocol.lua
+src\Memory.lua
+src\Self.lua
+src\Locales\enUS.lua
+src\Client.lua
+src\Interface.lua

@@ -8,9 +8,32 @@ exclude_files = { ".lua/", ".release/", ".venv/", ".claude/" }
 -- Written by the addon: its saved variables and slash command globals.
 globals = {
 	"MnemosyneDB",
+	"SLASH_MNEMOSYNE1",
+	"SlashCmdList",
 }
 
 -- Read from the client. Add each one with the code that first uses it.
-read_globals = {}
+read_globals = {
+	"C_ChatInfo",
+	"C_Timer",
+	"CreateFrame",
+	"Enum",
+	"GetNumGroupMembers",
+	"GetServerTime",
+	"GetTime",
+	"GetUnitName",
+	"InCombatLockdown",
+	"IsInGroup",
+	"IsInGuild",
+	"IsInInstance",
+	"IsInRaid",
+	"IsTrialAccount",
+	"IsVeteranTrialAccount",
+	"LE_PARTY_CATEGORY_HOME",
+	"LE_PARTY_CATEGORY_INSTANCE",
+	"TooltipDataProcessor",
+	"UnitIsPlayer",
+	"issecretvalue",
+}
 
 files["spec/"] = { std = "+busted" }
