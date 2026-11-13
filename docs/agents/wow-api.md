@@ -48,5 +48,7 @@ Open, to settle in the game and record here:
 - whether a chat line's sender is `"First Last"`, as the sender of an addon message is;
 - whether `UnitNameUnmodified` gives the surname of a group member who hides it;
 - whether EllesmereUI: Standalone Chat calls the sender name filters and the hyperlink callbacks.
+- whether `UnitName` gives no surname for a character that hides it ("My Secondary Name"): asking a stranger relies on it to never whisper a first name alone;
+- whether addon whispers reach a character of the other faction (asking a stranger skips them, by `UnitFactionGroup`).
 
 `/dump select(4, GetBuildInfo())` prints the Interface number; `/dump WOW_PROJECT_ID` the project.

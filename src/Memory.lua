@@ -139,3 +139,9 @@ function Memory:count()
 	end
 	return count
 end
+
+-- Whether it holds an identity for a character: a nickname, or that the
+-- character has none (it unregistered or is anonymous).
+function Memory:knows(name)
+	return self.identities[name] ~= nil
+end

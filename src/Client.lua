@@ -162,6 +162,12 @@ function Client.announce(ask)
 	end
 end
 
+-- Asks one character, by addon whisper, who plays it. Returns true when it
+-- queued the ask.
+function Client.ask(name)
+	return enqueue("ask", "WHISPER", name)
+end
+
 local frame = CreateFrame("Frame")
 local handlers = {}
 
