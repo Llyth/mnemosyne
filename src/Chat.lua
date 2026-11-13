@@ -1,0 +1,103 @@
+-- Chat recognition, part of the Interface adapter (decision 0004): a known
+-- character's nickname after its name in chat lines, a tooltip on its name,
+-- and the session's GUID map learned from chat lines and group members.
+-- Recognition decides what to show; this file only wires it to the hooks
+-- other addons respect (the sender name filter and the chat frames' hyperlink
+-- callbacks) and redraws nothing. A secret value (chat lockdown) counts as
+-- unknown: the line shows the plain name.
+local _, ns = ...
+
+local isKnown = ns.Client.isKnown
+
+-- The chat lines that show a nickname: say, yell, whispers, group, guild,
+-- instance, custom channels and Communities channels. Every other line (emotes,
+-- system messages, Battle.net) keeps its name as it is.
+local SHOWN = {
+	CHAT_MSG_SAY = true,
+	CHAT_MSG_YELL = true,
+	CHAT_MSG_WHISPER = true,
+	CHAT_MSG_WHISPER_INFORM = true,
+	CHAT_MSG_PARTY = true,
+	CHAT_MSG_PARTY_LEADER = true,
+	CHAT_MSG_RAID = true,
+	CHAT_MSG_RAID_LEADER = true,
+	CHAT_MSG_RAID_WARNING = true,
+	CHAT_MSG_GUILD = true,
+	CHAT_MSG_OFFICER = true,
+	CHAT_MSG_INSTANCE_CHAT = true,
+	CHAT_MSG_INSTANCE_CHAT_LEADER = true,
+	CHAT_MSG_CHANNEL = true,
+	CHAT_MSG_COMMUNITIES_CHANNEL = true,
+}
+
+-- Called by the chat frame for every line it shows, only when the name it
+-- passes is readable; returns the new name, or nil to leave it as it is.
+ChatFrameUtil.AddSenderNameFilter(function(event, decorated, _, sender)
+	if not ns.recognition or not SHOWN[event] or not isKnown(sender) then
+		return nil
+	end
+	return ns.recognition:chatName(decorated, sender)
+end)
+
+local function learnGroup()
+	local prefix = IsInRaid() and "raid" or "party"
+	for i = 1, GetNumGroupMembers() do
+		local unit = prefix .. i
+		local guid = UnitGUID(unit)
+		local name, surname = UnitNameUnmodified(unit)
+		if isKnown(guid) and isKnown(name) and isKnown(surname) and surname ~= "" then
+			ns.recognition:learn(guid, NameUtil.GetFullNameWithoutRealm(name, surname))
+		end
+	end
+end
+
+local frame = CreateFrame("Frame")
+frame:SetScript("OnEvent", function(_, event, ...)
+	if not ns.recognition then
+		return
+	end
+	if event == "GROUP_ROSTER_UPDATE" then
+		learnGroup()
+		return
+	end
+	local sender, guid = select(2, ...), select(12, ...)
+	if isKnown(sender) and isKnown(guid) then
+		ns.recognition:learn(guid, sender)
+	end
+end)
+frame:RegisterEvent("GROUP_ROSTER_UPDATE")
+-- The chat lines whose sender and GUID surely belong to the same character
+-- teach the GUID map. A whisper you send names its recipient, and a
+-- Communities line can come from a Battle.net account: neither teaches it.
+for event in pairs(SHOWN) do
+	if event ~= "CHAT_MSG_WHISPER_INFORM" and event ~= "CHAT_MSG_COMMUNITIES_CHANNEL" then
+		frame:RegisterEvent(event)
+	end
+end
+
+-- The tooltip on a character's name in a chat line: who plays it, and when it
+-- was last heard. Hidden when the pointer leaves the link, if it is still ours.
+local tooltipOwner
+
+EventRegistry:RegisterCallback("ChatFrame.OnHyperlinkEnter", function(_, chatFrame, link)
+	if not ns.recognition or not isKnown(link) then
+		return
+	end
+	local lines = ns.recognition:chatTooltip(link)
+	if not lines then
+		return
+	end
+	GameTooltip:SetOwner(chatFrame, "ANCHOR_CURSOR")
+	GameTooltip:SetText(lines.name)
+	GameTooltip:AddLine(lines.playedBy, 0.62, 0.55, 0.95)
+	GameTooltip:AddLine(lines.heard, 0.6, 0.6, 0.6)
+	GameTooltip:Show()
+	tooltipOwner = chatFrame
+end, ns)
+
+EventRegistry:RegisterCallback("ChatFrame.OnHyperlinkLeave", function()
+	if tooltipOwner and GameTooltip:IsOwned(tooltipOwner) then
+		GameTooltip:Hide()
+	end
+	tooltipOwner = nil
+end, ns)

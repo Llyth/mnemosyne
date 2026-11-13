@@ -1,6 +1,6 @@
 ## Interface: 16001
 ## Title: Mnemosyne
-## Notes: Recognize the players you know behind their WoW Forever characters: the nickname they go by, on their tooltip.
+## Notes: Recognize the players you know behind their WoW Forever characters: the nickname they go by, on their tooltip and in chat.
 ## Author: Llyth
 ## Version: @project-version@
 ## SavedVariables: MnemosyneDB
@@ -11,6 +11,8 @@
 src\Protocol.lua
 src\Memory.lua
 src\Self.lua
+src\Recognition.lua
 src\Locales\enUS.lua
 src\Client.lua
 src\Interface.lua
+src\Chat.lua

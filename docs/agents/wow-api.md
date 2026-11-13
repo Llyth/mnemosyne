@@ -14,6 +14,16 @@ Reach for this when a change calls the game, sends or reads addon messages, or t
 - The `sender` of `CHAT_MSG_ADDON` is `"First Last"`, with no realm suffix (Questie, APR). Whispers accept `"First Last"` and `"First-Last"`.
 - "My Secondary Name" hides the surname in the world, not in chat: a tooltip can give only a first name. Map it through the GUID learned from chat lines and group members, never through the first name alone.
 
+## Chat
+
+Read in Blizzard's UI source for build 1.60.1.70938 (`Blizzard_ChatFrameBase`):
+
+- **The name hook** is `ChatFrameUtil.AddSenderNameFilter(callback)`. The default chat frames call it for every `CHAT_MSG_*` line they show, Communities channels included, as `callback(event, decoratedName, text, sender, ...)` with the event's payload after `decoratedName`. `decoratedName` is the sender's name as it will show, class color included; it goes inside the player link's `[...]`, so a suffix reads `[Hugh Jass (Tony)]`. Return the new name, or nil to leave it. The callback is skipped when `decoratedName` is secret, but the other arguments can still be.
+- **The message filters** are `ChatFrameUtil.AddMessageEventFilter(event, callback)`; `ChatFrame_AddMessageEventFilter` is its deprecated alias. A filter runs only when every argument is readable, and can rewrite the text or drop the line, not the name.
+- **The payload** of `CHAT_MSG_*`: the sender is the 2nd value, the sender's GUID the 12th. Both can be secret: the events are `SecretInChatMessagingLockdown`. In `CHAT_MSG_WHISPER_INFORM` the 2nd value is the recipient.
+- **Hovering a link** in a chat frame triggers `EventRegistry` callbacks, `"ChatFrame.OnHyperlinkEnter"` `(owner, chatFrame, link, text, ...)` and `"ChatFrame.OnHyperlinkLeave"`. A character's link is `player:First Last:lineID:chatType:target`, or `playerCommunity:First Last:clubId:streamId:epoch:position` in a Communities channel.
+- **The Communities window** formats its own lines (`CommunitiesChatMixin:FormatMessage`) and calls neither filter: only a Communities channel shown in a chat frame goes through the name hook.
+
 ## Rules
 
 - **Keep the WoW API in the adapters**, `Client` and `Interface`. `Memory`, `Self`, `Protocol` and `Sync` are pure: they take the clock and their saved tables as arguments, so the tests run them outside the game ([testing.md](testing.md), [decision 0004](../decisions/0004-a-pure-core-two-adapters-no-libraries.md)).
@@ -34,6 +44,9 @@ Open, to settle in the game and record here:
 - the suffix the client reads for a flavor .toc (`_Camelot` or `_Forever`; the plain file works either way);
 - whether `UnitName` ever returns the joined `"First Last"` as its first value;
 - whether `TooltipDataProcessor` and `Enum.TooltipDataType.Unit` behave as on Mainline;
-- how fast addon whispers really go before the server throttles them.
+- how fast addon whispers really go before the server throttles them;
+- whether a chat line's sender is `"First Last"`, as the sender of an addon message is;
+- whether `UnitNameUnmodified` gives the surname of a group member who hides it;
+- whether EllesmereUI: Standalone Chat calls the sender name filters and the hyperlink callbacks.
 
 `/dump select(4, GetBuildInfo())` prints the Interface number; `/dump WOW_PROJECT_ID` the project.

@@ -56,9 +56,10 @@ SlashCmdList.MNEMOSYNE = function(input)
 end
 
 -- The nickname of a known character on its tooltip; nothing for an unknown
--- one, or when the game hides the unit or its name (a secret value).
+-- one, or when the game hides the unit or its name (a secret value). A
+-- tooltip that shows only a first name finds the full name through the GUID.
 TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Unit, function(tooltip)
-	if not ns.memory or not tooltip.GetUnit then
+	if not ns.recognition or not tooltip.GetUnit then
 		return
 	end
 	local isKnown = Client.isKnown
@@ -74,7 +75,8 @@ TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Unit, function(tool
 	if not isKnown(name) then
 		return
 	end
-	local identity = ns.memory:recall(name)
+	local guid = UnitGUID(unit)
+	local identity = ns.recognition:recall(name, isKnown(guid) and guid or nil)
 	if identity then
 		tooltip:AddLine(L.TOOLTIP_PLAYED_BY:format(identity.nickname), 0.62, 0.55, 0.95)
 	end

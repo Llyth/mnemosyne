@@ -34,6 +34,12 @@ read_globals = {
 	"TooltipDataProcessor",
 	"UnitIsPlayer",
 	"issecretvalue",
+	"ChatFrameUtil",
+	"EventRegistry",
+	"GameTooltip",
+	"NameUtil",
+	"UnitGUID",
+	"UnitNameUnmodified",
 }
 
 files["spec/"] = { std = "+busted" }
