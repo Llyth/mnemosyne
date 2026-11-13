@@ -378,7 +378,7 @@ function handlers.ADDON_LOADED(name)
 	ns.sync = ns.Sync.new(db.syncs, GetServerTime, ns.memory, db.settings, ns.characters)
 	ns.news = ns.News.new(GetTime, math.random, ns.memory, ns.characters, db.settings)
 	reader = Protocol.newReader(GetTime)
-	ns.recognition = ns.Recognition.new(ns.memory, db.settings, ns.L, GetServerTime)
+	ns.recognition = ns.Recognition.new(ns.memory, db.settings, ns.L, GetServerTime, ns.characters)
 	-- The debug report (src/Report.lua): its events, the caught errors, and
 	-- whether to offer it after an error.
 	db.events = db.events or {}

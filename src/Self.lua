@@ -109,6 +109,23 @@ function Self:message(name, job)
 	end
 end
 
+-- The registered and anonymous characters whose name or nickname contains the
+-- text (Memory.matches), sorted by name: { name, nickname }, nickname nil for
+-- an anonymous one.
+function Self:list(text)
+	local found = {}
+	for name, character in pairs(self.characters) do
+		local state = self:state(name)
+		if (state == "registered" or state == "anonymous") and ns.Memory.matches(text, name, character.nickname) then
+			found[#found + 1] = { name = name, nickname = character.nickname }
+		end
+	end
+	table.sort(found, function(a, b)
+		return a.name < b.name
+	end)
+	return found
+end
+
 -- How many of this account's characters are in a state.
 function Self:count(state)
 	local count = 0

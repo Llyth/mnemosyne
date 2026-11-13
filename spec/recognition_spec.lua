@@ -1,5 +1,5 @@
-local ns = require("spec.helpers.addon")("Memory", "Locales/enUS", "Recognition")
-local Memory, Recognition = ns.Memory, ns.Recognition
+local ns = require("spec.helpers.addon")("Protocol", "Memory", "Self", "Locales/enUS", "Recognition")
+local Memory, Self, Recognition = ns.Memory, ns.Self, ns.Recognition
 
 describe("Recognition", function()
 	local GUID = "Player-1-00000001"
@@ -371,6 +371,46 @@ describe("Recognition", function()
 			local rows, total = recognition:rows("", 1)
 			assert.same({ "Anna Conda" }, { rows[1].name, rows[2] and rows[2].name })
 			assert.equal(2, total)
+		end)
+
+		it("gives the player's own characters first, registered or anonymous, once each", function()
+			local characters = Self.new({}, clock)
+			characters:register("Zed Zulu", "Llyth")
+			characters:keepAnonymous("Yan Yak")
+			characters:register("Hugh Jass", "Tony") -- also in the memory, from a peer
+			recognition = Recognition.new(memory, settings, ns.L, clock, characters)
+			assert.same({
+				{ name = "Hugh Jass", nickname = "Tony", heard = "yours", ago = "", own = true },
+				{ name = "Yan Yak", nickname = "anonymous", heard = "yours", ago = "", own = true },
+				{ name = "Zed Zulu", nickname = "Llyth", heard = "yours", ago = "", own = true },
+				{ name = "Anna Conda", nickname = "Ann", heard = "from Barb Dwyer", ago = "2 |4hour:hours; ago" },
+			}, (recognition:rows("", 50)))
+			assert.same({ "Zed Zulu" }, { recognition:rows("llyth", 50)[1].name, recognition:rows("llyth", 50)[2] })
+		end)
+	end)
+
+	describe("for the player's own characters", function()
+		local characters
+
+		before_each(function()
+			characters = Self.new({}, clock)
+			recognition = Recognition.new(memory, settings, ns.L, clock, characters)
+		end)
+
+		it("shows a registered one's nickname in chat, as first-hand", function()
+			characters:register("Zed Zulu", "Llyth")
+			assert.equal("Zed Zulu (Llyth)", recognition:chatName("Zed Zulu", "Zed Zulu"))
+		end)
+
+		it("shows its own registration over what peers say", function()
+			memory:hear("Hugh Jass", { nickname = "Mallory", revision = 1, source = "Cole Slaw" })
+			characters:register("Hugh Jass", "Tony2")
+			assert.equal("Tony2", recognition:recall("Hugh Jass").nickname)
+		end)
+
+		it("shows nothing for one kept anonymous or unregistered", function()
+			characters:keepAnonymous("Hugh Jass")
+			assert.is_nil(recognition:recall("Hugh Jass"))
 		end)
 	end)
 end)

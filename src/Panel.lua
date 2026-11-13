@@ -237,6 +237,7 @@ function refreshList()
 		end
 		frame.forgotten = row.forgotten
 		frame.button:SetText(row.forgotten and L.PANEL_UNDO or L.PANEL_FORGET)
+		frame.button:SetShown(not row.own) -- your own characters are never forgotten
 		frame:Show()
 	end
 	for i = #found + 1, #rows do

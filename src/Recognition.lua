@@ -23,8 +23,12 @@ local GREY_CODE = "|cff808080" -- the same grey, in chat
 -- tooltip recognition on, settings.chat chat recognition, settings.showSecondHand
 -- second-hand identities.
 -- L: the locale table. clock: returns the server time, in seconds.
-function Recognition.new(memory, settings, L, clock)
-	return setmetatable({ memory = memory, settings = settings, L = L, clock = clock, fullNames = {} }, Recognition)
+-- characters: this account's characters (Self), shown as they are registered.
+function Recognition.new(memory, settings, L, clock, characters)
+	return setmetatable(
+		{ memory = memory, settings = settings, L = L, clock = clock, characters = characters, fullNames = {} },
+		Recognition
+	)
 end
 
 -- Learns that a GUID belongs to a full name, from a chat line or a group
@@ -45,9 +49,15 @@ end
 -- known. A full name shown ("First Last") is trusted; a first name alone
 -- finds the full name learned for the GUID. Nil when its player's nickname is
 -- not known, or known only second-hand while second-hand identities are off.
+-- One of this account's characters shows its own registration, whatever peers
+-- say.
 function Recognition:recall(name, guid)
 	if not name:find(" ", 1, true) and guid then
 		name = self.fullNames[guid] or name
+	end
+	local own = self.characters and self.characters:registration(name)
+	if own then
+		return own.nickname and { name = name, nickname = own.nickname, revision = own.revision } or nil
 	end
 	local identity = self.memory:recall(name)
 	if identity and not self:shows(identity) then
@@ -200,7 +210,8 @@ end
 
 -- The settings panel's rows for the identities whose name or nickname contains
 -- the text (Memory:list), sorted by name: { name, nickname, heard, ago,
--- forgotten }, where heard says first-hand or from whom. A disputed identity
+-- forgotten }, where heard says first-hand or from whom. This account's own
+-- characters come first, marked own (Self:list). A disputed identity
 -- shows as disputed, a forgotten character without an identity as forgotten;
 -- second-hand identities are left out while they do not show, forgotten
 -- characters never. Returns at most max rows, and how many were found.
@@ -208,9 +219,17 @@ end
 -- /mnemosyne lookup does; with 20,000 identities a key typed in the search may
 -- stutter. Keep the folded names in Memory if players notice.
 function Recognition:rows(text, max)
-	local L, rows, total = self.L, {}, 0
+	local L, rows, total, mine = self.L, {}, 0, {}
+	for _, own in ipairs(self.characters and self.characters:list(text) or {}) do
+		mine[own.name] = true
+		total = total + 1
+		if total <= max then
+			local nickname = own.nickname or L.PANEL_ANONYMOUS
+			rows[total] = { name = own.name, nickname = nickname, heard = L.PANEL_YOURS, ago = "", own = true }
+		end
+	end
 	for _, entry in ipairs(self.memory:list(text)) do
-		if entry.forgotten or self:shows(entry) then
+		if not mine[entry.name] and (entry.forgotten or self:shows(entry)) then
 			total = total + 1
 			if total <= max then
 				local nickname, heard = entry.nickname or L.PANEL_FORGOTTEN, ""
