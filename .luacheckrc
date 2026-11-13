@@ -41,8 +41,10 @@ read_globals = {
 	"StaticPopup_StandardEditBoxOnEscapePressed",
 	"StaticPopup_StandardNonEmptyTextHandler",
 	"TooltipDataProcessor",
+	"UnitFactionGroup",
 	"UnitGUID",
 	"UnitIsPlayer",
+	"UnitName",
 	"UnitNameUnmodified",
 	"issecretvalue",
 }

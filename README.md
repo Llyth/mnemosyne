@@ -84,6 +84,10 @@ in the addon drawer next to the minimap). The same actions as commands:
 Mnemosyne keeps everything on your computer, in the game's saved variables, and
 sends nothing outside the game.
 
+When you hover or target a character Mnemosyne doesn't know, it whispers that
+character an ask, invisible in chat, at most once a day per character. Turn off
+**Ask strangers** in the settings to send nothing when you just hover people.
+
 When you register a character, its nickname spreads to every Mnemosyne user,
 through other players too. Characters you don't register are never shared: an
 anonymous character only tells other Mnemosyne users that it is anonymous, so

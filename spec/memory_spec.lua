@@ -79,6 +79,14 @@ describe("Memory", function()
 		assert.equal("Tony", reloaded:recall("Hugh Jass").nickname)
 	end)
 
+	it("knows a character it heard of, registered or not", function()
+		assert.is_false(memory:knows("Hugh Jass"))
+		memory:hear("Hugh Jass", { nickname = "Tony", revision = 900 })
+		memory:hear("Anna Conda", { revision = 900 })
+		assert.is_true(memory:knows("Hugh Jass"))
+		assert.is_true(memory:knows("Anna Conda"))
+	end)
+
 	it("hands out copies, so a caller cannot change what it remembers", function()
 		memory:hear("Hugh Jass", { nickname = "Tony", revision = 900 })
 		memory:recall("Hugh Jass").nickname = "Mallory"
