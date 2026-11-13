@@ -29,11 +29,13 @@ function Report.keep(list, entry, max)
 	end
 end
 
--- Whether a Lua error comes from one of this addon's files; addonName is the
--- addon's folder.
+-- Whether a Lua error comes from one of this addon's files: its message starts
+-- with the file's path, whatever path its text goes on to name. addonName is
+-- the addon's folder.
 function Report.isOwnError(message, addonName)
-	return message:find("AddOns/" .. addonName .. "/", 1, true) ~= nil
-		or message:find("AddOns\\" .. addonName .. "\\", 1, true) ~= nil
+	local path = message:gsub("^Interface[/\\]", "", 1)
+	local slash, backslash = "AddOns/" .. addonName .. "/", "AddOns\\" .. addonName .. "\\"
+	return path:sub(1, #slash) == slash or path:sub(1, #backslash) == backslash
 end
 
 -- Keeps a Lua error from one of this addon's files in the saved errors, once

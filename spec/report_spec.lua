@@ -174,5 +174,16 @@ describe("Report", function()
 			assert.is_false(Report.isOwnError("Interface/AddOns/MnemosyneExtra/x.lua:1: oops", "Mnemosyne"))
 			assert.is_false(Report.isOwnError("Interface/AddOns/Other/x.lua:1: oops", "Mnemosyne"))
 		end)
+
+		it("reads only where the error comes from, not a path its text names", function()
+			assert.is_true(Report.isOwnError("AddOns/Mnemosyne/src/Client.lua:12: oops", "Mnemosyne"))
+			assert.is_false(
+				Report.isOwnError(
+					"Interface/AddOns/Other/x.lua:1: bad call from Interface/AddOns/Mnemosyne/",
+					"Mnemosyne"
+				)
+			)
+			assert.is_false(Report.isOwnError([[Interface\AddOns\Other\x.lua:1: see AddOns\Mnemosyne\]], "Mnemosyne"))
+		end)
 	end)
 end)
