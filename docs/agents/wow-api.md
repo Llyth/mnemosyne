@@ -27,7 +27,7 @@ Read in Blizzard's UI source for build 1.60.1.70938 (`Blizzard_ChatFrameBase`):
 
 ## Rules
 
-- **Keep the WoW API in the adapters**, `Client` and `Interface`. `Memory`, `Self`, `Protocol` and `Sync` are pure: they take the clock and their saved tables as arguments, so the tests run them outside the game ([testing.md](testing.md), [decision 0004](../decisions/0004-a-pure-core-two-adapters-no-libraries.md)).
+- **Keep the WoW API in the adapters**, `Client` and `Interface` and their files (`Encounter`, `Chat`, `Commands`, `Prompt`, `ReportWindow`, `Debug`). `Memory`, `Self`, `Protocol`, `Sync`, `Recognition`, `Strangers` and `Report` are pure: they take the clock and their saved tables as arguments, so the tests run them outside the game ([testing.md](testing.md), [decision 0004](../decisions/0004-a-pure-core-two-adapters-no-libraries.md)).
 - **Declare every WoW global in `.luacheckrc`.** An undeclared global fails luacheck: a typo, or an API missing on Forever.
 - **Use the namespaced APIs.** Missing on Forever (reported): `GetSpellInfo`, `GetItemInfo` (use `C_Spell.GetSpellInfo`, which returns a table, and `C_Item.GetItemInfo`), `GetSpellBookItemName`, the talent and skill-line globals, `CombatLogGetCurrentEventInfo`.
 - **Expect secret values.** Unit names, GUIDs and chat lines can be secret (unreadable by addon code) during combat and chat lockdown. Check every value read from a unit or an event with `issecretvalue` and treat a secret as unknown; comparing or concatenating one raises an error. A chat line that is secret shows without a nickname.
