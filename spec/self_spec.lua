@@ -161,6 +161,43 @@ describe("Self", function()
 		end)
 	end)
 
+	describe("the message a character sends", function()
+		it("announces and answers with the nickname of a registered character", function()
+			characters:register("Hugh Jass", "Tony")
+			local expected = { kind = "announcement", nickname = "Tony", revision = 1000 }
+			assert.same(expected, characters:message("Hugh Jass", "announce"))
+			expected.kind = "answer"
+			assert.same(expected, characters:message("Hugh Jass", "answer"))
+		end)
+
+		it("says an anonymous character is anonymous", function()
+			characters:keepAnonymous("Hugh Jass")
+			local expected = { kind = "anonymous", revision = 1000 }
+			assert.same(expected, characters:message("Hugh Jass", "announce"))
+			assert.same(expected, characters:message("Hugh Jass", "answer"))
+		end)
+
+		it("sends the removal of a character that unregistered", function()
+			characters:register("Hugh Jass", "Tony")
+			now = 2000
+			characters:unregister("Hugh Jass")
+			local expected = { kind = "removal", revision = 2000 }
+			assert.same(expected, characters:message("Hugh Jass", "announce"))
+			assert.same(expected, characters:message("Hugh Jass", "answer"))
+		end)
+
+		it("sends nothing about a character not asked yet", function()
+			assert.is_nil(characters:message("Hugh Jass", "announce"))
+			assert.is_nil(characters:message("Hugh Jass", "answer"))
+		end)
+
+		it("asks, whatever the character's state", function()
+			assert.same({ kind = "ask" }, characters:message("Hugh Jass", "ask"))
+			characters:register("Hugh Jass", "Tony")
+			assert.same({ kind = "ask" }, characters:message("Hugh Jass", "ask"))
+		end)
+	end)
+
 	describe("the registration prompt", function()
 		it("prompts for a character not asked yet, with nothing to pre-fill", function()
 			assert.same({}, characters:prompt("Hugh Jass"))
