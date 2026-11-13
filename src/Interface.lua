@@ -6,6 +6,14 @@ local _, ns = ...
 local L = ns.L
 local Client = ns.Client
 
+local Interface = {}
+ns.Interface = Interface
+
+-- Adds who plays a character to a tooltip, in Mnemosyne's color.
+function Interface.addPlayedBy(tooltip, nickname)
+	tooltip:AddLine(L.TOOLTIP_PLAYED_BY:format(nickname), 0.62, 0.55, 0.95)
+end
+
 local function say(text)
 	print("|cff9d8df1Mnemosyne|r: " .. text)
 end
@@ -78,6 +86,6 @@ TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Unit, function(tool
 	local guid = UnitGUID(unit)
 	local identity = ns.recognition:recall(name, isKnown(guid) and guid or nil)
 	if identity then
-		tooltip:AddLine(L.TOOLTIP_PLAYED_BY:format(identity.nickname), 0.62, 0.55, 0.95)
+		Interface.addPlayedBy(tooltip, identity.nickname)
 	end
 end)

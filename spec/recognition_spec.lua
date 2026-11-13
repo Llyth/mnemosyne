@@ -39,6 +39,11 @@ describe("Recognition", function()
 			settings.chat = false
 			assert.is_nil(recognition:chatName("Hugh Jass", "Hugh Jass"))
 		end)
+
+		it("recognizes a sender by the full name the line's GUID was learned with", function()
+			recognition:learn(GUID, "Hugh Jass")
+			assert.equal("Hugh (Tony)", recognition:chatName("Hugh", "Hugh", GUID))
+		end)
 	end)
 
 	describe("by GUID", function()
@@ -54,6 +59,18 @@ describe("Recognition", function()
 		it("never takes a first name alone for a full name", function()
 			assert.is_nil(recognition:recall("Hugh", GUID))
 			assert.is_nil(recognition:recall("Hugh"))
+		end)
+
+		it("trusts a full name shown over the GUID map", function()
+			memory:hear("Anna Conda", { nickname = "Ann", revision = 900 })
+			recognition:learn(GUID, "Anna Conda")
+			assert.equal("Tony", recognition:recall("Hugh Jass", GUID).nickname)
+		end)
+
+		it("learns only the GUIDs of characters it knows", function()
+			recognition:learn(GUID, "Anna Conda")
+			memory:hear("Anna Conda", { nickname = "Ann", revision = 900 })
+			assert.is_nil(recognition:recall("Anna", GUID))
 		end)
 
 		it("keeps each GUID's full name apart", function()
@@ -81,7 +98,7 @@ describe("Recognition", function()
 	describe("on a name in chat", function()
 		it("shows who plays the character a chat line links to, and when it was last heard", function()
 			assert.same(
-				{ name = "Hugh Jass", playedBy = "Played by Tony", heard = "Last heard just now" },
+				{ name = "Hugh Jass", nickname = "Tony", heard = "Last heard just now" },
 				recognition:chatTooltip("player:Hugh Jass:42:SAY:")
 			)
 			assert.equal("Hugh Jass", recognition:chatTooltip("player:Hugh Jass").name)

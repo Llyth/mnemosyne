@@ -8,6 +8,7 @@
 local _, ns = ...
 
 local isKnown = ns.Client.isKnown
+local Interface = ns.Interface
 
 -- The chat lines that show a nickname: say, yell, whispers, group, guild,
 -- instance, custom channels and Communities channels. Every other line (emotes,
@@ -32,16 +33,22 @@ local SHOWN = {
 
 -- Called by the chat frame for every line it shows, only when the name it
 -- passes is readable; returns the new name, or nil to leave it as it is.
-ChatFrameUtil.AddSenderNameFilter(function(event, decorated, _, sender)
+ChatFrameUtil.AddSenderNameFilter(function(event, decorated, _, sender, ...)
 	if not ns.recognition or not SHOWN[event] or not isKnown(sender) then
 		return nil
 	end
-	return ns.recognition:chatName(decorated, sender)
+	local guid = select(10, ...)
+	return ns.recognition:chatName(decorated, sender, isKnown(guid) and guid ~= "" and guid or nil)
 end)
 
+-- Raid units count the player (raid1 to raidN); party units do not (party1
+-- to party4).
 local function learnGroup()
-	local prefix = IsInRaid() and "raid" or "party"
-	for i = 1, GetNumGroupMembers() do
+	local prefix, count = "party", GetNumSubgroupMembers()
+	if IsInRaid() then
+		prefix, count = "raid", GetNumGroupMembers()
+	end
+	for i = 1, count do
 		local unit = prefix .. i
 		local guid = UnitGUID(unit)
 		local name, surname = UnitNameUnmodified(unit)
@@ -76,7 +83,9 @@ for event in pairs(SHOWN) do
 end
 
 -- The tooltip on a character's name in a chat line: who plays it, and when it
--- was last heard. Hidden when the pointer leaves the link, if it is still ours.
+-- was last heard. When another handler already shows a tooltip for the link,
+-- the lines join it; otherwise Mnemosyne shows its own, and hides it when the
+-- pointer leaves the link if it is still its own.
 local tooltipOwner
 
 EventRegistry:RegisterCallback("ChatFrame.OnHyperlinkEnter", function(_, chatFrame, link)
@@ -87,12 +96,14 @@ EventRegistry:RegisterCallback("ChatFrame.OnHyperlinkEnter", function(_, chatFra
 	if not lines then
 		return
 	end
-	GameTooltip:SetOwner(chatFrame, "ANCHOR_CURSOR")
-	GameTooltip:SetText(lines.name)
-	GameTooltip:AddLine(lines.playedBy, 0.62, 0.55, 0.95)
+	if not (GameTooltip:IsShown() and GameTooltip:IsOwned(chatFrame)) then
+		GameTooltip:SetOwner(chatFrame, "ANCHOR_CURSOR")
+		GameTooltip:SetText(lines.name)
+		tooltipOwner = chatFrame
+	end
+	Interface.addPlayedBy(GameTooltip, lines.nickname)
 	GameTooltip:AddLine(lines.heard, 0.6, 0.6, 0.6)
 	GameTooltip:Show()
-	tooltipOwner = chatFrame
 end, ns)
 
 EventRegistry:RegisterCallback("ChatFrame.OnHyperlinkLeave", function()

@@ -23,28 +23,34 @@ function Recognition.new(memory, settings, L, clock)
 end
 
 -- Learns that a GUID belongs to a full name, from a chat line or a group
--- member, for this session. A missing or empty GUID or name teaches nothing.
+-- member, for this session. Only a character the memory knows is learned, so
+-- the map stays small in busy channels; a missing GUID teaches nothing.
 function Recognition:learn(guid, fullName)
-	if guid and guid ~= "" and fullName and fullName ~= "" then
+	if guid and guid ~= "" and self.memory:recall(fullName) then
 		self.fullNames[guid] = fullName
 	end
 end
 
 -- Recalls the identity of a character shown by name, and by GUID when it is
--- known: the full name learned for the GUID wins over the name shown, which
--- may be a first name alone. Nil when its player's nickname is not known.
+-- known. A full name shown ("First Last") is trusted; a first name alone
+-- finds the full name learned for the GUID. Nil when its player's nickname is
+-- not known.
 function Recognition:recall(name, guid)
-	return self.memory:recall(guid and self.fullNames[guid] or name)
+	if not name:find(" ", 1, true) and guid then
+		name = self.fullNames[guid] or name
+	end
+	return self.memory:recall(name)
 end
 
 -- The sender's name in a chat line with its player's nickname after it, or nil
 -- to leave the line as it is (an unknown character, or chat recognition off).
--- decorated: the name as the chat frame shows it, colors included.
-function Recognition:chatName(decorated, name)
+-- decorated: the name as the chat frame shows it, colors included; guid: the
+-- line's GUID, when there is one.
+function Recognition:chatName(decorated, name, guid)
 	if not self.settings.chat then
 		return nil
 	end
-	local identity = self.memory:recall(name)
+	local identity = self:recall(name, guid)
 	return identity and self.L.CHAT_NAME:format(decorated, identity.nickname)
 end
 
@@ -71,21 +77,16 @@ local function linkedName(link)
 end
 
 -- The tooltip on a character's name in a chat line, from the line's link:
--- { name, playedBy, heard }, or nil to show none (not a character's link, an
+-- { name, nickname, heard }, or nil to show none (not a character's link, an
 -- unknown character, or chat recognition off).
 function Recognition:chatTooltip(link)
 	if not self.settings.chat then
 		return nil
 	end
 	local name = linkedName(link)
-	local identity = name and self.memory:recall(name)
+	local identity = name and self:recall(name)
 	if not identity then
 		return nil
 	end
-	local L = self.L
-	return {
-		name = name,
-		playedBy = L.TOOLTIP_PLAYED_BY:format(identity.nickname),
-		heard = heardAgo(L, self.clock() - identity.heard),
-	}
+	return { name = name, nickname = identity.nickname, heard = heardAgo(self.L, self.clock() - identity.heard) }
 end

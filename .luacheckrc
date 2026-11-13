@@ -16,9 +16,13 @@ globals = {
 read_globals = {
 	"C_ChatInfo",
 	"C_Timer",
+	"ChatFrameUtil",
 	"CreateFrame",
 	"Enum",
+	"EventRegistry",
+	"GameTooltip",
 	"GetNumGroupMembers",
+	"GetNumSubgroupMembers",
 	"GetServerTime",
 	"GetTime",
 	"GetUnitName",
@@ -31,15 +35,12 @@ read_globals = {
 	"IsVeteranTrialAccount",
 	"LE_PARTY_CATEGORY_HOME",
 	"LE_PARTY_CATEGORY_INSTANCE",
-	"TooltipDataProcessor",
-	"UnitIsPlayer",
-	"issecretvalue",
-	"ChatFrameUtil",
-	"EventRegistry",
-	"GameTooltip",
 	"NameUtil",
+	"TooltipDataProcessor",
 	"UnitGUID",
+	"UnitIsPlayer",
 	"UnitNameUnmodified",
+	"issecretvalue",
 }
 
 files["spec/"] = { std = "+busted" }
