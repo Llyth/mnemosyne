@@ -56,18 +56,17 @@ end
 
 -- Builds a job's message when it is sent, from the registration as it is then:
 -- a job that waited through a lockdown carries the latest nickname, or the
--- removal if the character unregistered meanwhile. Returns nothing to drop it.
+-- removal if the character unregistered meanwhile. Every character asks,
+-- registered or not. A character that unregistered keeps answering asks with
+-- its removal: that is how the removal reaches peers who were offline when it
+-- was announced. Returns nothing to drop the job.
 local function compose(job)
 	local registration = ns.characters:registration(playerName)
-	if not registration then
-		return
-	end
 	local message
 	if job.kind == "ask" then
-		if not registration.nickname then
-			return
-		end
 		message = { kind = "ask" }
+	elseif not registration then
+		return
 	elseif not registration.nickname then
 		message = { kind = "removal", revision = registration.revision }
 	else
@@ -90,21 +89,28 @@ local function isPaused()
 end
 
 -- Sends what the allowance permits, oldest job first, unless in combat or in
--- lockdown; stops ticking once the queue is empty.
+-- lockdown; stops ticking once the queue is empty. Whispers outside instances
+-- are exempt from the allowance (decision 0002), so answers spend no token.
 local function flush()
 	local now = GetTime()
 	tokens = math.min(BURST, tokens + (now - refilledAt) * REFILL)
 	refilledAt = now
-	while queue[1] and tokens >= 1 and not isPaused() do
+	while queue[1] and not isPaused() do
 		local job = queue[1]
 		local text, chatType, target = compose(job)
 		if text then
+			local costs = chatType ~= "WHISPER" or IsInInstance()
+			if costs and tokens < 1 then
+				return
+			end
 			local result = C_ChatInfo.SendAddonMessage(Protocol.PREFIX, text, chatType, target)
 			if RETRY[result] then
 				tokens = 0
 				return
 			end
-			tokens = tokens - 1
+			if costs then
+				tokens = tokens - 1
+			end
 		end
 		table.remove(queue, 1)
 		waiting[job.key] = nil
@@ -116,33 +122,32 @@ local function flush()
 end
 
 -- Queues a job once: a job already waiting (one announcement per channel, one
--- answer per sender) is not queued twice.
+-- answer per sender) is not queued twice. Returns true when it queued the job.
 local function enqueue(kind, channel, target)
 	if IsTrialAccount() or IsVeteranTrialAccount() or C_ChatInfo.AreOutgoingAddonChatMessagesRestricted() then
-		return
+		return false
 	end
 	local key = kind .. ":" .. channel .. ":" .. (target or "")
 	if waiting[key] or (kind == "answer" and #queue >= MAX_ANSWERS) then
-		return
+		return false
 	end
 	waiting[key] = true
 	queue[#queue + 1] = { key = key, kind = kind, channel = channel, target = target }
 	if not ticker then
 		ticker = C_Timer.NewTicker(TICK, flush)
 	end
+	return true
 end
 
-local function announce(channels)
-	for _, channel in ipairs(channels) do
+-- Tells the guild and the group the character's registration has changed: its
+-- nickname, or its removal; with ask, also asks who the others are.
+function Client.announce(ask)
+	for _, channel in ipairs({ "GUILD", "GROUP" }) do
 		enqueue("announce", channel)
-		enqueue("ask", channel)
+		if ask then
+			enqueue("ask", channel)
+		end
 	end
-end
-
--- Tells the guild and the group the character's registration has changed:
--- its nickname, and an ask, or its removal.
-function Client.announce()
-	announce({ "GUILD", "GROUP" })
 end
 
 local frame = CreateFrame("Frame")
@@ -175,26 +180,39 @@ function handlers.PLAYER_LOGIN()
 	playerName = GetUnitName("player")
 	groupSize = GetNumGroupMembers()
 	inGuild = IsInGuild()
-	if isRegistered() then
-		Client.announce()
+	for _, channel in ipairs({ "GUILD", "GROUP" }) do
+		if isRegistered() then
+			enqueue("announce", channel)
+		end
+		enqueue("ask", channel)
 	end
 end
 
--- Announces to the group when it grows: on joining one, or when someone joins.
+-- When the group grows, a registered character announces itself. It asks only
+-- when it joins a group itself: a newcomer asks on its own, so the members
+-- already there do not all ask again as a raid fills.
 function handlers.GROUP_ROSTER_UPDATE()
 	local size = GetNumGroupMembers()
-	if size > groupSize and isRegistered() then
-		announce({ "GROUP" })
+	if size > groupSize then
+		if isRegistered() then
+			enqueue("announce", "GROUP")
+		end
+		if groupSize == 0 then
+			enqueue("ask", "GROUP")
+		end
 	end
 	groupSize = size
 end
 
--- Announces to the guild on joining one (also when the guild is known late
--- after login).
+-- On joining a guild (also when the guild is known only after login), a
+-- registered character announces itself, and every character asks.
 function handlers.PLAYER_GUILD_UPDATE()
 	local nowInGuild = IsInGuild()
-	if nowInGuild and not inGuild and isRegistered() then
-		announce({ "GUILD" })
+	if nowInGuild and not inGuild then
+		if isRegistered() then
+			enqueue("announce", "GUILD")
+		end
+		enqueue("ask", "GUILD")
 	end
 	inGuild = nowInGuild
 end
@@ -219,8 +237,9 @@ function handlers.CHAT_MSG_ADDON(prefix, text, _, sender)
 		if answeredAt[sender] and now - answeredAt[sender] < ANSWER_COOLDOWN then
 			return
 		end
-		answeredAt[sender] = now
-		enqueue("answer", "WHISPER", sender)
+		if enqueue("answer", "WHISPER", sender) then
+			answeredAt[sender] = now
+		end
 	else
 		ns.memory:hear(sender, { nickname = message.nickname, revision = message.revision })
 	end

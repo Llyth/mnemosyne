@@ -25,6 +25,7 @@ read_globals = {
 	"InCombatLockdown",
 	"IsInGroup",
 	"IsInGuild",
+	"IsInInstance",
 	"IsInRaid",
 	"IsTrialAccount",
 	"IsVeteranTrialAccount",

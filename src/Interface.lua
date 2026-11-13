@@ -27,7 +27,7 @@ function commands.register(nickname)
 		return
 	end
 	say(L.REGISTERED:format(nickname))
-	Client.announce()
+	Client.announce(true)
 end
 
 function commands.unregister()
@@ -36,7 +36,7 @@ function commands.unregister()
 		return
 	end
 	say(L.UNREGISTERED)
-	Client.announce()
+	Client.announce(false)
 end
 
 function commands.help()
