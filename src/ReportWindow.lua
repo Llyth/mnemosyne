@@ -107,7 +107,7 @@ local function show()
 	end
 	local db = MnemosyneDB
 	local reportFacts = facts()
-	local text = Report.text(reportFacts, db.events, db.errors, db.salt)
+	local text = Report.text(reportFacts, db.events, db.errors)
 	setCopy(linkBox, Report.link(text, reportFacts.version))
 	setCopy(textBox, text)
 	window:Show()
@@ -154,12 +154,18 @@ frame:SetScript("OnEvent", function()
 end)
 
 -- Keeps one of Mnemosyne's own errors for the report and offers the report,
--- then hands every error on to the handler that was there before.
+-- then hands every error on to the handler that was there before. An error
+-- repeated (every frame, say) is kept once, so it does not push out the first.
+-- shortcut: !BugGrabber locks seterrorhandler, so with it loaded nothing is
+-- caught here (BugSack shows the error); its callback needs CallbackHandler.
 local previous = geterrorhandler()
 local function catch(message)
 	local db = MnemosyneDB
 	if type(message) == "string" and db and db.errors and Report.isOwnError(message, addonName) then
-		Report.keep(db.errors, { at = GetServerTime(), message = message }, Report.MAX_ERRORS)
+		local last = db.errors[#db.errors]
+		if not (last and last.message == message) then
+			Report.keep(db.errors, { at = GetServerTime(), message = message }, Report.MAX_ERRORS)
+		end
 		C_Timer.After(0, offer)
 	end
 end

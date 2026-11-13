@@ -9,9 +9,8 @@
 local _, ns = ...
 
 local L = ns.L
-local Protocol = ns.Protocol
 local Report = ns.Report
-local printable = Protocol.printable
+local printable = ns.Protocol.printable
 
 local Debug = {}
 ns.Debug = Debug
@@ -41,12 +40,6 @@ local function record(what, peer, detail)
 	end
 end
 
--- The kind of a message ("ask", "announcement"...), or "?" when it does not parse.
-local function kind(text)
-	local message = Protocol.read(text)
-	return message and message.kind or "?"
-end
-
 local function log(template, ...)
 	if not Debug.isOn() then
 		return
@@ -58,10 +51,11 @@ local function log(template, ...)
 	ns.say(template:format(unpack(values, 1, select("#", ...))))
 end
 
--- A message handed to the client: chatType, and the target of a whisper.
-function Debug.sent(text, chatType, target, result)
+-- A message handed to the client: chatType, the target of a whisper, and the
+-- kind of message ("ask", "announcement"...).
+function Debug.sent(text, chatType, target, result, kind)
 	local channel = target and (chatType .. " " .. target) or chatType
-	record("sent", target, ("%s %s %s"):format(chatType, kind(text), RESULT[result] or tostring(result)))
+	record("sent", target, ("%s %s %s"):format(chatType, kind, RESULT[result] or tostring(result)))
 	if result == Enum.SendAddonMessageResult.Success then
 		log(L.DEBUG_SENT, channel, text)
 	else
@@ -69,8 +63,8 @@ function Debug.sent(text, chatType, target, result)
 	end
 end
 
-function Debug.received(sender, channel, text)
-	record("received", sender, channel .. " " .. kind(text))
+function Debug.received(sender, channel, text, kind)
+	record("received", sender, channel .. " " .. kind)
 	log(L.DEBUG_RECEIVED, sender, channel, text)
 end
 

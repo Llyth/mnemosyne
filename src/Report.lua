@@ -1,12 +1,12 @@
 -- Report: the debug report a player pastes in a bug report (/mnemosyne
 -- report), and the link that opens the bug report form already filled in with
--- it. Pure: it takes the facts, the saved events and errors, and the salt as
+-- it. Pure: it takes the facts and the saved events and errors as
 -- arguments (decision 0004); src/ReportWindow.lua shows it.
 --
 -- Other players' names never appear in a report: an event names its peer only
--- by a short hash, salted with a value kept in the saved variables and never
--- shown, so the hashes cannot be matched against a list of names. Events hold
--- no nickname and no message text.
+-- by a label numbered within that report ("peer1", "peer2"...), so nothing in
+-- it can be matched against a list of names (a short hash of the name could
+-- be, from a guild roster). Events hold no nickname and no message text.
 local _, ns = ...
 
 local Report = {}
@@ -27,17 +27,6 @@ function Report.keep(list, entry, max)
 	while #list > max do
 		table.remove(list, 1)
 	end
-end
-
--- A short hash of a character's name: 6 hexadecimal digits, the same for the
--- same name and salt. Arithmetic only (no bit library outside the game).
-function Report.hash(name, salt)
-	local h = 5381
-	local text = salt .. name
-	for i = 1, #text do
-		h = (h * 33 + text:byte(i)) % 4294967296
-	end
-	return ("%06x"):format(h % 16777216)
 end
 
 -- Whether a Lua error comes from one of this addon's files; addonName is the
@@ -65,7 +54,7 @@ end
 -- detail }, oldest first, peer a character's name or nil. errors: { at,
 -- message }, oldest first. Newest first in the text, so a link cut short
 -- keeps the latest.
-function Report.text(facts, events, errors, salt)
+function Report.text(facts, events, errors)
 	local lines = {
 		"Mnemosyne " .. facts.version,
 		("Client %s (Interface %s), %s"):format(facts.build, facts.interface, facts.locale),
@@ -77,9 +66,17 @@ function Report.text(facts, events, errors, salt)
 		lines[#lines + 1] = ("-%ds %s"):format(facts.now - errors[i].at, errors[i].message)
 	end
 	lines[#lines + 1] = "Events, newest first:"
+	local labels, peers = {}, 0
 	for i = #events, 1, -1 do
 		local event = events[i]
-		local peer = event.peer and Report.hash(event.peer, salt) or "-"
+		local peer = "-"
+		if event.peer then
+			if not labels[event.peer] then
+				peers = peers + 1
+				labels[event.peer] = "peer" .. peers
+			end
+			peer = labels[event.peer]
+		end
 		lines[#lines + 1] = ("-%ds %s %s %s"):format(facts.now - event.at, event.what, peer, event.detail)
 	end
 	return table.concat(lines, "\n")

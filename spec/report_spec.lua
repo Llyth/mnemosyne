@@ -38,7 +38,7 @@ describe("Report", function()
 
 	describe("text", function()
 		it("holds the version, the client build, the locale, the settings and the counts", function()
-			local text = Report.text(facts, {}, {}, "salt")
+			local text = Report.text(facts, {}, {})
 			assert.truthy(text:find("v0.2.0", 1, true))
 			assert.truthy(text:find("70938", 1, true))
 			assert.truthy(text:find("16001", 1, true))
@@ -56,7 +56,7 @@ describe("Report", function()
 				{ at = 4900, what = "sent", detail = "GUILD ask Success" },
 				{ at = 4990, what = "dropped", peer = "Hugh Jass", detail = "malformed" },
 			}
-			local text = Report.text(facts, events, errors, "salt")
+			local text = Report.text(facts, events, errors)
 			assert.truthy(text:find("newer error", 1, true) < text:find("older error", 1, true))
 			assert.truthy(text:find("malformed", 1, true) < text:find("GUILD ask Success", 1, true))
 		end)
@@ -67,38 +67,34 @@ describe("Report", function()
 				{ at = 4950, what = "sent", peer = "Anna Conda", detail = "WHISPER answer Success" },
 				{ at = 4990, what = "dropped", peer = "Barb Dwyer", detail = "older" },
 			}
-			local text = Report.text(facts, events, {}, "salt")
+			local text = Report.text(facts, events, {})
 			for _, name in ipairs({ "Hugh", "Jass", "Anna", "Conda", "Barb", "Dwyer", "Tony" }) do
 				assert.falsy(text:find(name, 1, true), name .. " appears in the report")
 			end
 		end)
 
-		it("shows a character's name as the same short hash in every event", function()
+		it("names each peer by the same label in every event, another peer by another", function()
 			local events = {
 				{ at = 4900, what = "received", peer = "Hugh Jass", detail = "GUILD ask" },
-				{ at = 4950, what = "sent", peer = "Hugh Jass", detail = "WHISPER answer Success" },
+				{ at = 4950, what = "sent", peer = "Anna Conda", detail = "WHISPER answer Success" },
+				{ at = 4990, what = "sent", peer = "Hugh Jass", detail = "WHISPER answer Success" },
 			}
-			local hash = Report.hash("Hugh Jass", "salt")
-			assert.equal(6, #hash)
-			local text = Report.text(facts, events, {}, "salt")
-			local _, count = text:gsub(hash, "")
-			assert.equal(2, count)
-		end)
-	end)
-
-	describe("hash", function()
-		it("gives other names other hashes", function()
-			assert.are_not.equal(Report.hash("Hugh Jass", "salt"), Report.hash("Anna Conda", "salt"))
+			local text = Report.text(facts, events, {})
+			local _, first = text:gsub(" peer1 ", "")
+			local _, second = text:gsub(" peer2 ", "")
+			assert.equal(2, first)
+			assert.equal(1, second)
 		end)
 
-		it("gives the same name another hash under another salt", function()
-			assert.are_not.equal(Report.hash("Hugh Jass", "salt"), Report.hash("Hugh Jass", "pepper"))
+		it("shows an event without a peer with a dash", function()
+			local events = { { at = 4990, what = "dropped", detail = "secret" } }
+			assert.truthy(Report.text(facts, events, {}):find("-10s dropped - secret", 1, true))
 		end)
 	end)
 
 	describe("link", function()
 		it("opens the bug report form pre-filled with the report and the version", function()
-			local text = Report.text(facts, {}, {}, "salt")
+			local text = Report.text(facts, {}, {})
 			local link = Report.link(text, "v0.2.0")
 			assert.truthy(link:find("^https://github%.com/Llyth/mnemosyne/issues/new%?template=bug_report%.yml&"))
 			assert.truthy(link:find("&version=v0.2.0&", 1, true))
@@ -115,7 +111,7 @@ describe("Report", function()
 					detail = ("GUILD announcement %03d"):format(i),
 				}
 			end
-			local text = Report.text(facts, events, {}, "salt")
+			local text = Report.text(facts, events, {})
 			local link = Report.link(text, "v0.2.0")
 			assert.truthy(#link <= Report.MAX_LINK_BYTES)
 			local carried = reportIn(link)
