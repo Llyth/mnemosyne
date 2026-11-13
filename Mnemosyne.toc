@@ -1,6 +1,7 @@
 ## Interface: 16001
 ## Title: Mnemosyne
 ## Notes: Recognize the players you know behind their WoW Forever characters: the nickname they go by, on their tooltip and in chat.
+## Notes-frFR: Reconnaissez les joueurs que vous connaissez derrière leurs personnages de WoW Forever : le pseudonyme sous lequel ils jouent, dans leur infobulle et dans la discussion.
 ## Author: Llyth
 ## Version: @project-version@
 ## SavedVariables: MnemosyneDB
@@ -18,6 +19,7 @@ src\Recognition.lua
 src\Strangers.lua
 src\Report.lua
 src\Locales\enUS.lua
+src\Locales\frFR.lua
 src\Debug.lua
 src\Client.lua
 src\Interface.lua

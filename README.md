@@ -78,6 +78,10 @@ it does:
   unzip it into `World of Warcraft\_forever_\Interface\AddOns\`, so that you get
   `AddOns\Mnemosyne\Mnemosyne.toc`.
 
+Mnemosyne speaks English and French: it follows your game client's language,
+and falls back to English for anything not translated. The slash commands stay
+the same in every language (`/mnemosyne register`, `/mnemosyne lookup`...).
+
 ## Using it
 
 The settings panel is in Options, AddOns, Mnemosyne; the addon drawer next to
