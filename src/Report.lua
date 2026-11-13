@@ -36,6 +36,20 @@ function Report.isOwnError(message, addonName)
 		or message:find("AddOns\\" .. addonName .. "\\", 1, true) ~= nil
 end
 
+-- Keeps a Lua error from one of this addon's files in the saved errors, once
+-- when it repeats back to back (an error every frame must not push out the
+-- first). Returns whether it was one of ours, so the caller offers the report.
+function Report.keepError(errors, message, at, addonName)
+	if not Report.isOwnError(message, addonName) then
+		return false
+	end
+	local last = errors[#errors]
+	if not (last and last.message == message) then
+		Report.keep(errors, { at = at, message = message }, Report.MAX_ERRORS)
+	end
+	return true
+end
+
 -- "a=1, b=2", sorted by key.
 local function pairsText(values)
 	local keys = {}

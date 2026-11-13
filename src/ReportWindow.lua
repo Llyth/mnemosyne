@@ -153,23 +153,29 @@ frame:SetScript("OnEvent", function()
 	offer()
 end)
 
--- Keeps one of Mnemosyne's own errors for the report and offers the report,
--- then hands every error on to the handler that was there before. An error
--- repeated (every frame, say) is kept once, so it does not push out the first.
--- shortcut: !BugGrabber locks seterrorhandler, so with it loaded nothing is
--- caught here (BugSack shows the error); its callback needs CallbackHandler.
-local previous = geterrorhandler()
+-- Keeps one of Mnemosyne's own errors for the report and offers the report.
 local function catch(message)
 	local db = MnemosyneDB
-	if type(message) == "string" and db and db.errors and Report.isOwnError(message, addonName) then
-		local last = db.errors[#db.errors]
-		if not (last and last.message == message) then
-			Report.keep(db.errors, { at = GetServerTime(), message = message }, Report.MAX_ERRORS)
+	if type(message) == "string" and db and db.errors then
+		if Report.keepError(db.errors, message, GetServerTime(), addonName) then
+			C_Timer.After(0, offer)
 		end
-		C_Timer.After(0, offer)
 	end
 end
+
+-- Without an error-catching addon: every error goes through catch, then on to
+-- the handler that was there before.
+local previous = geterrorhandler()
 seterrorhandler(function(message, ...)
 	pcall(catch, message) -- an error here must not hide the one being handled
 	return previous(message, ...)
 end)
+
+-- With !BugGrabber (standalone, or embedded in another addon and loaded before
+-- or after Mnemosyne): it replaces seterrorhandler with a no-op and does not
+-- chain, but announces each error it grabs, which BugSack still shows.
+EventRegistry:RegisterCallback("BugGrabber.BugGrabbed", function(_, errorID)
+	pcall(function()
+		catch(BugGrabber:GetErrorByID(errorID).message)
+	end)
+end, {})

@@ -15,6 +15,7 @@ globals = {
 
 -- Read from the client. Add each one with the code that first uses it.
 read_globals = {
+	"BugGrabber",
 	"C_AddOns",
 	"C_ChatInfo",
 	"C_Timer",

@@ -126,6 +126,42 @@ describe("Report", function()
 		end)
 	end)
 
+	describe("keepError", function()
+		local own = "Interface/AddOns/Mnemosyne/src/Client.lua:12: oops"
+
+		it("keeps an error from Mnemosyne's files, with its time, and says so", function()
+			local errors = {}
+			assert.is_true(Report.keepError(errors, own, 4000, "Mnemosyne"))
+			assert.same({ { at = 4000, message = own } }, errors)
+		end)
+
+		it("leaves another addon's error out", function()
+			local errors = {}
+			assert.is_false(Report.keepError(errors, "Interface/AddOns/Other/x.lua:1: oops", 4000, "Mnemosyne"))
+			assert.same({}, errors)
+		end)
+
+		it("keeps an error repeated back to back once, so it does not push out the first", function()
+			local first = "Interface/AddOns/Mnemosyne/src/Chat.lua:3: first"
+			local errors = {}
+			Report.keepError(errors, first, 4000, "Mnemosyne")
+			for i = 1, Report.MAX_ERRORS + 1 do
+				assert.is_true(Report.keepError(errors, own, 4000 + i, "Mnemosyne"))
+			end
+			assert.equal(2, #errors)
+			assert.equal(first, errors[1].message)
+		end)
+
+		it("keeps the last errors up to the limit", function()
+			local errors = {}
+			for i = 1, Report.MAX_ERRORS + 2 do
+				Report.keepError(errors, own .. i, 4000 + i, "Mnemosyne")
+			end
+			assert.equal(Report.MAX_ERRORS, #errors)
+			assert.equal(own .. Report.MAX_ERRORS + 2, errors[#errors].message)
+		end)
+	end)
+
 	describe("isOwnError", function()
 		it("recognizes an error in Mnemosyne's files", function()
 			assert.is_true(Report.isOwnError("Interface/AddOns/Mnemosyne/src/Client.lua:12: oops", "Mnemosyne"))
