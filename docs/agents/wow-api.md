@@ -23,6 +23,7 @@ Read in Blizzard's UI source for build 1.60.1.70938 (`Blizzard_ChatFrameBase`):
 - **The payload** of `CHAT_MSG_*`: the sender is the 2nd value, the sender's GUID the 12th. Both can be secret: the events are `SecretInChatMessagingLockdown`. In `CHAT_MSG_WHISPER_INFORM` the 2nd value is the recipient.
 - **Hovering a link** in a chat frame triggers `EventRegistry` callbacks, `"ChatFrame.OnHyperlinkEnter"` `(owner, chatFrame, link, text, ...)` and `"ChatFrame.OnHyperlinkLeave"`. A character's link is `player:First Last:lineID:chatType:target`, or `playerCommunity:First Last:clubId:streamId:epoch:position` in a Communities channel.
 - **The Communities window** formats its own lines (`CommunitiesChatMixin:FormatMessage`) and calls neither filter: only a Communities channel shown in a chat frame goes through the name hook.
+- **The Communities window's hook** (`Blizzard_Communities`, load on demand, the frame is `CommunitiesFrame.Chat`): it offers no filter, so post-hook its methods with `hooksecurefunc` and rewrite the stored line through its `ScrollingMessageFrame`'s `TransformMessages(predicate, transform)`, the call it uses itself to update an edited message. `Chat:AddMessage(clubId, streamId, message, backfill)` adds each line (`DisplayChat` and `BackfillMessages` add up to 100 at once, and the window keeps up to 5000); `Chat:RefreshMessages(predicate)` reformats lines after an edit or when an author's name arrives. A stored line is `text, r, g, b, clubId, streamId, messageId, memberId`; its text is `[|HplayerCommunity:First Last:clubId:streamId:epoch:position|hshown name|h]: message` (`GetPlayerCommunityLink`, class color inside the link's text, a timestamp or a Discord icon before it), and `BNplayerCommunity` for a Battle.net author. `TransformMessages` walks every stored line, so batch the lines added together into one pass.
 
 ## Rules
 
@@ -47,6 +48,7 @@ Open, to settle in the game and record here:
 - how fast addon whispers really go before the server throttles them;
 - whether a chat line's sender is `"First Last"`, as the sender of an addon message is;
 - whether `UnitNameUnmodified` gives the surname of a group member who hides it;
+- whether the Communities window shows the nickname on new lines, on a page of history and on an edited message, and whether a message's author name is `"First Last"`;
 - whether EllesmereUI: Standalone Chat calls the sender name filters and the hyperlink callbacks.
 - whether `UnitName` gives no surname for a character that hides it ("My Secondary Name"): asking a stranger relies on it to never whisper a first name alone;
 - whether addon whispers reach a character of the other faction (asking a stranger skips them, by `UnitFactionGroup`).

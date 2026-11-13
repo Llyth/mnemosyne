@@ -54,6 +54,20 @@ function Recognition:chatName(decorated, name, guid)
 	return identity and self.L.CHAT_NAME:format(decorated, identity.nickname)
 end
 
+-- A line of the Communities window with its sender's nickname after the name,
+-- or nil to leave it as it is. The window formats its own lines and calls no
+-- name filter: the sender is its line's first link, when that link is a
+-- character's ("|HplayerCommunity:First Last:...|hshown name|h"), and only the
+-- link's text changes, the same way chatName changes a chat frame's line.
+function Recognition:communitiesLine(line)
+	local before, link, kind, name, decorated, after = line:match("^(.-)(|H(%a+):([^:|]*)[^|]*|h)(.-)|h(.*)$")
+	if kind ~= "playerCommunity" then
+		return nil
+	end
+	local named = self:chatName(decorated, name)
+	return named and before .. link .. named .. "|h" .. after
+end
+
 -- When an identity was last heard, in words.
 local function heardAgo(L, age)
 	if age >= DAY then

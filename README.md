@@ -46,9 +46,9 @@ Anyone can pass along something false, so a nickname heard from the character
 itself always wins and shows plainly, `Hugh Jass (Tony)`. One heard second-hand
 shows in grey, `Hugh Jass (~Tony)`, with the name of the player who passed it on.
 
-Nicknames show on tooltips and in chat: every chat type except emotes,
-channels and Communities, and when you hover a name in a chat line. Nameplates and unit
-frames come later.
+Nicknames show on tooltips and in chat: every chat type except emotes
+(channels and Communities included), in the Communities window too, and when
+you hover a name in a chat line. Nameplates and unit frames come later.
 
 ## Installing
 
