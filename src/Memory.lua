@@ -98,6 +98,12 @@ local function matches(wanted, name, nickname)
 	return fold(name):find(wanted, 1, true) or (nickname and fold(nickname):find(wanted, 1, true))
 end
 
+-- Whether a character's name or nickname contains the text, ignoring case and
+-- accents, as Memory:list matches.
+function Memory.matches(text, name, nickname)
+	return matches(fold(text), name, nickname) ~= nil
+end
+
 local function hash(text)
 	local value = 5381
 	for i = 1, #text do

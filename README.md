@@ -63,7 +63,8 @@ sync passes on at most 1,000 too, the rest in later syncs.
 Nicknames show on tooltips and in chat (the **Show on tooltips** and **Show in
 chat** switches turn each off): every chat type except emotes (channels and
 Communities included), in the Communities window too, and when you hover a name
-in a chat line. Nameplates and unit frames come later.
+in a chat line. Your own registered characters show their nickname there too.
+Nameplates and unit frames come later.
 
 ## Installing
 
@@ -102,7 +103,8 @@ the minimap and `/mnemosyne` alone open it too. It has:
   first-hand or from whom, and when; disputed ones are listed as disputed. Forget
   drops one (as `/mnemosyne forget` does) and Undo takes the forgetting back.
   Second-hand ones are listed only while **Show second-hand** is on, and the
-  first 50 found show.
+  first 50 found show. Your own registered and anonymous characters come first,
+  marked as yours.
 
 | Command | What it does |
 | --- | --- |
