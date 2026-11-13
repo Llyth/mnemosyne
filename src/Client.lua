@@ -265,6 +265,15 @@ function Client.ask(name)
 	return enqueue("ask", "WHISPER", name)
 end
 
+-- The settings and their defaults, all on; the settings panel exposes them later.
+local DEFAULTS = {
+	chat = true, -- chat recognition
+	showSecondHand = true, -- "Show second-hand"
+	passOn = true, -- "Pass on what I know"
+	askStrangers = true, -- "Ask strangers"
+	offerReport = true, -- offer the debug report after an error
+}
+
 local frame = CreateFrame("Frame")
 local handlers = {}
 
@@ -285,16 +294,12 @@ function handlers.ADDON_LOADED(name)
 	ns.memory = ns.Memory.new(db.memory, GetServerTime)
 	ns.characters = ns.Self.new(db.characters, GetServerTime)
 	db.settings = db.settings or {}
-	if db.settings.chat == nil then
-		db.settings.chat = true -- chat recognition; the settings panel exposes it later
+	for key, value in pairs(DEFAULTS) do
+		if db.settings[key] == nil then
+			db.settings[key] = value
+		end
 	end
-	-- "Show second-hand" and "Pass on what I know", on by default; the settings panel exposes them later.
-	if db.settings.showSecondHand == nil then
-		db.settings.showSecondHand = true
-	end
-	if db.settings.passOn == nil then
-		db.settings.passOn = true
-	end
+	db.asked = db.asked or {}
 	db.syncs = db.syncs or {}
 	ns.sync = ns.Sync.new(db.syncs, GetServerTime, ns.memory, db.settings, ns.characters)
 	reader = Protocol.newReader(GetTime)
@@ -303,9 +308,6 @@ function handlers.ADDON_LOADED(name)
 	-- whether to offer it after an error.
 	db.events = db.events or {}
 	db.errors = db.errors or {}
-	if db.settings.offerReport == nil then
-		db.settings.offerReport = true
-	end
 	C_ChatInfo.RegisterAddonMessagePrefix(Protocol.PREFIX)
 	for event in pairs(handlers) do
 		if event ~= "ADDON_LOADED" then

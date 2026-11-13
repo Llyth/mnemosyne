@@ -43,11 +43,6 @@ frame:SetScript("OnEvent", function(_, event)
 	else
 		-- PLAYER_LOGIN: Client set MnemosyneDB up on ADDON_LOADED, before it.
 		local db = MnemosyneDB
-		db.settings = db.settings or {}
-		if db.settings.askStrangers == nil then
-			db.settings.askStrangers = true -- "Ask strangers", on by default
-		end
-		db.asked = db.asked or {}
 		settings = db.settings
 		-- The server time, with GetTime's fractions: the 2 seconds between asks
 		-- need more than whole seconds.
