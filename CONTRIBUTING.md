@@ -106,15 +106,19 @@ each with the addon name and the shared namespace table as its `...`.
 ### Trying it in the game
 
 Link the checkout into the game's AddOns folder once, then `/reload` after each
-change:
+change. Make the link from Windows, in a `cmd` prompt run as administrator or
+with Developer Mode on; a symbolic link made inside WSL (`ln -s`) shows to
+Windows as a reparse point it cannot follow:
 
-```sh
-# WSL, with the game on Windows: adjust the path to your installation
-ln -s "$PWD" "/mnt/c/Program Files (x86)/World of Warcraft/_forever_/Interface/AddOns/Mnemosyne"
+```bat
+:: adjust both paths: your installation, your WSL distribution and checkout
+mklink /D "C:\Program Files (x86)\World of Warcraft\_forever_\Interface\AddOns\Mnemosyne" "\\wsl.localhost\<distro>\home\<you>\...\mnemosyne"
 ```
 
-On Windows itself, use `mklink /D` from an administrator prompt. A pull request's
-`package` artifact is the zip a release would ship, for testing what players get.
+Whether the game loads an addon through a `\\wsl.localhost` link is not verified
+yet. If it does not, unzip a pull request's `package` artifact into the AddOns
+folder instead. That artifact is the zip a release would ship, for testing what
+players get.
 `/mnemosyne debug` logs every addon message sent and received; testing a sync takes
 two clients, or a friend.
 
