@@ -36,6 +36,33 @@ describe("Report", function()
 		end)
 	end)
 
+	describe("record", function()
+		it("keeps an event for the report", function()
+			local events = {}
+			Report.record(events, { what = "received" }, "announcement")
+			Report.record(events, { what = "dropped" })
+			assert.equal(2, #events)
+		end)
+
+		it("leaves out a sync's identities and chunks, unless a send fails", function()
+			local events = {}
+			Report.record(events, { what = "received" }, "identities")
+			Report.record(events, { what = "sent" }, "chunk")
+			assert.equal(0, #events)
+			Report.record(events, { what = "sent" }, "chunk", true)
+			assert.equal(1, #events)
+		end)
+
+		it("keeps the last events up to the limit", function()
+			local events = {}
+			for i = 1, Report.MAX_EVENTS + 1 do
+				Report.record(events, { at = i }, "ask")
+			end
+			assert.equal(Report.MAX_EVENTS, #events)
+			assert.equal(2, events[1].at)
+		end)
+	end)
+
 	describe("text", function()
 		it("holds the version, the client build, the locale, the settings and the counts", function()
 			local text = Report.text(facts, {}, {})
