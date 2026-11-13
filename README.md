@@ -26,10 +26,15 @@ back: when you hover a character or read its chat line, you see who plays it.
 
 ## How it works
 
-The first time you log in on a character, Mnemosyne asks who plays it. You can
-register it with your nickname, keep it anonymous, or decide later. Only a
-character's own player can register it, and an anonymous character is never
-linked to your other characters.
+The first time you log in on a character, Mnemosyne asks who plays it, a few
+seconds after you enter the world, never in combat, during a loading screen or
+in an instance. You can register it with your nickname, keep it anonymous, or
+ask to be asked again at your next login on it. The nickname is filled in from
+your other registered characters, or else from what other players say about this
+one, and nothing is registered until you click Register. Only a character's own
+player can register it, and an anonymous character is never linked to your
+other characters. Trial accounts are not asked: they cannot send addon
+messages.
 
 There is no server. Copies of Mnemosyne talk to each other in the background
 with the game's addon messages, over your guild and group channels and by
@@ -67,10 +72,11 @@ in the addon drawer next to the minimap). The same actions as commands:
 | --- | --- |
 | `/mnemosyne register <nickname>` | Register the character you are playing |
 | `/mnemosyne unregister` | Withdraw its registration; peers forget it |
-| `/mnemosyne lookup <text>` | Find characters by name or by nickname |
-| `/mnemosyne sync` | Sync with the peers you can reach now |
-| `/mnemosyne status` | What your memory holds, and the last syncs |
-| `/mnemosyne report` | A debug report to paste in a bug report |
+| `/mnemosyne lookup <text>` | Find characters by name or by nickname, ignoring case and accents |
+| `/mnemosyne sync` | Sync with the peers you can reach now (coming) |
+| `/mnemosyne status` | How many identities you know, how many of your characters are registered or anonymous, and this character's registration |
+| `/mnemosyne report` | A debug report to paste in a bug report (coming) |
+| `/mnemosyne debug` | Log every message sent and received in the chat frame, or stop |
 | `/mnemosyne help` | The list of commands |
 
 ## Privacy
@@ -79,15 +85,17 @@ Mnemosyne keeps everything on your computer, in the game's saved variables, and
 sends nothing outside the game.
 
 When you register a character, its nickname spreads to every Mnemosyne user,
-through other players too. Characters you don't register are never shared.
-Unregistering spreads the same way, but more slowly than the nickname did.
+through other players too. Characters you don't register are never shared: an
+anonymous character only tells other Mnemosyne users that it is anonymous, so
+they forget any nickname they held for it. Unregistering spreads the same way,
+but more slowly than the nickname did.
 
 Forgetting a character removes it from your own memory and keeps it out until
 you undo it. Nobody else is told.
 
 ## Reporting a problem
 
-Type `/mnemosyne report` in the game. It shows a link to copy (Ctrl+C) and open
+Type `/mnemosyne report` in the game (coming). It shows a link to copy (Ctrl+C) and open
 in your browser: a [bug report](https://github.com/Llyth/mnemosyne/issues/new?template=bug_report.yml)
 already filled in with the debug report, where you only add what you did. When
 Mnemosyne hits an error, it offers the same link. Nothing is sent by itself, and

@@ -13,6 +13,9 @@ src\Memory.lua
 src\Self.lua
 src\Recognition.lua
 src\Locales\enUS.lua
+src\Debug.lua
 src\Client.lua
 src\Interface.lua
 src\Chat.lua
+src\Commands.lua
+src\Prompt.lua

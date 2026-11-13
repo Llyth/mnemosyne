@@ -1,6 +1,7 @@
 -- Interface: the adapter that faces the player (decision 0004): the slash
--- commands and the tooltip line. Every string it shows comes from the locale
--- table (src/Locales/).
+-- commands and the tooltip line; the other commands are in Commands.lua and
+-- the registration prompt in Prompt.lua. Every string it shows comes from the
+-- locale table (src/Locales/).
 local _, ns = ...
 
 local L = ns.L
@@ -17,6 +18,7 @@ end
 local function say(text)
 	print("|cff9d8df1Mnemosyne|r: " .. text)
 end
+ns.say = say
 
 local NICKNAME_PROBLEM = {
 	empty = L.NICKNAME_EMPTY,
@@ -27,15 +29,21 @@ local NICKNAME_PROBLEM = {
 }
 
 local commands = {}
+ns.commands = commands
 
-function commands.register(nickname)
-	local ok, reason = ns.characters:register(Client.playerName(), nickname)
+-- Returns true once the character is registered. fromPrompt: the
+-- registration prompt calls it, and the login already asked the others who
+-- they are, so the announcement does not ask again.
+function commands.register(nickname, fromPrompt)
+	local name = Client.playerName()
+	local ok, reason = ns.characters:register(name, nickname)
 	if not ok then
 		say(NICKNAME_PROBLEM[reason])
 		return
 	end
-	say(L.REGISTERED:format(nickname))
-	Client.announce(true)
+	say(L.REGISTERED:format(ns.characters:registration(name).nickname))
+	Client.announce(not fromPrompt)
+	return true
 end
 
 function commands.unregister()
@@ -51,6 +59,10 @@ function commands.help()
 	say(L.HELP)
 	say(L.HELP_REGISTER)
 	say(L.HELP_UNREGISTER)
+	say(L.HELP_LOOKUP)
+	say(L.HELP_STATUS)
+	say(L.HELP_DEBUG)
+	say(L.HELP_HELP)
 end
 
 SLASH_MNEMOSYNE1 = "/mnemosyne"
