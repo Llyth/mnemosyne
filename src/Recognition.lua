@@ -1,5 +1,6 @@
--- Recognition: what Mnemosyne shows where a character appears, decided here
--- and drawn by the adapters (decision 0004). Pure: it takes the memory, the
+-- Recognition: what Mnemosyne shows where a character appears, and in the
+-- settings panel's list of identities, decided here and drawn by the adapters
+-- (decision 0004). Pure: it takes the memory, the
 -- settings, the locale table and the clock (the server time) as arguments.
 --
 -- It also keeps, for the session only, which GUID goes with which full name
@@ -18,8 +19,9 @@ local GREY = { 0.5, 0.5, 0.5 } -- a second-hand nickname's color in a tooltip
 local GREY_CODE = "|cff808080" -- the same grey, in chat
 
 -- memory: the Memory to recall identities from.
--- settings: the saved settings (MnemosyneDB.settings); settings.chat switches
--- chat recognition on, settings.showSecondHand second-hand identities.
+-- settings: the saved settings (MnemosyneDB.settings); settings.tooltip switches
+-- tooltip recognition on, settings.chat chat recognition, settings.showSecondHand
+-- second-hand identities.
 -- L: the locale table. clock: returns the server time, in seconds.
 function Recognition.new(memory, settings, L, clock)
 	return setmetatable({ memory = memory, settings = settings, L = L, clock = clock, fullNames = {} }, Recognition)
@@ -58,6 +60,15 @@ end
 -- identities are on.
 function Recognition:shows(identity)
 	return not identity.source or self.settings.showSecondHand
+end
+
+-- The identity to show on a character's tooltip (Recognition:recall), or nil
+-- while tooltip recognition is off.
+function Recognition:tooltip(name, guid)
+	if not self.settings.tooltip then
+		return nil
+	end
+	return self:recall(name, guid)
 end
 
 -- Finds the identities whose character name or nickname contains the text
@@ -143,18 +154,6 @@ function Recognition:communitiesLine(line)
 	return named and before .. link .. named .. "|h" .. after
 end
 
--- When an identity was last heard, in words.
-local function heardAgo(L, age)
-	if age >= DAY then
-		return L.HEARD_DAYS:format(math.floor(age / DAY))
-	elseif age >= HOUR then
-		return L.HEARD_HOURS:format(math.floor(age / HOUR))
-	elseif age >= MINUTE then
-		return L.HEARD_MINUTES:format(math.floor(age / MINUTE))
-	end
-	return L.HEARD_NOW
-end
-
 -- The character a chat link points to ("player:First Last:..." or
 -- "playerCommunity:First Last:..."), or nil for any other link.
 local function linkedName(link)
@@ -181,7 +180,58 @@ function Recognition:chatTooltip(link)
 	return {
 		name = name,
 		nickname = identity.nickname,
-		heard = heardAgo(self.L, self.clock() - identity.heard),
+		heard = self.L.HEARD:format(self:ago(identity.heard)),
 		source = identity.source,
 	}
+end
+
+-- How long ago a time (the server's) was, in words.
+function Recognition:ago(time)
+	local L, age = self.L, self.clock() - time
+	if age >= DAY then
+		return L.AGO_DAYS:format(math.floor(age / DAY))
+	elseif age >= HOUR then
+		return L.AGO_HOURS:format(math.floor(age / HOUR))
+	elseif age >= MINUTE then
+		return L.AGO_MINUTES:format(math.floor(age / MINUTE))
+	end
+	return L.AGO_NOW
+end
+
+-- The settings panel's rows for the identities whose name or nickname contains
+-- the text (Memory:list), sorted by name: { name, nickname, heard, ago,
+-- forgotten }, where heard says first-hand or from whom. A disputed identity
+-- shows as disputed, a forgotten character without an identity as forgotten;
+-- second-hand identities are left out while they do not show, forgotten
+-- characters never. Returns at most max rows, and how many were found.
+-- shortcut: each call lists and sorts the whole memory (Memory:list), as
+-- /mnemosyne lookup does; with 20,000 identities a key typed in the search may
+-- stutter. Keep the folded names in Memory if players notice.
+function Recognition:rows(text, max)
+	local L, rows, total = self.L, {}, 0
+	for _, entry in ipairs(self.memory:list(text)) do
+		if entry.forgotten or self:shows(entry) then
+			total = total + 1
+			if total <= max then
+				local nickname, heard = entry.nickname or L.PANEL_FORGOTTEN, ""
+				if entry.disputed then
+					nickname = L.PANEL_DISPUTED
+				end
+				if entry.source then
+					heard = L.PANEL_FROM:format(entry.source)
+				elseif entry.firstHand then
+					-- Forgetting refuses only second-hand copies: this one came back first-hand.
+					heard = entry.forgotten and L.PANEL_FIRST_HAND_FORGOTTEN or L.PANEL_FIRST_HAND
+				end
+				rows[total] = {
+					name = entry.name,
+					nickname = nickname,
+					heard = heard,
+					ago = entry.heard and self:ago(entry.heard) or "",
+					forgotten = entry.forgotten,
+				}
+			end
+		end
+	end
+	return rows, total
 end

@@ -28,21 +28,41 @@ function commands.lookup(text)
 	end
 end
 
-function commands.status()
+-- This character's registration, in words.
+function ns.registrationLine()
 	local characters = ns.characters
 	local name = Client.playerName()
-	say(L.STATUS_IDENTITIES:format(ns.recognition:count()))
-	say(L.STATUS_CHARACTERS:format(characters:count("registered"), characters:count("anonymous")))
 	local state = characters:state(name)
 	if state == "registered" then
-		say(L.STATUS_REGISTERED:format(characters:registration(name).nickname))
+		return L.STATUS_REGISTERED:format(characters:registration(name).nickname)
 	elseif state == "anonymous" then
-		say(L.STATUS_ANONYMOUS)
+		return L.STATUS_ANONYMOUS
 	elseif state == "unregistered" then
-		say(L.STATUS_UNREGISTERED)
-	else
-		say(L.STATUS_NOT_ASKED)
+		return L.STATUS_UNREGISTERED
 	end
+	return L.STATUS_NOT_ASKED
+end
+
+-- What the memory holds and whom it synced with, as lines: the status command
+-- and the settings panel's Status.
+function ns.statusLines()
+	local syncs = {}
+	for i, synced in ipairs(ns.sync:recent()) do
+		syncs[i] = L.STATUS_SYNC:format(synced.peer, ns.recognition:ago(synced.at))
+	end
+	return {
+		L.STATUS_IDENTITIES:format(ns.recognition:count()),
+		L.STATUS_CHARACTERS:format(ns.characters:count("registered"), ns.characters:count("anonymous")),
+		L.STATUS_PEERS:format(Client.peerCount()),
+		syncs[1] and L.STATUS_SYNCS:format(table.concat(syncs, ", ")) or L.STATUS_NO_SYNC,
+	}
+end
+
+function commands.status()
+	for _, line in ipairs(ns.statusLines()) do
+		say(line)
+	end
+	say(ns.registrationLine())
 	if not Client.canSend() then
 		say(L.STATUS_CANNOT_SEND)
 	end

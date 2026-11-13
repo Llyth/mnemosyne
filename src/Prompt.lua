@@ -47,10 +47,7 @@ StaticPopupDialogs[DIALOG] = {
 		return not ns.commands.register(dialog:GetEditBox():GetText(), true)
 	end,
 	OnButton2 = function()
-		if ns.characters:keepAnonymous(Client.playerName()) then
-			Client.announce(false)
-		end
-		ns.say(L.KEPT_ANONYMOUS)
+		ns.Interface.keepAnonymous()
 	end,
 	-- Ask me later, like Escape: nothing changes, so the next login asks again.
 	OnButton3 = function()

@@ -305,4 +305,72 @@ describe("Recognition", function()
 			assert.equal("Hugh Jass (Tony)", recognition:chatName("Hugh Jass", "Hugh Jass"))
 		end)
 	end)
+
+	describe("on a character's tooltip", function()
+		it("shows a known character's identity", function()
+			settings.tooltip = true
+			assert.equal("Tony", recognition:tooltip("Hugh Jass").nickname)
+		end)
+
+		it("shows nothing when tooltip recognition is off", function()
+			settings.tooltip = false
+			assert.is_nil(recognition:tooltip("Hugh Jass"))
+		end)
+	end)
+
+	it("says how long ago a time was", function()
+		now = 1000 + 2 * 3600
+		assert.equal("2 |4hour:hours; ago", recognition:ago(1000))
+	end)
+
+	describe("in the settings panel's list", function()
+		before_each(function()
+			memory = Memory.new({}, clock, {})
+			recognition = Recognition.new(memory, settings, ns.L, clock)
+			memory:hear("Hugh Jass", { nickname = "Tony", revision = 900 })
+			memory:hear("Anna Conda", { nickname = "Ann", revision = 900, source = "Barb Dwyer" })
+			now = 1000 + 2 * 3600
+		end)
+
+		it("gives each identity's nickname, how it was heard and when, sorted by name", function()
+			assert.same({
+				{ name = "Anna Conda", nickname = "Ann", heard = "from Barb Dwyer", ago = "2 |4hour:hours; ago" },
+				{ name = "Hugh Jass", nickname = "Tony", heard = "first-hand", ago = "2 |4hour:hours; ago" },
+			}, (recognition:rows("", 50)))
+		end)
+
+		it("marks a disputed identity", function()
+			memory:hear("Anna Conda", { nickname = "Mallory", revision = 900, source = "Cole Slaw" })
+			assert.equal("disputed", recognition:rows("Anna", 50)[1].nickname)
+		end)
+
+		it("marks a forgotten character heard first-hand again as forgotten", function()
+			memory:forget("Hugh Jass")
+			memory:hear("Hugh Jass", { nickname = "Tony", revision = 950 })
+			local row = recognition:rows("Hugh", 50)[1]
+			assert.same({ "Tony", "first-hand, forgotten", true }, { row.nickname, row.heard, row.forgotten })
+		end)
+
+		it("gives a forgotten character to undo", function()
+			memory:forget("Hugh Jass")
+			assert.same(
+				{ { name = "Hugh Jass", nickname = "forgotten", heard = "", ago = "", forgotten = true } },
+				(recognition:rows("Hugh", 50))
+			)
+		end)
+
+		it("leaves second-hand identities out while Show second-hand is off, not forgotten characters", function()
+			settings.showSecondHand = false
+			memory:forget("Cole Slaw")
+			local rows = recognition:rows("", 50)
+			assert.same({ "Cole Slaw", "Hugh Jass" }, { rows[1].name, rows[2].name })
+			assert.equal(2, #rows)
+		end)
+
+		it("gives at most the rows asked for, and how many it found", function()
+			local rows, total = recognition:rows("", 1)
+			assert.same({ "Anna Conda" }, { rows[1].name, rows[2] and rows[2].name })
+			assert.equal(2, total)
+		end)
+	end)
 end)

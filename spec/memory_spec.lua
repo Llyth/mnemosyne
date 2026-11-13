@@ -549,6 +549,78 @@ describe("Memory, second-hand", function()
 			assert.same({ "Anna Conda", "Hugh Jass" }, Memory.new({}, clock, forgotten):forgotten())
 		end)
 	end)
+
+	describe("listing for the settings panel", function()
+		local forgotten
+
+		before_each(function()
+			forgotten = {}
+			memory = Memory.new(saved, clock, forgotten)
+			memory:hear("Hugh Jass", { nickname = "Tony", revision = 900 })
+			now = 2000
+			memory:hear("Anna Conda", { nickname = "Ann", revision = 900, source = "Barb Dwyer" })
+		end)
+
+		local function names(results)
+			local list = {}
+			for _, entry in ipairs(results) do
+				list[#list + 1] = entry.name
+			end
+			return list
+		end
+
+		it("lists first-hand and second-hand identities with how they were heard, sorted by name", function()
+			assert.same({
+				{ name = "Anna Conda", nickname = "Ann", firstHand = false, source = "Barb Dwyer", heard = 2000 },
+				{ name = "Hugh Jass", nickname = "Tony", firstHand = true, heard = 1000 },
+			}, memory:list(""))
+		end)
+
+		it("lists a disputed identity, marked disputed", function()
+			memory:hear("Anna Conda", { nickname = "Mallory", revision = 900, source = "Cole Slaw" })
+			assert.is_nil(memory:recall("Anna Conda"))
+			assert.is_true(memory:list("Anna")[1].disputed)
+		end)
+
+		it("leaves out a character that unregistered", function()
+			memory:hear("Hugh Jass", { revision = 901 })
+			assert.same({ "Anna Conda" }, names(memory:list("")))
+		end)
+
+		it("leaves out a stale identity, hidden as recall hides it", function()
+			memory:see("Hugh Jass", "Player-1-00000001")
+			memory:see("Hugh Jass", "Player-1-00000002")
+			assert.same({ "Anna Conda" }, names(memory:list("")))
+		end)
+
+		it("lists the forgotten characters, marked forgotten", function()
+			memory:forget("Hugh Jass")
+			memory:forget("Cole Slaw")
+			assert.same({
+				{ name = "Anna Conda", nickname = "Ann", firstHand = false, source = "Barb Dwyer", heard = 2000 },
+				{ name = "Cole Slaw", forgotten = true },
+				{ name = "Hugh Jass", forgotten = true },
+			}, memory:list(""))
+		end)
+
+		it("lists a forgotten character heard first-hand again once, with its nickname", function()
+			memory:forget("Hugh Jass")
+			memory:hear("Hugh Jass", { nickname = "Tony", revision = 900 })
+			assert.same(
+				{ { name = "Hugh Jass", nickname = "Tony", firstHand = true, heard = 2000, forgotten = true } },
+				memory:list("Hugh")
+			)
+		end)
+
+		it("finds by name or nickname, ignoring case and accents", function()
+			memory:hear("Élise Bérénice", { nickname = "Zoé", revision = 900 })
+			memory:forget("Cole Slaw")
+			assert.same({ "Élise Bérénice" }, names(memory:list("ZOE")))
+			assert.same({ "Anna Conda" }, names(memory:list("ann")))
+			assert.same({ "Cole Slaw" }, names(memory:list("cole")))
+			assert.same({}, names(memory:list("%a")))
+		end)
+	end)
 end)
 
 describe("Memory, stale", function()

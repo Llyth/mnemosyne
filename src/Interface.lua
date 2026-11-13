@@ -1,6 +1,6 @@
 -- Interface: the adapter that faces the player (decision 0004): the slash
--- commands and the tooltip line; the other commands are in Commands.lua and
--- the registration prompt in Prompt.lua. Every string it shows comes from the
+-- commands and the tooltip line; the other commands are in Commands.lua, the
+-- registration prompt in Prompt.lua and the settings panel in Panel.lua. Every string it shows comes from the
 -- locale table (src/Locales/).
 local _, ns = ...
 
@@ -58,8 +58,18 @@ function commands.unregister()
 	Client.announce(false)
 end
 
+-- Keeps the character anonymous, from the registration prompt or the
+-- settings panel.
+function Interface.keepAnonymous()
+	if ns.characters:keepAnonymous(Client.playerName()) then
+		Client.announce(false)
+	end
+	say(L.KEPT_ANONYMOUS)
+end
+
 function commands.help()
 	say(L.HELP)
+	say(L.HELP_PANEL)
 	say(L.HELP_REGISTER)
 	say(L.HELP_UNREGISTER)
 	say(L.HELP_LOOKUP)
@@ -83,8 +93,9 @@ SlashCmdList.MNEMOSYNE = function(input)
 end
 
 -- The nickname of a known character on its tooltip; nothing for a stranger,
--- or when the game hides the unit or its name (a secret value). A
--- tooltip that shows only a first name finds the full name through the GUID.
+-- while tooltip recognition is off, or when the game hides the unit or its
+-- name (a secret value). A tooltip that shows only a first name finds the full
+-- name through the GUID.
 TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Unit, function(tooltip)
 	if not ns.recognition or not tooltip.GetUnit then
 		return
@@ -103,7 +114,7 @@ TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Unit, function(tool
 		return
 	end
 	local guid = UnitGUID(unit)
-	local identity = ns.recognition:recall(name, isKnown(guid) and guid or nil)
+	local identity = ns.recognition:tooltip(name, isKnown(guid) and guid or nil)
 	if identity then
 		Interface.addPlayedBy(tooltip, identity)
 	end
