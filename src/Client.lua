@@ -59,9 +59,11 @@ function Client.playerName()
 end
 
 -- Whether this account can send addon messages here at all: never on a trial
--- account, nor on a realm where the client restricts them.
+-- account. C_ChatInfo.AreOutgoingAddonChatMessagesRestricted() is not asked: on
+-- Forever it is true on a realm where addon messages do go out (checked in the
+-- game, see docs/agents/wow-api.md).
 function Client.canSend()
-	return not (IsTrialAccount() or IsVeteranTrialAccount() or C_ChatInfo.AreOutgoingAddonChatMessagesRestricted())
+	return not (IsTrialAccount() or IsVeteranTrialAccount())
 end
 
 local function isRegistered()
