@@ -375,8 +375,8 @@ end
 
 -- Reads wire text from a peer. Returns the message table once it is whole;
 -- nil alone while chunks of it are still to come; or nil and why it was
--- dropped: the reasons of Protocol.read, and "incomplete" for chunks out of
--- order or that stopped coming for a minute.
+-- dropped: the reasons of Protocol.read. Chunks that stopped coming for a
+-- minute are let go.
 function Reader:read(sender, text)
 	if type(text) ~= "string" or #text > Protocol.MAX_MESSAGE_BYTES then
 		return Protocol.read(text)
@@ -399,17 +399,18 @@ function Reader:read(sender, text)
 	if count > MAX_CHUNKS then
 		return nil, "oversized"
 	end
+	-- Chunks may come in any order (addon whispers do on Forever). A chunk of
+	-- another count, or one already held, starts the message over: the sender
+	-- moved on to another message.
 	local pending = self.pending[sender]
-	if index == 1 then
-		pending = { count = count, pieces = {}, at = now }
+	if not pending or pending.count ~= count or pending.pieces[index] then
+		pending = { count = count, pieces = {}, held = 0 }
 		self.pending[sender] = pending
-	elseif not pending or pending.count ~= count or #pending.pieces ~= index - 1 then
-		self.pending[sender] = nil
-		return nil, "incomplete"
 	end
 	pending.pieces[index] = piece
+	pending.held = pending.held + 1
 	pending.at = now
-	if index < count then
+	if pending.held < count then
 		return nil
 	end
 	self.pending[sender] = nil

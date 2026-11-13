@@ -443,12 +443,23 @@ describe("Protocol for syncs", function()
 			assert.same(identities(16, true), deliver("Anna Conda", { unpack(a, #b) }))
 		end)
 
-		it("drops a message whose chunks come out of order", function()
+		it("reassembles a message whose chunks come out of order, as whispers can on Forever", function()
 			local chunks = Protocol.split(Protocol.write(identities(16, true)))
 			chunks[2], chunks[3] = chunks[3], chunks[2]
-			local message, reason = deliver("Hugh Jass", chunks)
-			assert.is_nil(message)
-			assert.equal("incomplete", reason)
+			chunks[1], chunks[#chunks] = chunks[#chunks], chunks[1]
+			assert.same(identities(16, true), deliver("Hugh Jass", chunks))
+		end)
+
+		it("starts over when a chunk it already holds comes again", function()
+			local chunks = Protocol.split(Protocol.write(identities(16, true)))
+			reader:read("Hugh Jass", chunks[2])
+			reader:read("Hugh Jass", chunks[2])
+			for i = 1, #chunks - 1 do
+				if i ~= 2 then
+					assert.is_nil(reader:read("Hugh Jass", chunks[i]))
+				end
+			end
+			assert.same(identities(16, true), reader:read("Hugh Jass", chunks[#chunks]))
 		end)
 
 		it("drops a message cut short when the sender starts another one", function()
@@ -464,9 +475,7 @@ describe("Protocol for syncs", function()
 				reader:read("Hugh Jass", chunks[i])
 			end
 			now = now + 61
-			local message, reason = reader:read("Hugh Jass", chunks[#chunks])
-			assert.is_nil(message)
-			assert.equal("incomplete", reason)
+			assert.is_nil(reader:read("Hugh Jass", chunks[#chunks]))
 		end)
 
 		it("drops a message announced longer than it may be", function()
