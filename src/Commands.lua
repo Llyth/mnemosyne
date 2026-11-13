@@ -1,6 +1,6 @@
 -- Commands: the slash commands that read the memory and the debug log
--- (lookup, status, debug). Part of the Interface adapter (decision 0004): it
--- adds to the commands table of Interface.lua.
+-- (lookup, status, debug, sync). Part of the Interface adapter (decision
+-- 0004): it adds to the commands table of Interface.lua.
 local _, ns = ...
 
 local L = ns.L
@@ -21,13 +21,7 @@ function commands.lookup(text)
 		return
 	end
 	for i = 1, math.min(#found, MAX_FOUND) do
-		local identity = found[i]
-		if identity.source then
-			local nickname = L.SECOND_HAND:format(identity.nickname)
-			say(L.LOOKUP_FOUND_SECOND_HAND:format(identity.name, nickname, identity.source))
-		else
-			say(L.LOOKUP_FOUND:format(identity.name, identity.nickname))
-		end
+		say(ns.recognition:lookupLine(found[i]))
 	end
 	if #found > MAX_FOUND then
 		say(L.LOOKUP_MORE:format(#found - MAX_FOUND))

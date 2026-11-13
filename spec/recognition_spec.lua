@@ -138,6 +138,45 @@ describe("Recognition", function()
 		end)
 	end)
 
+	describe("on a tooltip", function()
+		it("shows who plays a character heard first-hand in Mnemosyne's color", function()
+			assert.same({ { "Played by Tony", 0.62, 0.55, 0.95 } }, recognition:playedBy(memory:recall("Hugh Jass")))
+		end)
+
+		it("shows a second-hand nickname in grey, marked with ~, and who passed it on", function()
+			memory:hear("Anna Conda", { nickname = "Ann", revision = 900, source = "Barb Dwyer" })
+			assert.same({
+				{ "Played by ~Ann", 0.5, 0.5, 0.5 },
+				{ "Heard from Barb Dwyer", 0.5, 0.5, 0.5 },
+			}, recognition:playedBy(memory:recall("Anna Conda")))
+		end)
+	end)
+
+	describe("names a nickname", function()
+		it("as it is when heard first-hand", function()
+			assert.equal("Tony", recognition:nickname(memory:recall("Hugh Jass")))
+		end)
+
+		it("marked with ~ when heard second-hand", function()
+			memory:hear("Anna Conda", { nickname = "Ann", revision = 900, source = "Barb Dwyer" })
+			assert.equal("~Ann", recognition:nickname(memory:recall("Anna Conda")))
+		end)
+	end)
+
+	describe("in a lookup", function()
+		it("names who plays a character heard first-hand", function()
+			assert.equal("Hugh Jass: played by Tony", recognition:lookupLine(recognition:search("Hugh")[1]))
+		end)
+
+		it("marks a second-hand nickname with ~ and says who passed it on", function()
+			memory:hear("Anna Conda", { nickname = "Ann", revision = 900, source = "Barb Dwyer" })
+			assert.equal(
+				"Anna Conda: played by ~Ann, heard from Barb Dwyer",
+				recognition:lookupLine(recognition:search("Anna")[1])
+			)
+		end)
+	end)
+
 	describe("in the Communities window", function()
 		local function line(name, shown, text)
 			return ("[|HplayerCommunity:%s:7:1:1700000000:2|h%s|h]: %s"):format(name, shown, text)

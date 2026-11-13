@@ -11,15 +11,11 @@ local Interface = {}
 ns.Interface = Interface
 
 -- Adds who plays a character to a tooltip, from its identity ({ nickname,
--- source }): in Mnemosyne's color when heard first-hand; in grey, marked
--- with ~ and with who passed it on, when heard second-hand.
+-- source }), as Recognition:playedBy words it.
 function Interface.addPlayedBy(tooltip, identity)
-	if not identity.source then
-		tooltip:AddLine(L.TOOLTIP_PLAYED_BY:format(identity.nickname), 0.62, 0.55, 0.95)
-		return
+	for _, line in ipairs(ns.recognition:playedBy(identity)) do
+		tooltip:AddLine(line[1], line[2], line[3], line[4])
 	end
-	tooltip:AddLine(L.TOOLTIP_PLAYED_BY:format(L.SECOND_HAND:format(identity.nickname)), 0.5, 0.5, 0.5)
-	tooltip:AddLine(L.HEARD_FROM:format(identity.source), 0.5, 0.5, 0.5)
 end
 
 local function say(text)
