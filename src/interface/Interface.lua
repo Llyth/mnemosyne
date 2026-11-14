@@ -1,7 +1,7 @@
 -- Interface: the adapter that faces the player (decision 0004): the slash
 -- commands and the tooltip line; the other commands are in Commands.lua, the
 -- registration prompt in Prompt.lua and the settings panel in Panel.lua. Every string it shows comes from the
--- locale table (src/Locales/).
+-- locale table (src/locales/).
 local _, ns = ...
 
 local L = ns.L

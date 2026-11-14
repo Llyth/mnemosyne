@@ -1,7 +1,7 @@
 -- Strangers: which characters to ask who plays them when the player meets
 -- them (hovers or targets them), and when. Pure: it takes its saved table,
 -- the clock and the memory as arguments (decision 0004); the hooks that call
--- it are in src/Encounter.lua.
+-- it are in src/client/Encounter.lua.
 --
 -- A character is asked only when its identity is not known and the player did
 -- not forget it (asking would bring it back first-hand), at most once a

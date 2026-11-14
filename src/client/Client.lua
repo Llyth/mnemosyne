@@ -424,7 +424,7 @@ function handlers.ADDON_LOADED(name)
 	reader = Protocol.newReader(GetTime)
 	ns.scope = ns.Scope.new(db.settings)
 	ns.recognition = ns.Recognition.new(ns.memory, db.settings, ns.L, GetServerTime, ns.characters)
-	-- The debug report (src/Report.lua): its events, the caught errors, and
+	-- The debug report (src/core/Report.lua): its events, the caught errors, and
 	-- whether to offer it after an error.
 	db.events = db.events or {}
 	db.errors = db.errors or {}

@@ -10,23 +10,23 @@
 ## AddonCompartmentFunc: Mnemosyne_OnAddonCompartmentClick
 
 # The pure modules first (decision 0004), then the locales, then the adapters.
-src\Protocol.lua
-src\Memory.lua
-src\Self.lua
-src\Sync.lua
-src\News.lua
-src\Recognition.lua
-src\Strangers.lua
-src\Scope.lua
-src\Report.lua
-src\Locales\enUS.lua
-src\Locales\frFR.lua
+src\core\Protocol.lua
+src\core\Memory.lua
+src\core\Self.lua
+src\core\Sync.lua
+src\core\News.lua
+src\core\Recognition.lua
+src\core\Strangers.lua
+src\core\Scope.lua
+src\core\Report.lua
+src\locales\enUS.lua
+src\locales\frFR.lua
 src\Debug.lua
-src\Client.lua
-src\Interface.lua
-src\Chat.lua
-src\Commands.lua
-src\Prompt.lua
-src\Panel.lua
-src\Encounter.lua
-src\ReportWindow.lua
+src\client\Client.lua
+src\interface\Interface.lua
+src\interface\Chat.lua
+src\interface\Commands.lua
+src\interface\Prompt.lua
+src\interface\Panel.lua
+src\client\Encounter.lua
+src\interface\ReportWindow.lua
