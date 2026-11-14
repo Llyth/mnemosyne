@@ -102,6 +102,29 @@ describe("Sync", function()
 		assert.same({ "Cole Slaw digest" }, sent(sync:receive("Anna Conda", { kind = "done" })))
 	end)
 
+	it("passes on its memory when the peer's done arrives before its digest", function()
+		sync:request("Barb Dwyer", now)
+		sync:receive("Barb Dwyer", { kind = "done" })
+		assert.same(
+			{ "Barb Dwyer identities", "Barb Dwyer done" },
+			sent(sync:receive("Barb Dwyer", { kind = "digest", digest = emptyDigest() }))
+		)
+		assert.same(
+			{ "Barb Dwyer done" },
+			sent(sync:receive("Barb Dwyer", { kind = "digest", digest = emptyDigest() }))
+		)
+	end)
+
+	it("does not answer a digest that comes 2 minutes after the peer's done", function()
+		sync:request("Barb Dwyer", now)
+		sync:receive("Barb Dwyer", { kind = "done" })
+		now = now + Sync.TIMEOUT
+		assert.same(
+			{ "Barb Dwyer done" },
+			sent(sync:receive("Barb Dwyer", { kind = "digest", digest = emptyDigest() }))
+		)
+	end)
+
 	it("never passes on an identity whose name is too long for a peer to take", function()
 		memory:hear(string.rep("a", 60) .. " Jass", { nickname = "Tony", revision = 900 })
 		local outgoing = sync:receive("Barb Dwyer", { kind = "digest", digest = emptyDigest() })
