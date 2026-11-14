@@ -506,7 +506,7 @@ function handlers.CHAT_MSG_ADDON(prefix, text, channel, sender)
 	if sender == "" or sender == playerName or not playerName then
 		return
 	end
-	-- Only the guild's channel vouches for its sender: elsewhere, a friend or a
+	-- Only the guild's channel proves its sender is in scope: elsewhere, a friend or a
 	-- guildmate, unless talking with everyone.
 	if channel ~= "GUILD" and not Client.inScope(sender) then
 		Debug.dropped(sender, "scope", text)
