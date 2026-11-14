@@ -303,6 +303,50 @@ describe("Memory, second-hand", function()
 		assert.is_true(hearFrom("Mallory Knox", "Hugh Jass1", "Mal", 902))
 	end)
 
+	it("takes up to 5,000 more changes a day from one peer, vouched as heard first-hand in the last day", function()
+		local function vouched(name, revision)
+			return memory:hear(
+				name,
+				{ nickname = "Tony", revision = revision, source = "Mallory Knox", vouched = true }
+			)
+		end
+		for i = 1, Memory.MAX_CHANGES_PER_PEER do
+			assert.is_true(hearFrom("Mallory Knox", "Hugh Jass" .. i, "Tony", 900))
+		end
+		for i = 1, Memory.MAX_VOUCHED_PER_PEER do
+			assert.is_true(vouched("Anna Conda" .. i, now - 10))
+		end
+		assert.is_false(vouched("Barb Dwyer", now - 10))
+		-- A vouched change older than a day counts as any other.
+		now = now + DAY
+		for i = 1, Memory.MAX_CHANGES_PER_PEER do
+			assert.is_true(vouched("Cole Slaw" .. i, now - DAY - 1))
+		end
+		assert.is_true(vouched("Ella Vator", now - 10))
+		assert.is_false(vouched("Barb Dwyer", now - DAY - 1))
+	end)
+
+	it("counts a vouched change dated ahead of the clock as any other: no real change is", function()
+		for i = 1, Memory.MAX_CHANGES_PER_PEER do
+			memory:hear(
+				"Hugh Jass" .. i,
+				{ nickname = "Tony", revision = now + 60, source = "Mallory Knox", vouched = true }
+			)
+		end
+		assert.is_false(
+			memory:hear(
+				"Anna Conda",
+				{ nickname = "Ann", revision = now + 60, source = "Mallory Knox", vouched = true }
+			)
+		)
+		assert.is_true(
+			memory:hear(
+				"Anna Conda",
+				{ nickname = "Ann", revision = now - 10, source = "Mallory Knox", vouched = true }
+			)
+		)
+	end)
+
 	it("counts removals from one peer toward its 1,000 a day", function()
 		for i = 1, Memory.MAX_CHANGES_PER_PEER do
 			assert.is_true(hearFrom("Mallory Knox", "Hugh Jass" .. i, nil, 900))

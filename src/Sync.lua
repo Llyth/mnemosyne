@@ -26,11 +26,12 @@ Sync.TIMEOUT = 120 -- seconds without anything new from the peer before a sync i
 -- In an instance whispers go one a second, so two honest syncs can take 8 to 17
 -- minutes; the cut is for a peer that drips one new change every 2 minutes or less.
 Sync.MAX_DURATION = 20 * 60 -- seconds before a sync is cut, however much the peer passes on
--- A first-hand change this recent (its revision, a day either way of the
--- clock) is passed on before the rest;
--- older first-hand identities take turns with second-hand ones, so the copies
--- a peer already holds do not crowd out what it lacks.
-Sync.FRESH = 24 * 60 * 60 -- seconds
+-- A first-hand change this recent (its revision, never ahead of the clock) is
+-- passed on before the rest, vouched; older first-hand identities take turns
+-- with second-hand ones, so the copies a peer already holds do not crowd out
+-- what it lacks. An hour short of the window the peer takes vouched changes in,
+-- so one sent last in a long sync still reaches it inside it.
+Sync.FRESH = Memory.VOUCHED_WINDOW - 60 * 60 -- seconds
 
 -- saved: when each peer last synced (MnemosyneDB.syncs); entries older than
 -- the cooldown are let go here.
@@ -96,8 +97,10 @@ local function answer(self, peer, digest, now, outgoing)
 			-- A first-hand name is the server's, never checked: one too long would break a batch.
 			if #name <= Protocol.MAX_NAME_BYTES and not self.characters:registration(name) then
 				local identity = self.memory:knows(name) and self.memory:passOn(name)
-				-- Not one far ahead either: a modified client's, which the peer refuses.
-				if identity and math.abs(now - identity.revision) <= Sync.FRESH then
+				-- Not one ahead of the clock: no real change is, and the peer would not take it as vouched.
+				if identity and identity.revision <= now and now - identity.revision <= Sync.FRESH then
+					-- The peer takes up to 5,000 of these a day from one peer, besides its 1,000.
+					identity.vouched = true
 					fresh[#fresh + 1] = identity
 				else
 					missing[#missing + 1] = name
@@ -110,12 +113,16 @@ local function answer(self, peer, digest, now, outgoing)
 			return a.revision > b.revision
 		end)
 		local chosen = {}
-		for i = 1, math.min(#fresh, Memory.MAX_CHANGES_PER_PEER) do
-			chosen[i] = fresh[i]
+		for i, identity in ipairs(fresh) do
+			if i <= Memory.MAX_VOUCHED_PER_PEER then
+				chosen[i] = identity
+			else
+				missing[#missing + 1] = identity.name -- past the 5,000: takes turns with the rest, not vouched
+			end
 		end
-		-- Then the rest, no more than the peer keeps in a day from one peer in
-		-- all, from a point that moves with the clock, so later syncs pass on the rest.
-		for i = 1, math.min(#missing, Memory.MAX_CHANGES_PER_PEER - #chosen) do
+		-- Then the rest, no more than the peer keeps in a day from one peer,
+		-- from a point that moves with the clock, so later syncs pass on the rest.
+		for i = 1, math.min(#missing, Memory.MAX_CHANGES_PER_PEER) do
 			-- Appended: a nil from passOn would leave a hole that ends the batches there.
 			chosen[#chosen + 1] = self.memory:passOn(missing[(now + i) % #missing + 1])
 		end
@@ -239,6 +246,7 @@ function Sync:receive(peer, message)
 					revision = identity.revision,
 					source = peer,
 					guid = identity.guid,
+					vouched = identity.vouched,
 				})
 			end
 			if changed then
