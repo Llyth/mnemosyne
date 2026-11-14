@@ -79,7 +79,7 @@ Mnemosyne is for **WoW Forever** only (client 1.60.1). Install it with:
   [Wago](https://addons.wago.io/addons/56nby069)), or add it from its GitHub
   URL, `https://github.com/Llyth/mnemosyne`.
 - CurseForge app: search for Mnemosyne under WoW Forever, or open its
-  [CurseForge page](https://www.curseforge.com/projects/1803811).
+  [CurseForge page](https://www.curseforge.com/wow/addons/mnemosyne).
 - By hand: download the zip from the
   [latest release](https://github.com/Llyth/mnemosyne/releases/latest) and
   unzip it into `World of Warcraft\_forever_\Interface\AddOns\`, so that you get
