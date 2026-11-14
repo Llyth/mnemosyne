@@ -105,6 +105,25 @@ local function matches(wanted, name, nickname)
 	return fold(name):find(wanted, 1, true) or (nickname and fold(nickname):find(wanted, 1, true))
 end
 
+-- Text as a search compares it (fold), remembered for the session: a search
+-- through the whole memory then folds each name and nickname once.
+-- shortcut: never emptied, so it also holds nicknames since replaced; about
+-- 4 MB for 20,000 identities. Empty it when the panel closes if memory matters.
+local function cachedFold(self, text)
+	local value = self.folds[text]
+	if not value then
+		value = fold(text)
+		self.folds[text] = value
+	end
+	return value
+end
+
+-- Whether the folded text is in a character's name or nickname, as matches.
+local function contains(self, wanted, name, nickname)
+	return cachedFold(self, name):find(wanted, 1, true)
+		or (nickname and cachedFold(self, nickname):find(wanted, 1, true))
+end
+
 -- Whether a character's name or nickname contains the text, ignoring case and
 -- accents, as Memory:list matches.
 function Memory.matches(text, name, nickname)
@@ -218,6 +237,7 @@ function Memory.new(saved, clock, forgotten)
 		clock = clock,
 		sums = {},
 		names = {}, -- bucket -> set of the names held in it, so missing hashes no name
+		folds = {}, -- text -> its folded text, for searches (cachedFold)
 		byFolded = nil, -- folded text -> full name held (or a set of them), built on the first fullName
 		queue = {},
 		queueStart = 1,
@@ -415,10 +435,10 @@ end
 -- ignoring case and accents. Returns a list of { name, nickname, revision,
 -- firstHand, heard }, copies, sorted by name; every identity for an empty text.
 function Memory:search(text)
-	local wanted = fold(text)
+	local wanted = cachedFold(self, text)
 	local found = {}
 	for name, known in pairs(self.identities) do
-		if shows(known) and matches(wanted, name, known.nickname) then
+		if shows(known) and contains(self, wanted, name, known.nickname) then
 			local identity = self:recall(name)
 			identity.name = name
 			found[#found + 1] = identity
@@ -436,36 +456,61 @@ end
 -- forgotten, with its identity if heard first-hand since), whose name or
 -- nickname contains the text, ignoring case and accents. Returns a list of
 -- { name, nickname, firstHand, source, heard, disputed, forgotten }, copies,
--- sorted by name.
-function Memory:list(text)
-	local wanted = fold(text)
-	local found, listed = {}, {}
+-- sorted by name, and how many it found.
+-- max: at most this many entries, the first by name (all when left out).
+-- keep(name, identity, forgotten): whether to list one, identity nil for a
+-- forgotten character not held; all when left out. Only those count.
+function Memory:list(text, max, keep)
+	local wanted = cachedFold(self, text)
+	local found, total = {}, 0
+	local function add(name, known)
+		local isForgotten = self.forgottenNames[name] ~= nil
+		if keep and not keep(name, known, isForgotten) then
+			return
+		end
+		total = total + 1
+		local last = found[#found]
+		if max and #found >= max and not (last and name < last.name) then
+			return
+		end
+		local entry = { name = name, forgotten = isForgotten or nil }
+		if known then
+			entry.nickname, entry.firstHand, entry.source = known.nickname, known.firstHand, known.source
+			entry.heard, entry.disputed = known.heard, known.disputed
+		end
+		if not max then
+			found[#found + 1] = entry
+			return
+		end
+		-- Kept sorted, and at most max long: a search of the whole memory sorts
+		-- only the rows it shows.
+		local at = #found + 1
+		while at > 1 and name < found[at - 1].name do
+			at = at - 1
+		end
+		table.insert(found, at, entry)
+		found[max + 1] = nil
+	end
+	local function listed(name)
+		local known = self.identities[name]
+		return known and known.nickname and not known.stale and contains(self, wanted, name, known.nickname)
+	end
 	for name, known in pairs(self.identities) do
-		if known.nickname and not known.stale and matches(wanted, name, known.nickname) then
-			listed[name] = {
-				name = name,
-				nickname = known.nickname,
-				firstHand = known.firstHand,
-				source = known.source,
-				heard = known.heard,
-				disputed = known.disputed,
-			}
-			found[#found + 1] = listed[name]
+		if listed(name) then
+			add(name, known)
 		end
 	end
 	for name in pairs(self.forgottenNames) do
-		if not listed[name] and matches(wanted, name) then
-			listed[name] = { name = name }
-			found[#found + 1] = listed[name]
-		end
-		if listed[name] then
-			listed[name].forgotten = true
+		if not listed(name) and contains(self, wanted, name) then
+			add(name, nil)
 		end
 	end
-	table.sort(found, function(a, b)
-		return a.name < b.name
-	end)
-	return found
+	if not max then
+		table.sort(found, function(a, b)
+			return a.name < b.name
+		end)
+	end
+	return found, total
 end
 
 -- How many identities show (a nickname, neither disputed nor stale); only

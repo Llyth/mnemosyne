@@ -217,9 +217,6 @@ end
 -- shows as disputed, a forgotten character without an identity as forgotten;
 -- second-hand identities are left out while they do not show, forgotten
 -- characters never. Returns at most max rows, and how many were found.
--- shortcut: each call lists and sorts the whole memory (Memory:list), as
--- /mnemosyne lookup does; with 20,000 identities a key typed in the search may
--- stutter. Keep the folded names in Memory if players notice.
 function Recognition:rows(text, max)
 	local L, rows, total, mine = self.L, {}, 0, {}
 	for _, own in ipairs(self.characters and self.characters:list(text) or {}) do
@@ -230,29 +227,27 @@ function Recognition:rows(text, max)
 			rows[total] = { name = own.name, nickname = nickname, heard = L.PANEL_YOURS, ago = "", own = true }
 		end
 	end
-	for _, entry in ipairs(self.memory:list(text)) do
-		if not mine[entry.name] and (entry.forgotten or self:shows(entry)) then
-			total = total + 1
-			if total <= max then
-				local nickname, heard = entry.nickname or L.PANEL_FORGOTTEN, ""
-				if entry.disputed then
-					nickname = L.PANEL_DISPUTED
-				end
-				if entry.source then
-					heard = L.PANEL_FROM:format(entry.source)
-				elseif entry.firstHand then
-					-- Forgetting refuses only second-hand copies: this one came back first-hand.
-					heard = entry.forgotten and L.PANEL_FIRST_HAND_FORGOTTEN or L.PANEL_FIRST_HAND
-				end
-				rows[total] = {
-					name = entry.name,
-					nickname = nickname,
-					heard = heard,
-					ago = entry.heard and self:ago(entry.heard) or "",
-					forgotten = entry.forgotten,
-				}
-			end
+	local entries, found = self.memory:list(text, math.max(max - total, 0), function(name, identity, forgotten)
+		return not mine[name] and (forgotten or self:shows(identity))
+	end)
+	for _, entry in ipairs(entries) do
+		local nickname, heard = entry.nickname or L.PANEL_FORGOTTEN, ""
+		if entry.disputed then
+			nickname = L.PANEL_DISPUTED
 		end
+		if entry.source then
+			heard = L.PANEL_FROM:format(entry.source)
+		elseif entry.firstHand then
+			-- Forgetting refuses only second-hand copies: this one came back first-hand.
+			heard = entry.forgotten and L.PANEL_FIRST_HAND_FORGOTTEN or L.PANEL_FIRST_HAND
+		end
+		rows[#rows + 1] = {
+			name = entry.name,
+			nickname = nickname,
+			heard = heard,
+			ago = entry.heard and self:ago(entry.heard) or "",
+			forgotten = entry.forgotten,
+		}
 	end
-	return rows, total
+	return rows, total + found
 end
