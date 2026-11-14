@@ -72,8 +72,8 @@ Rules for agents working in this repository.
 - **Stack pull requests, as much as possible.** Each pull request holds one
   change, but related pull requests form a GitHub stack. Pull requests are
   related when any of these holds:
-  - they touch the same module (`Memory`, `Self`, `Protocol`, `Sync`, `Client`,
-    `Interface`), CI or the same files;
+  - they touch the same module (one file of `src/core/`, `src/client/` or
+    `src/interface/`, such as `Memory`, `Sync` or `Client`), CI or the same files;
   - they share a label (`enhancement`, `bug`, `chore`, `documentation`, ...; the
     list is not exhaustive), so a batch of enhancements, of bug fixes or of chores
     counts as related;

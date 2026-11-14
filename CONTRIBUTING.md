@@ -185,10 +185,13 @@ release made with the workflow's `GITHUB_TOKEN` does not trigger other workflows
 
 ### Publishing to CurseForge, Wago and WoWUp
 
-These steps need accounts, so they are done by hand, once. Until they are, the
-Release workflow only builds the zip for GitHub.
+These steps need accounts, so they were done by hand, once, before `0.1.0`: the
+repository is public, and the CurseForge and Wago projects, their tokens and the
+WoWUp hub listing are set up. They stay here for a fork, or to set them up again;
+without the `CF_PROJECT_ID` and `WAGO_PROJECT_ID` variables, the Release workflow
+only builds the zip for GitHub.
 
-1. **Before the first release, make the repository public**
+1. **Make the repository public**
    (Settings, General, Danger Zone). WoWUp installs from GitHub only from a public
    repository. Check the history first: `gitleaks` runs on every pull request, and
    `gitleaks git` scans it locally.
