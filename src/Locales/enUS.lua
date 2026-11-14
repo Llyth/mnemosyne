@@ -113,6 +113,9 @@ ns.L = {
 	PANEL_PASS_ON_HELP = "Pass on every nickname you know when you sync with another player, and post to your "
 		.. "guild the new ones a sync brings. "
 		.. "Off, you share only your own registrations.",
+	PANEL_EVERYONE = "Talk with everyone",
+	PANEL_EVERYONE_HELP = "Off, Mnemosyne talks only with your friends (your friend list and your Battle.net "
+		.. "friends) and your guild. On, also with your groups and with anyone you hover or target.",
 	PANEL_ASK_STRANGERS = "Ask strangers",
 	PANEL_ASK_STRANGERS_HELP = "Whisper an ask, invisible in chat, to a character you hover or target and do not "
 		.. "know, at most once a day per character.",

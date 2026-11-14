@@ -102,7 +102,8 @@ local function compose(job)
 	end
 	local chatType = job.channel
 	if chatType == "GROUP" then
-		chatType = groupChannel()
+		-- A group's channel reaches strangers: only while talking with everyone.
+		chatType = MnemosyneDB.settings.everyone and groupChannel() or nil
 	elseif chatType == "GUILD" and not IsInGuild() then
 		chatType = nil
 	end
@@ -315,6 +316,47 @@ function Client.ask(name)
 	return enqueue("ask", "WHISPER", name)
 end
 
+-- Reads the friends and guildmates again on the next look (Client.inScope).
+local scopeRead = false
+
+local function readScope()
+	local scope, isKnown = ns.scope, Client.isKnown
+	scope:reset()
+	-- On Forever a friend added by character name is listed with the Battle.net
+	-- friends too: C_FriendList stays empty (docs/agents/wow-api.md).
+	for i = 1, BNGetNumFriends() do
+		for j = 1, C_BattleNet.GetFriendNumGameAccounts(i) do
+			local account = C_BattleNet.GetFriendGameAccountInfo(i, j)
+			if account and account.clientProgram == BNET_CLIENT_WOW and isKnown(account.characterName) then
+				scope:add(account.characterName)
+			end
+		end
+	end
+	for i = 1, GetNumGuildMembers() do
+		local name = GetGuildRosterInfo(i)
+		if isKnown(name) then
+			scope:add(name)
+		end
+	end
+	scopeRead = true
+end
+
+-- Whether Mnemosyne talks with a character (Scope): a friend or a guildmate,
+-- or anyone while "Talk with everyone" is on. The echo peer always.
+function Client.inScope(name)
+	if name == Client.ECHO then
+		return true
+	end
+	if not scopeRead then
+		readScope()
+	end
+	return ns.scope:allows(name)
+end
+
+local function listsChanged()
+	scopeRead = false
+end
+
 -- Drops what the echo peer left in the memory, so it never reaches a real peer.
 local function forgetEcho()
 	if ns.memory:knows(Client.ECHO) then
@@ -343,6 +385,7 @@ local DEFAULTS = {
 	showSecondHand = true, -- "Show second-hand"
 	passOn = true, -- "Pass on what I know"
 	askStrangers = true, -- "Ask strangers"
+	everyone = false, -- "Talk with everyone": off, only friends and guildmates (decision 0007)
 	offerReport = true, -- offer the debug report after an error
 }
 Client.DEFAULTS = DEFAULTS
@@ -378,6 +421,7 @@ function handlers.ADDON_LOADED(name)
 	ns.sync = ns.Sync.new(db.syncs, GetServerTime, ns.memory, db.settings, ns.characters)
 	ns.news = ns.News.new(GetTime, math.random, ns.memory, ns.characters, db.settings)
 	reader = Protocol.newReader(GetTime)
+	ns.scope = ns.Scope.new(db.settings)
 	ns.recognition = ns.Recognition.new(ns.memory, db.settings, ns.L, GetServerTime, ns.characters)
 	-- The debug report (src/Report.lua): its events, the caught errors, and
 	-- whether to offer it after an error.
@@ -406,6 +450,11 @@ function handlers.PLAYER_LOGIN()
 			enqueue("announce", channel)
 		end
 		enqueue("ask", channel)
+	end
+	-- Asks the server for the guild roster (GUILD_ROSTER_UPDATE), for the scope;
+	-- last, and only where the client has it, so the rest of the login runs.
+	if C_GuildInfo and C_GuildInfo.GuildRoster then
+		C_GuildInfo.GuildRoster()
 	end
 end
 
@@ -438,6 +487,9 @@ function handlers.PLAYER_GUILD_UPDATE()
 	inGuild = nowInGuild
 end
 
+handlers.BN_FRIEND_INFO_CHANGED = listsChanged
+handlers.GUILD_ROSTER_UPDATE = listsChanged
+
 -- Everything a peer sends is untrusted: it is read only through Protocol, and
 -- an identity is stored under the sender the server gives, never a name in
 -- the message.
@@ -451,6 +503,12 @@ function handlers.CHAT_MSG_ADDON(prefix, text, channel, sender)
 		return
 	end
 	if sender == "" or sender == playerName or not playerName then
+		return
+	end
+	-- Only the guild's channel vouches for its sender: elsewhere, a friend or a
+	-- guildmate, unless talking with everyone.
+	if channel ~= "GUILD" and not Client.inScope(sender) then
+		Debug.dropped(sender, "scope", text)
 		return
 	end
 	local message, reason = reader:read(sender, text)

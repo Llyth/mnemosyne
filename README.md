@@ -38,8 +38,13 @@ messages.
 
 There is no server. Copies of Mnemosyne talk to each other in the background
 with the game's addon messages, over your guild and group channels and by
-whisper. You learn your guildmates' nicknames when you log in, your group's when
-you join it, and a stranger's when you hover them. Other players also pass along
+whisper. By default Mnemosyne talks only with your friends (your friend list and
+your Battle.net friends' characters) and your guild: it ignores everyone else
+and sends nothing on your group's channel. Turn **Talk with everyone** on in the
+settings panel to open it to your groups and to anyone you hover or target.
+You learn your guildmates' nicknames when you log in, your group's when
+you join it (with **Talk with everyone** on), and a friend's or a stranger's
+when you hover them. Other players also pass along
 what they learned before you, second-hand: two copies of Mnemosyne sync their
 memories privately by whisper, in the background, at login with the first few
 players who answer, with each new group member who has Mnemosyne, and when you
@@ -91,10 +96,10 @@ the minimap and `/mnemosyne` alone open it too. It has:
 - **This character**: its registration, the nickname to register or change,
   Unregister and Keep anonymous, working like the commands and the first-login
   question. A trial account sees why it cannot register.
-- **Options**, the switches, all on until you turn them off: **Show on
-  tooltips**, **Show in chat**, **Show second-hand**, **Pass on what I know**,
-  **Ask strangers** and **Offer a report after an error** (see
-  [Privacy](#privacy)). Each is saved for all your characters and applies at
+- **Options**, the switches: **Show on tooltips**, **Show in chat**, **Show
+  second-hand**, **Pass on what I know**, **Ask strangers** and **Offer a report
+  after an error**, on until you turn them off, and **Talk with everyone**, off
+  until you turn it on (see [Privacy](#privacy)). Each is saved for all your characters and applies at
   once.
 - **Status**: what `/mnemosyne status` says, and a **Report a bug** button that
   opens the same window as `/mnemosyne report`.
@@ -128,8 +133,9 @@ Mnemosyne keeps everything on your computer, in the game's saved variables, and
 sends nothing outside the game.
 
 When you hover or target a character Mnemosyne doesn't know, it whispers that
-character an ask, invisible in chat, at most once a day per character. Turn
-**Ask strangers** off in the settings panel to stop it.
+character an ask, invisible in chat, at most once a day per character: only a
+friend or a guildmate, unless **Talk with everyone** is on. Turn **Ask
+strangers** off in the settings panel to stop it.
 
 Syncs and guild posts pass along every nickname you know, second-hand. Two
 switches of the settings panel, both on by default, change that: **Pass on what

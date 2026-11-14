@@ -80,6 +80,10 @@ _Avoid_: ping, request, query
 A character met in the game (hovered or targeted) whose identity you don't know. Mnemosyne asks it who plays it.
 _Avoid_: unknown character, newcomer
 
+**Scope**:
+Whom Mnemosyne talks with: by default your friends (your friend list and your Battle.net friends' characters) and your guild, or everyone once you turn it on. A message from outside the scope is ignored, and nothing goes out on a group's channel.
+_Avoid_: whitelist, trust list
+
 **Unregistering**:
 Withdrawing a character's registration. The character tells its peers, and they forget its identity.
 _Avoid_: deleting, opting out
