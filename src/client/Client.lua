@@ -1,7 +1,8 @@
 -- Client: the adapter that faces the game for data and messages (decision
 -- 0004): the saved variables, the events and the addon messages, sent through
--- the paced queue (Outbox). The rules live in the pure modules; this file only
--- wires them to the WoW API (docs/agents/wow-api.md).
+-- the paced queue (Outbox) and received through Inbox. The rules live in the
+-- pure modules; this file only wires them to the WoW API
+-- (docs/agents/wow-api.md).
 local addonName, ns = ...
 
 local Protocol = ns.Protocol
@@ -12,14 +13,9 @@ local Client = {}
 ns.Client = Client
 
 local SCHEMA = 1
-local ANSWER_COOLDOWN = 60 -- seconds before answering the same sender again
 local TICK = 0.25 -- seconds between two looks at the queue
 local SYNC_TICK = 5 -- seconds between two looks at the syncs (cut, start waiting ones)
 local NEWS_TICK = 1 -- seconds between two looks at the news due
-local LOGIN_WINDOW, LOGIN_SYNCS = 60, 3 -- after login, sync with the first 3 peers answering within a minute
-
--- The channels of the group: a message there from a peer is a group member's.
-local GROUP_CHANNELS = { PARTY = true, RAID = true, INSTANCE_CHAT = true }
 
 -- Results that mean "not now": the job stays at the head of the queue.
 local RETRY = {
@@ -31,12 +27,8 @@ local RETRY = {
 local playerName
 local outbox -- the paced queue, once loaded
 local ticker
-local answeredAt = {} -- sender -> GetTime() of the last answer, for the session
 local groupSize, inGuild = 0, false
-local reader -- puts chunked messages back together
-local peersHeard = {} -- peer -> GetServerTime() when last heard, for the session
-local loginAt, loginSyncs = 0, 0
-local toldNewer = false -- the notice that a newer Mnemosyne exists, once a session
+local inbox -- where every peer's message comes in, once loaded
 
 -- The echo peer (/mnemosyne echo): a made-up peer that sends back, under its
 -- name, what this character whispers to it or broadcasts, so one player alone
@@ -187,42 +179,15 @@ local function postNews()
 	end
 end
 
--- Asks Sync for a sync with a peer. Returns whether it started or waits.
-local function requestSync(peer)
-	if not Client.canSend() then
-		return false
-	end
-	local outgoing, accepted = ns.sync:request(peer, peersHeard[peer] or GetServerTime())
-	sendSync(outgoing)
-	return accepted
-end
-
 -- Starts syncs with the peers heard this session, the most recently heard
 -- first (/mnemosyne sync). Returns how many started or wait.
 function Client.sync()
-	local peers = {}
-	for peer in pairs(peersHeard) do
-		peers[#peers + 1] = peer
-	end
-	table.sort(peers, function(a, b)
-		return peersHeard[a] > peersHeard[b]
-	end)
-	local count = 0
-	for _, peer in ipairs(peers) do
-		if requestSync(peer) then
-			count = count + 1
-		end
-	end
-	return count
+	return inbox:syncAll()
 end
 
 -- How many peers were heard this session.
 function Client.peerCount()
-	local count = 0
-	for _ in pairs(peersHeard) do
-		count = count + 1
-	end
-	return count
+	return inbox:peerCount()
 end
 
 -- Tells the guild and the group the character's registration has changed: its
@@ -290,7 +255,7 @@ local function forgetEcho()
 		ns.memory:forget(Client.ECHO)
 		ns.memory:unforget(Client.ECHO)
 	end
-	peersHeard[Client.ECHO] = nil
+	inbox:forget(Client.ECHO)
 end
 
 -- Turns the echo peer on and asks it who plays it, or off and forgets it.
@@ -347,8 +312,24 @@ function handlers.ADDON_LOADED(name)
 	db.syncs = db.syncs or {}
 	ns.sync = ns.Sync.new(db.syncs, GetServerTime, ns.memory, db.settings, ns.characters)
 	ns.news = ns.News.new(GetTime, math.random, ns.memory, ns.characters, db.settings)
-	reader = Protocol.newReader(GetTime)
 	outbox = ns.Outbox.new(GetTime, Client.canSend)
+	inbox = ns.Inbox.new({
+		clock = GetTime,
+		serverClock = GetServerTime,
+		memory = ns.memory,
+		sync = ns.sync,
+		news = ns.news,
+		reader = Protocol.newReader(GetTime),
+		outbox = outbox,
+		wake = wake,
+		canSend = Client.canSend,
+		inScope = Client.inScope,
+		playerName = Client.playerName,
+		log = Debug,
+		onNewer = function()
+			ns.say(L.NEWER_VERSION)
+		end,
+	})
 	ns.scope = ns.Scope.new(db.settings)
 	ns.recognition = ns.Recognition.new(ns.memory, db.settings, ns.L, GetServerTime, ns.characters)
 	-- The debug report (src/core/Report.lua): its events, the caught errors, and
@@ -368,7 +349,7 @@ function handlers.PLAYER_LOGIN()
 	forgetEcho() -- left by a session that ended with the echo peer on
 	groupSize = GetNumGroupMembers()
 	inGuild = IsInGuild()
-	loginAt = GetTime()
+	inbox:loggedIn()
 	C_Timer.NewTicker(SYNC_TICK, function()
 		sendSync(ns.sync:tick())
 	end)
@@ -418,9 +399,8 @@ end
 handlers.BN_FRIEND_INFO_CHANGED = listsChanged
 handlers.GUILD_ROSTER_UPDATE = listsChanged
 
--- Everything a peer sends is untrusted: it is read only through Protocol, and
--- an identity is stored under the sender the server gives, never a name in
--- the message.
+-- A message from a peer goes to Inbox once known to hold no secret value
+-- (comparing one raises an error).
 function handlers.CHAT_MSG_ADDON(prefix, text, channel, sender)
 	local isKnown = Client.isKnown
 	if not isKnown(prefix) or prefix ~= Protocol.PREFIX then
@@ -430,76 +410,7 @@ function handlers.CHAT_MSG_ADDON(prefix, text, channel, sender)
 		Debug.dropped(nil, "secret", "?")
 		return
 	end
-	if sender == "" or sender == playerName or not playerName then
-		return
-	end
-	-- Only the guild's channel proves its sender is in scope: elsewhere, a friend or a
-	-- guildmate, unless talking with everyone.
-	if channel ~= "GUILD" and not Client.inScope(sender) then
-		Debug.dropped(sender, "scope", text)
-		return
-	end
-	local message, reason = reader:read(sender, text)
-	if not message then
-		if not reason then
-			Debug.received(sender, channel, text, "chunk") -- more to come
-			return
-		end
-		Debug.dropped(sender, reason, text)
-		if reason == "newer" and not toldNewer then
-			toldNewer = true
-			ns.say(L.NEWER_VERSION)
-		end
-		return
-	end
-	-- The whole message as read, not only its last chunk.
-	Debug.received(sender, channel, Debug.isOn() and Protocol.write(message) or text, message.kind)
-	peersHeard[sender] = GetServerTime()
-	local kind = message.kind
-	if kind == "digest" or kind == "identities" or kind == "done" then
-		if channel == "WHISPER" then
-			local outgoing, learned = ns.sync:receive(sender, message)
-			sendSync(outgoing)
-			for _, identity in ipairs(learned or {}) do
-				ns.news:add(identity)
-			end
-		else
-			Debug.dropped(sender, "channel", text)
-		end
-		return
-	end
-	if kind == "news" then
-		if channel ~= "GUILD" then
-			Debug.dropped(sender, "channel", text)
-		elseif not ns.news:receive(sender, message.identity) then
-			Debug.dropped(sender, "older", text)
-		end
-		return
-	end
-	-- Syncs with each new group member who is a peer, and after login with the
-	-- first peers answering its asks.
-	local afterLogin = GetTime() - loginAt < LOGIN_WINDOW and loginSyncs < LOGIN_SYNCS
-	if GROUP_CHANNELS[channel] then
-		requestSync(sender)
-	elseif channel == "WHISPER" and kind ~= "ask" and afterLogin then
-		if requestSync(sender) then
-			loginSyncs = loginSyncs + 1
-		end
-	end
-	if kind == "ask" then
-		local now = GetTime()
-		if answeredAt[sender] and now - answeredAt[sender] < ANSWER_COOLDOWN then
-			Debug.dropped(sender, "cooldown", text)
-			return
-		end
-		if enqueue("answer", "WHISPER", sender) then
-			answeredAt[sender] = now
-		else
-			Debug.dropped(sender, "unqueued", text)
-		end
-	elseif not ns.memory:hear(sender, { nickname = message.nickname, revision = message.revision }) then
-		Debug.dropped(sender, "older", text)
-	end
+	inbox:receive(sender, channel, text)
 end
 
 loopBack = handlers.CHAT_MSG_ADDON
