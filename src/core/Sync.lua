@@ -265,8 +265,9 @@ function Sync:receive(peer, message)
 			if changed then
 				-- Only what is new: a peer re-sending what this side knows would hold a place forever.
 				session.active = now
-				identity.disputed = how == "disputed" or nil
-				learned[#learned + 1] = identity
+				-- What the memory holds now, not what the peer sent: it keeps the GUID it held.
+				learned[#learned + 1] = how == "disputed" and { name = identity.name, disputed = true }
+					or self.memory:passOn(identity.name)
 			end
 		end
 		return outgoing, learned
