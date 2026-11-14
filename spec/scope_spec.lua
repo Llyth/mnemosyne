@@ -14,7 +14,7 @@ describe("Scope", function()
 		assert.is_true(scope:allows("Mip Wiq"))
 	end)
 
-	it("does not talk with a stranger while everyone is off", function()
+	it("does not talk with a character outside the scope while everyone is off", function()
 		assert.is_false(scope:allows("Anna Conda"))
 	end)
 

@@ -103,7 +103,7 @@ local function compose(job)
 	end
 	local chatType = job.channel
 	if chatType == "GROUP" then
-		-- A group's channel reaches strangers: only while talking with everyone.
+		-- A group's channel reaches players outside the scope: only while talking with everyone.
 		chatType = MnemosyneDB.settings.everyone and groupChannel() or nil
 	elseif chatType == "GUILD" and not IsInGuild() then
 		chatType = nil
