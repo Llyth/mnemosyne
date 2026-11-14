@@ -1,6 +1,6 @@
 # Talk with friends and the guild by default
 
-By default Mnemosyne talks only with friends (the friend list and Battle.net friends' WoW characters) and guildmates: it drops every addon message from anyone else, except on the guild's channel, sends nothing on a group's channel, and asks only friends and guildmates it hovers or targets. A "Talk with everyone" switch, off by default, opens it to groups and anyone else as before. The player asked for it: a nickname links characters to a player, and a player met in a pick-up group has no reason to learn it. We chose dropping messages at the Client over filtering in each pure module: one check where every message comes in covers answers, learning, syncs and the news.
+By default Mnemosyne talks only with friends (the friend list and Battle.net friends' WoW characters) and guildmates: it drops every addon message from anyone else, except on the guild's channel, sends nothing on a group's channel, and asks only friends and guildmates it hovers or targets. A "Talk with everyone" switch, off by default, opens it to groups and anyone else as before. The player asked for it: a nickname links characters to a player, and a player met in a pick-up group has no reason to learn it. We chose dropping messages where they come in (`Inbox`, since 2026-11-14; `Client` before) over filtering in each pure module: one check where every message comes in covers answers, learning, syncs and the news.
 
 ## Consequences
 
