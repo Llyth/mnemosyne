@@ -87,8 +87,11 @@ Mnemosyne is for **WoW Forever** only (client 1.60.1). Install it with:
   unzip it into `World of Warcraft\_forever_\Interface\AddOns\`, so that you get
   `AddOns\Mnemosyne\Mnemosyne.toc`.
 
-Mnemosyne speaks English and French: it follows your game client's language,
-and falls back to English for anything not translated. The slash commands stay
+Mnemosyne speaks every language WoW Forever has: English, French, German,
+Spanish (Spain and Latin America), Brazilian Portuguese, Russian, Korean and
+Chinese (simplified and traditional). It follows your game client's language,
+using the game's own words for guilds, groups, chat and the rest, and falls back
+to English for anything not translated. The slash commands stay
 the same in every language (`/mnemosyne register`, `/mnemosyne lookup`...).
 
 ## Using it

@@ -64,11 +64,28 @@ local function text(parent, font, x, top, width)
 	return label
 end
 
+-- Widens a button to fit the longest of its labels, so no translation spills out
+-- of it; it is left showing the last one.
+local function fit(frame, ...)
+	local width = frame:GetWidth()
+	for i = 1, select("#", ...) do
+		frame:SetText((select(i, ...)))
+		width = math.max(width, frame:GetFontString():GetStringWidth() + 24)
+	end
+	frame:SetWidth(width)
+end
+
+-- A button at least width wide, wider if its label needs it. A negative x places
+-- its right edge that far from the parent's left, so it grows to the left.
 local function button(parent, label, x, top, width, onClick)
 	local frame = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
 	frame:SetSize(width, 22)
-	frame:SetPoint("TOPLEFT", x, -top)
-	frame:SetText(label)
+	fit(frame, label)
+	if x < 0 then
+		frame:SetPoint("TOPRIGHT", parent, "TOPLEFT", -x, -top)
+	else
+		frame:SetPoint("TOPLEFT", x, -top)
+	end
 	frame:SetScript("OnClick", onClick)
 	return frame
 end
@@ -105,6 +122,7 @@ local function register()
 end
 nickname:SetScript("OnEscapePressed", nickname.ClearFocus)
 local registerButton = button(controls, L.PANEL_REGISTER, COLUMN, LINE, 110, register)
+fit(registerButton, L.PANEL_CHANGE, L.PANEL_REGISTER) -- refresh switches it to Change
 -- As in the prompt: nothing to register while the nickname is empty.
 local function enableRegister()
 	registerButton:SetEnabled(nickname:GetText():find("%S") ~= nil)
@@ -123,6 +141,11 @@ local anonymousButton = button(controls, L.PROMPT_ANONYMOUS, COLUMN + 228, LINE,
 	Interface.keepAnonymous()
 	refresh()
 end)
+-- Each after the one before, however wide its translation made it.
+unregisterButton:ClearAllPoints()
+unregisterButton:SetPoint("LEFT", registerButton, "RIGHT", 4, 0)
+anonymousButton:ClearAllPoints()
+anonymousButton:SetPoint("LEFT", unregisterButton, "RIGHT", 4, 0)
 y = y + 2 * LINE
 
 -- The switches, each saved as it is clicked and read where it is used.
@@ -148,7 +171,7 @@ end
 y = y + header(content, y, L.PANEL_STATUS)
 -- On the header's line. commands.report is looked up on click (ReportWindow loads
 -- after this file); its window is DIALOG strata, above the Settings panel's HIGH.
-button(content, L.PANEL_REPORT, WIDTH - 130, y - 33, 130, function()
+button(content, L.PANEL_REPORT, -WIDTH, y - 33, 130, function()
 	commands.report()
 end)
 local status = text(content, "GameFontHighlight", INDENT, y, WIDTH - INDENT)
@@ -182,7 +205,7 @@ local function rowFrame(i)
 			row[column[1]] = text(row, "GameFontHighlightSmall", column[3], 5, column[4])
 			row[column[1]]:SetWordWrap(false)
 		end
-		row.button = button(row, "", 525, 0, 70, function(self)
+		row.button = button(row, "", -595, 0, 70, function(self)
 			local name = self:GetParent().name:GetText()
 			if self:GetParent().forgotten then
 				commands.unforget(name)
@@ -191,6 +214,7 @@ local function rowFrame(i)
 			end
 			refresh()
 		end)
+		fit(row.button, L.PANEL_FORGET, L.PANEL_UNDO)
 		rows[i] = row
 	end
 	return rows[i]
