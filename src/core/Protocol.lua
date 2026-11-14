@@ -5,40 +5,45 @@
 --
 --   <version>:<kind>[:<fields>]
 --
---   1:A:<revision>:<nickname>   announcement: a character says who plays it
---   1:Q                         ask: the receivers answer who plays them
---   1:R:<revision>:<nickname>   answer to an ask
---   1:U:<revision>              removal: the character unregistered
---   1:N:<revision>              anonymous: the character is kept anonymous
+--   2:A:<revision>:<nickname>   announcement: a character says who plays it
+--   2:Q                         ask: the receivers answer who plays them
+--   2:R:<revision>:<nickname>   answer to an ask
+--   2:U:<revision>              removal: the character unregistered
+--   2:N:<revision>              anonymous: the character is kept anonymous
 --
 -- A sync (decision 0002) adds, by whisper:
 --
---   1:D:<digest>                the sender's memory hashed in buckets: 1024
+--   2:D:<digest>                the sender's memory hashed in buckets: 1024
 --                               lowercase hexadecimal digits
---   1:I:<identity>[\n<identity>...]
+--   2:I:<identity>[\n<identity>...]
 --                               identities passed on, each
 --                               <revision>:<name>[:<nickname>], a removal
 --                               without a nickname, followed by a line
 --                               G:<guid> when its character's GUID is known,
 --                               then a line F when the sender vouches it
 --                               heard it first-hand in the last day
---   1:E                         the sender has sent all it had to send
+--   2:E                         the sender has sent all it had to send
 --
 -- News (decision 0002) adds, on the guild channel:
 --
---   1:P:<identity>              one identity a sync brought the sender new or
+--   2:P:<identity>              one identity a sync brought the sender new or
 --                               at a later revision, as a sync passes it on,
 --                               its GUID too ("P" for posted: "G" starts a
 --                               GUID's line)
 --
 -- A message longer than 255 bytes goes as chunks of the same version, numbered
--- from 1 to their count, the pieces of its text in order:
+-- from 1 to their count, the pieces of its text in order, each carrying the
+-- message's id, 1 to 99, which the sender's next message changes:
 --
---   1:C:<index>:<count>:<piece>
+--   2:C:<id>:<index>:<count>:<piece>
+--
+-- The id keeps the chunks of two messages apart when they come interleaved
+-- (whispers come out of order on Forever): version 1 had none, and spliced
+-- them into one.
 --
 -- The version is a decimal number; a peer drops every other version. The kind
 -- is one capital letter; a peer drops a kind it does not know, so later kinds
--- can join version 1 without breaking older peers. A nickname is the last
+-- can join version 2 without breaking older peers. A nickname is the last
 -- field, so it may hold ':'. The revision is a positive integer of at most 14
 -- digits (what tostring writes exactly), without leading zeros, so it reads
 -- back as the same number. A name is a full name, "First Last". A GUID has a
@@ -50,7 +55,7 @@ local Protocol = {}
 ns.Protocol = Protocol
 
 Protocol.PREFIX = "Mnemosyne"
-Protocol.VERSION = 1
+Protocol.VERSION = 2
 Protocol.MAX_MESSAGE_BYTES = 255
 Protocol.MAX_NICKNAME_CHARACTERS = 32
 Protocol.MAX_NAME_BYTES = 64
@@ -65,10 +70,12 @@ Protocol.MAX_CHUNKED_BYTES = 4096
 Protocol.MAX_LINES = 16
 Protocol.MAX_GUID_BYTES = 32 -- a character's GUID, "Player-<server>-<id>", is about 20
 
-local CHUNK_HEADER_BYTES = #"1:C:99:99:" -- the longest chunk header
+local CHUNK_HEADER_BYTES = #"2:C:99:99:99:" -- the longest chunk header
+local MAX_ID = 99
 local CHUNK_BYTES = Protocol.MAX_MESSAGE_BYTES - CHUNK_HEADER_BYTES
 local MAX_CHUNKS = math.ceil(Protocol.MAX_CHUNKED_BYTES / CHUNK_BYTES)
 local CHUNK_TIMEOUT = 60 -- seconds before a message whose chunks stopped coming is dropped
+local MAX_PENDING = 4 -- messages held per sender; a fifth drops the one heard from least lately
 
 local KIND_LETTER = {
 	announcement = "A",
@@ -359,17 +366,27 @@ function Protocol.read(text)
 	return readWhole(text, Protocol.MAX_MESSAGE_BYTES)
 end
 
+local Writer = {}
+Writer.__index = Writer
+
+-- A writer splits a sender's messages, each chunked one under the next id.
+function Protocol.newWriter()
+	return setmetatable({ id = 0 }, Writer)
+end
+
 -- Splits wire text into messages of at most 255 bytes: the text itself when it
 -- fits, its chunks otherwise. Trusts its input: at most MAX_CHUNKED_BYTES.
-function Protocol.split(text)
+function Writer:split(text)
 	if #text <= Protocol.MAX_MESSAGE_BYTES then
 		return { text }
 	end
+	self.id = self.id % MAX_ID + 1
+	local header = Protocol.VERSION .. ":C:" .. self.id .. ":"
 	local count = math.ceil(#text / CHUNK_BYTES)
 	local chunks = {}
 	for index = 1, count do
 		local piece = text:sub((index - 1) * CHUNK_BYTES + 1, index * CHUNK_BYTES)
-		chunks[index] = Protocol.VERSION .. ":C:" .. index .. ":" .. count .. ":" .. piece
+		chunks[index] = header .. index .. ":" .. count .. ":" .. piece
 	end
 	return chunks
 end
@@ -377,8 +394,8 @@ end
 local Reader = {}
 Reader.__index = Reader
 
--- A reader puts each sender's chunks back together. clock: returns the time,
--- in seconds.
+-- A reader puts each sender's chunks back together, message by message.
+-- clock: returns the time, in seconds.
 function Protocol.newReader(clock)
 	return setmetatable({ clock = clock, pending = {} }, Reader)
 end
@@ -386,7 +403,8 @@ end
 -- Reads wire text from a peer. Returns the message table once it is whole;
 -- nil alone while chunks of it are still to come; or nil and why it was
 -- dropped: the reasons of Protocol.read. Chunks that stopped coming for a
--- minute are let go.
+-- minute are let go, and so is the message heard from least lately when a
+-- sender starts more than MAX_PENDING at once.
 function Reader:read(sender, text)
 	if type(text) ~= "string" or #text > Protocol.MAX_MESSAGE_BYTES then
 		return Protocol.read(text)
@@ -396,12 +414,17 @@ function Reader:read(sender, text)
 		return Protocol.read(text)
 	end
 	local now = self.clock()
-	for other, pending in pairs(self.pending) do
-		if now - pending.at > CHUNK_TIMEOUT then
+	for other, messages in pairs(self.pending) do
+		for id, pending in pairs(messages) do
+			if now - pending.at > CHUNK_TIMEOUT then
+				messages[id] = nil
+			end
+		end
+		if not next(messages) then
 			self.pending[other] = nil
 		end
 	end
-	local indexText, countText, piece = rest:match("^:([1-9]%d?):([1-9]%d?):(.*)$")
+	local id, indexText, countText, piece = rest:match("^:([1-9]%d?):([1-9]%d?):([1-9]%d?):(.*)$")
 	local index, count = tonumber(indexText), tonumber(countText)
 	if not index or index > count then
 		return nil, "malformed"
@@ -409,13 +432,28 @@ function Reader:read(sender, text)
 	if count > MAX_CHUNKS then
 		return nil, "oversized"
 	end
-	-- Chunks may come in any order (addon whispers do on Forever). A chunk of
-	-- another count, or one already held, starts the message over: the sender
-	-- moved on to another message.
-	local pending = self.pending[sender]
+	-- Chunks may come in any order (addon whispers do on Forever), those of
+	-- several messages interleaved: each message keeps its own. A chunk of
+	-- another count, or one already held, starts its message over: the
+	-- sender's ids came round again.
+	local messages = self.pending[sender] or {}
+	self.pending[sender] = messages
+	local pending = messages[id]
+	if not pending then
+		local held, oldest = 0, nil
+		for other, message in pairs(messages) do
+			held = held + 1
+			if not oldest or message.at < messages[oldest].at then
+				oldest = other
+			end
+		end
+		if held >= MAX_PENDING then
+			messages[oldest] = nil
+		end
+	end
 	if not pending or pending.count ~= count or pending.pieces[index] then
 		pending = { count = count, pieces = {}, held = 0 }
-		self.pending[sender] = pending
+		messages[id] = pending
 	end
 	pending.pieces[index] = piece
 	pending.held = pending.held + 1
@@ -423,7 +461,10 @@ function Reader:read(sender, text)
 	if pending.held < count then
 		return nil
 	end
-	self.pending[sender] = nil
+	messages[id] = nil
+	if not next(messages) then
+		self.pending[sender] = nil
+	end
 	return readWhole(table.concat(pending.pieces), Protocol.MAX_CHUNKED_BYTES)
 end
 

@@ -23,7 +23,7 @@ describe("Sync", function()
 	local function decode(text)
 		local reader = Protocol.newReader(clock)
 		local message
-		for _, chunk in ipairs(Protocol.split(text)) do
+		for _, chunk in ipairs(Protocol.newWriter():split(text)) do
 			message = reader:read("Anna Conda", chunk)
 		end
 		return assert(message, text)
@@ -105,7 +105,7 @@ describe("Sync", function()
 	it("never passes on an identity whose name is too long for a peer to take", function()
 		memory:hear(string.rep("a", 60) .. " Jass", { nickname = "Tony", revision = 900 })
 		local outgoing = sync:receive("Barb Dwyer", { kind = "digest", digest = emptyDigest() })
-		assert.equal("1:I:900:Hugh Jass:Tony", outgoing[2].text)
+		assert.equal("2:I:900:Hugh Jass:Tony", outgoing[2].text)
 	end)
 
 	it(
@@ -502,7 +502,12 @@ describe("Sync", function()
 
 	describe("between two peers", function()
 		local function newPeer(name)
-			local peer = { name = name, memory = Memory.new({}, clock), reader = Protocol.newReader(clock) }
+			local peer = {
+				name = name,
+				memory = Memory.new({}, clock),
+				reader = Protocol.newReader(clock),
+				writer = Protocol.newWriter(),
+			}
 			peer.sync = Sync.new({}, clock, peer.memory, { passOn = true }, Self.new({}, clock))
 			return peer
 		end
@@ -513,7 +518,7 @@ describe("Sync", function()
 			for _, out in ipairs(outgoing) do
 				if out.peer == to.name then
 					local message
-					for _, chunk in ipairs(Protocol.split(out.text)) do
+					for _, chunk in ipairs(from.writer:split(out.text)) do
 						message = to.reader:read(from.name, chunk)
 					end
 					for _, reply in ipairs(to.sync:receive(from.name, message)) do

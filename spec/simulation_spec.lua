@@ -21,7 +21,7 @@ describe("Several peers", function()
 
 	local function post(from, outgoing)
 		for _, out in ipairs(outgoing) do
-			for _, text in ipairs(Protocol.split(out.text)) do
+			for _, text in ipairs(peers[from].writer:split(out.text)) do
 				inFlight[#inFlight + 1] = { from = from, to = out.peer, text = text }
 			end
 		end
@@ -57,6 +57,7 @@ describe("Several peers", function()
 			characters = characters,
 			sync = Sync.new({}, clock, memory, { passOn = true }, characters),
 			reader = Protocol.newReader(clock),
+			writer = Protocol.newWriter(),
 			delay = 0, -- what its randomness draws for each news delay
 		}
 		peer.news = News.new(clock, function()
