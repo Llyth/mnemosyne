@@ -10,7 +10,9 @@
 -- sync with a peer happens at most once every 6 hours; at most 2 run at once
 -- and at most 10 wait, the most recently heard peers first. A sync whose peer
 -- passes on nothing new for 2 minutes, or that lasts 20 minutes, is cut; the
--- next one starts again from the digest.
+-- next one starts again from the digest. Whispers can arrive out of order, so a
+-- peer's end of its part that comes before its digest still lets this side
+-- answer that digest if it comes within 2 minutes.
 local _, ns = ...
 
 local Memory, Protocol = ns.Memory, ns.Protocol
@@ -57,6 +59,7 @@ function Sync.new(saved, clock, memory, settings, characters)
 		characters = characters,
 		sessions = {}, -- peer -> { started, active, answered, digestAgain }
 		waiting = {}, -- { peer, heard, digest, digestHeard }, the most recently heard first
+		doneFirst = {}, -- peer -> when its done came before its digest, to answer the digest still
 	}, Sync)
 end
 
@@ -205,7 +208,10 @@ end
 -- sync this side already answered (a peer that reloaded, or cut its sync
 -- before the answer came) gets only this side's
 -- digest, so the peer can answer and end its sync: the answer is not sent
--- again, and what the peer lacks comes in a later sync. A peer this side will
+-- again, and what the peer lacks comes in a later sync. A done before this side
+-- answered ends the sync and starts the cooldown all the same (the peer may be
+-- refusing), but the peer's digest, if it comes within 2 minutes (it was
+-- overtaken), is still answered once. A peer this side will
 -- not answer (sending its digest again during the cooldown, a third time in the
 -- same sync, or with the waiting list full) is told this side is done, which
 -- ends the peer's sync and starts its cooldown.
@@ -215,7 +221,14 @@ function Sync:receive(peer, message)
 	local outgoing = {}
 	if message.kind == "digest" then
 		if not session then
-			if isCooling(self, peer, now) then
+			local doneAt = self.doneFirst[peer]
+			self.doneFirst[peer] = nil
+			if doneAt and now - doneAt < Sync.TIMEOUT then
+				-- Its place was freed at the done: answered at once, not kept running.
+				self.sessions[peer] = { started = now, active = now }
+				answer(self, peer, message.digest, now, outgoing)
+				self.sessions[peer] = nil
+			elseif isCooling(self, peer, now) then
 				send(outgoing, peer, { kind = "done" })
 			elseif running(self) >= Sync.MAX_RUNNING then
 				if not wait(self, peer, now, message.digest) then
@@ -258,6 +271,9 @@ function Sync:receive(peer, message)
 		end
 		return outgoing, learned
 	elseif message.kind == "done" then
+		if not session.answered then
+			self.doneFirst[peer] = now
+		end
 		self.sessions[peer] = nil
 		self.synced[peer] = now
 		return startWaiting(self, now)
@@ -272,6 +288,11 @@ function Sync:tick()
 	for peer, session in pairs(self.sessions) do
 		if now - session.active >= Sync.TIMEOUT or now - session.started >= Sync.MAX_DURATION then
 			self.sessions[peer] = nil
+		end
+	end
+	for peer, doneAt in pairs(self.doneFirst) do
+		if now - doneAt >= Sync.TIMEOUT then
+			self.doneFirst[peer] = nil
 		end
 	end
 	return startWaiting(self, now)
