@@ -129,11 +129,13 @@ local function sum(self, name, known, sign)
 	end
 end
 
--- Stores an identity (or nil to drop it), keeping the digest's sums in step.
+-- Stores an identity (or nil to drop it), keeping the digest's sums and the
+-- names of its bucket in step.
 local function store(self, name, known)
 	sum(self, name, self.identities[name], -1)
 	self.identities[name] = known
 	sum(self, name, known, 1)
+	self.names[bucketOf(name) + 1][name] = known and true or nil
 end
 
 -- Queues a second-hand identity to be dropped after the ones heard before it.
@@ -172,19 +174,21 @@ function Memory.new(saved, clock, forgotten)
 		end
 	end
 	local self = setmetatable({
-		identities = saved.identities,
+		identities = saved.identities, -- written only through store, which keeps names in step
 		newFrom = saved.newFrom,
 		forgottenNames = forgotten or {},
 		folded = {}, -- each forgotten name, by its folded text
 		secondHand = 0,
 		clock = clock,
 		sums = {},
+		names = {}, -- bucket -> set of the names held in it, so missing hashes no name
 		queue = {},
 		queueStart = 1,
 		queueEnd = 0,
 	}, Memory)
 	for bucket = 1, Memory.BUCKETS do
 		self.sums[bucket] = 0
+		self.names[bucket] = {}
 	end
 	for name in pairs(self.forgottenNames) do
 		if type(name) == "string" then -- the saved file may have been edited by hand
@@ -193,6 +197,7 @@ function Memory.new(saved, clock, forgotten)
 	end
 	for name, known in pairs(saved.identities) do
 		sum(self, name, known, 1)
+		self.names[bucketOf(name) + 1][name] = true
 		if not known.firstHand then
 			self.secondHand = self.secondHand + 1
 			queue(self, name, known)
@@ -454,24 +459,35 @@ function Memory:digest()
 	return table.concat(digits)
 end
 
--- What to pass on to a peer, from its digest: every identity in a bucket whose
--- digest differs from this memory's, as { name, nickname, revision, guid },
--- removals included, guid when known; never a disputed or stale one. The peer
--- keeps what is newer than what it holds.
+-- What to pass on to a peer, from its digest: the names of every identity in a
+-- bucket whose digest differs from this memory's, removals included; never a
+-- disputed or stale one. Names only, so a whole memory costs no table each:
+-- passOn gives what to send of the ones chosen. The peer keeps what is newer
+-- than what it holds.
 function Memory:missing(digest)
 	local mine = self:digest()
-	local differs = {}
-	for bucket = 0, Memory.BUCKETS - 1 do
-		local first = bucket * DIGITS + 1
-		differs[bucket] = mine:sub(first, first + DIGITS - 1) ~= digest:sub(first, first + DIGITS - 1)
-	end
 	local found = {}
-	for name, known in pairs(self.identities) do
-		if passesOn(known) and differs[bucketOf(name)] then
-			found[#found + 1] = { name = name, nickname = known.nickname, revision = known.revision, guid = known.guid }
+	for bucket = 1, Memory.BUCKETS do
+		local first, last = (bucket - 1) * DIGITS + 1, bucket * DIGITS
+		if mine:sub(first, last) ~= digest:sub(first, last) then
+			for name in pairs(self.names[bucket]) do
+				if passesOn(self.identities[name]) then
+					found[#found + 1] = name
+				end
+			end
 		end
 	end
 	return found
+end
+
+-- What to pass on of a character's identity: { name, nickname, revision, guid },
+-- a removal without a nickname, guid when known; nil when it is not passed on
+-- (not held, disputed or stale).
+function Memory:passOn(name)
+	local known = self.identities[name]
+	if known and passesOn(known) then
+		return { name = name, nickname = known.nickname, revision = known.revision, guid = known.guid }
+	end
 end
 
 -- Forgets a character (its full name in any case, accents or not): drops its

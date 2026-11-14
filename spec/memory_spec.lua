@@ -415,6 +415,31 @@ describe("Memory, second-hand", function()
 		assert.equal(Memory.new(saved, clock):digest(), memory:digest())
 	end)
 
+	it("passes on the same as one loaded anew, whatever it hears, drops or forgets", function()
+		fill()
+		math.randomseed(7)
+		for _ = 1, 2000 do
+			now = now + 1
+			local name = "Hugh Jass" .. math.random(Memory.MAX_SECOND_HAND + 100)
+			local nickname = ({ "Tony", "Antoine" })[math.random(2)] -- two at one revision: a dispute
+			local roll = math.random(20)
+			if roll == 1 then
+				memory:forget(name)
+			elseif roll == 2 then
+				memory:see(name, "Player-1-" .. math.random(2)) -- a second GUID makes it stale
+			elseif roll <= 7 then
+				memory:hear(name, { nickname = nickname, revision = 900 + math.random(3) })
+			else
+				hearFrom("Peer" .. math.random(100), name, nickname, 900 + math.random(3))
+			end
+		end
+		local empty = Memory.new({}, clock):digest()
+		local loaded, held = Memory.new(saved, clock):missing(empty), memory:missing(empty)
+		table.sort(loaded)
+		table.sort(held)
+		assert.same(loaded, held)
+	end)
+
 	describe("digest", function()
 		local other
 
@@ -426,13 +451,9 @@ describe("Memory, second-hand", function()
 			end
 		end)
 
-		local function names(identities)
-			local list = {}
-			for _, identity in ipairs(identities) do
-				list[#list + 1] = identity.name
-			end
-			table.sort(list)
-			return list
+		local function sorted(missing)
+			table.sort(missing)
+			return missing
 		end
 
 		it("hashes a memory in a digest a peer can read", function()
@@ -457,14 +478,14 @@ describe("Memory, second-hand", function()
 		it("passes on what a peer's digest lacks: identities and removals", function()
 			memory:hear("Élise Bérénice", { nickname = "Zoé", revision = 902 })
 			memory:hear("Barb Dwyer", { revision = 903 })
-			assert.same({ "Barb Dwyer", "Élise Bérénice" }, names(memory:missing(other:digest())))
-			assert.same({}, names(other:missing(memory:digest())))
+			assert.same({ "Barb Dwyer", "Élise Bérénice" }, sorted(memory:missing(other:digest())))
+			assert.same({}, sorted(other:missing(memory:digest())))
 		end)
 
 		it("passes on what a peer holds at an older revision, without saying how it heard it", function()
 			memory:hear("Hugh Jass", { nickname = "Antoine", revision = 1900 })
-			local missing = memory:missing(other:digest())
-			assert.same({ { name = "Hugh Jass", nickname = "Antoine", revision = 1900 } }, missing)
+			assert.same({ "Hugh Jass" }, memory:missing(other:digest()))
+			assert.same({ name = "Hugh Jass", nickname = "Antoine", revision = 1900 }, memory:passOn("Hugh Jass"))
 		end)
 
 		it("leaves a disputed identity out of its digest", function()
@@ -637,7 +658,11 @@ describe("Memory, stale", function()
 
 	-- What the memory passes on to a peer that holds nothing.
 	local function passedOn()
-		return memory:missing(Memory.new({}, clock):digest())
+		local passed = {}
+		for i, name in ipairs(memory:missing(Memory.new({}, clock):digest())) do
+			passed[i] = memory:passOn(name)
+		end
+		return passed
 	end
 
 	before_each(function()
@@ -730,11 +755,7 @@ describe("Memory, stale", function()
 
 	it("learns the GUID passed on with a second-hand identity, and passes it on", function()
 		hearFrom("Barb Dwyer", "Anna Conda", "Ann", 900, OLD)
-		local passed = memory:missing(Memory.new({}, clock):digest())
-		table.sort(passed, function(a, b)
-			return a.name < b.name
-		end)
-		assert.equal(OLD, passed[1].guid)
+		assert.equal(OLD, memory:passOn("Anna Conda").guid)
 	end)
 
 	it("lets a GUID passed on only hide an identity, never change it", function()
