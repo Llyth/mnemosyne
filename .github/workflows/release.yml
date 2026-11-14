@@ -4,7 +4,7 @@ name: Release
 # Every merge that changes the addon updates the draft release notes. A release
 # is published, with its zip attached, only on a manual run with `publish`
 # ticked. Manual runs work from `main` only; the draft is published after its
-# zip is attached (docs/decisions/0002-releases-from-main-with-the-packager.md).
+# zip is attached (docs/decisions/0005-distribution.md).
 on:
   push:
     branches: [main]

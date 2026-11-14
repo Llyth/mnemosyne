@@ -4,7 +4,7 @@ Reach for this when writing or changing a test. How to run them is in [CONTRIBUT
 
 Work in vertical slices, a *tracer bullet*: one behavior, one failing test (red), the smallest code that passes, repeat. Test at two seams only ([decision 0004](../decisions/0004-a-pure-core-two-adapters-no-libraries.md)):
 
-1. **The pure modules, with busted, outside the game:** `Memory`, `Self`, `Protocol`, `Sync`, `Recognition`, `Strangers` and `Report`, each through its own interface. Most behavior lives here and is tested here.
+1. **The pure modules, with busted, outside the game:** `Protocol`, `Memory`, `Self`, `Sync`, `News`, `Recognition`, `Strangers`, `Scope` and `Report` (`src/core/`), each through its own interface. Most behavior lives here and is tested here.
    - **The multi-peer simulation** wires several peers (`Memory`, `Self`, `Sync` and `Protocol` each) through an in-memory transport and checks how identities spread: D learns A through B and C, first-hand overrides a forged copy, an unregistration reaches everyone, a dispute settles, the per-peer limits hold.
 2. **The adapters, by hand in the game:** `Client` (with `Encounter`), `Interface` (with `Chat`, `Commands`, `Prompt`, `Panel` and `ReportWindow`) and `Debug` call the WoW API and have no automated test. A pull request that changes one says in its description what was checked in the game, on which build, or that it was not. Syncs need two clients (or a friend) and `/mnemosyne debug`.
 
