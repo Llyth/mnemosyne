@@ -6,5 +6,5 @@ By default Mnemosyne talks only with friends (the friend list and Battle.net fri
 
 - The network grows more slowly than decision 0001 expected: second-hand identities still spread, but only through friends and guildmates.
 - A friend or guildmate in your group is not met through the group's channel. They are met in the guild, by hovering them, or when they whisper first.
-- The guild's channel vouches for its sender, so the roster is needed only for whispers. Whispers from another realm carry `-Realm`, which is dropped before matching.
+- The guild's channel proves its sender is a guildmate, so the roster is needed only for whispers. Whispers from another realm carry `-Realm`, which is dropped before matching.
 - Friends and the roster are read again after `BN_FRIEND_INFO_CHANGED` and `GUILD_ROSTER_UPDATE`. On Forever a friend added by character name is listed with the Battle.net friends (`C_FriendList` stays empty), and both lists give `"First Last"` (checked in the game). A friend counts only while online in the game: an offline one has no character to match.
