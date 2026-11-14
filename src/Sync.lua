@@ -86,17 +86,18 @@ local function answer(self, peer, digest, now, outgoing)
 	if self.settings.passOn then
 		local missing = {}
 		-- Hashed now, not at start: the memory may have changed while the peer's digest came.
-		for _, identity in ipairs(self.memory:missing(digest)) do
+		for _, name in ipairs(self.memory:missing(digest)) do
 			-- A first-hand name is the server's, never checked: one too long would break a batch.
-			if #identity.name <= Protocol.MAX_NAME_BYTES and not self.characters:registration(identity.name) then
-				missing[#missing + 1] = identity
+			if #name <= Protocol.MAX_NAME_BYTES and not self.characters:registration(name) then
+				missing[#missing + 1] = name
 			end
 		end
 		-- No more than the peer keeps in a day from one peer, from a point that
 		-- moves with the clock, so that later syncs pass on the rest.
 		local chosen = {}
 		for i = 1, math.min(#missing, Memory.MAX_CHANGES_PER_PEER) do
-			chosen[i] = missing[(now + i) % #missing + 1]
+			-- Appended, not set at i: a nil from passOn would leave a hole that ends the batches there.
+			chosen[#chosen + 1] = self.memory:passOn(missing[(now + i) % #missing + 1])
 		end
 		for _, batch in ipairs(Protocol.batch(chosen)) do
 			send(outgoing, peer, { kind = "identities", identities = batch })
