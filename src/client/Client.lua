@@ -44,6 +44,7 @@ local ticker
 local answeredAt = {} -- sender -> GetTime() of the last answer, for the session
 local groupSize, inGuild = 0, false
 local reader -- puts chunked messages back together
+local writer = Protocol.newWriter() -- splits long messages into chunks
 local peersHeard = {} -- peer -> GetServerTime() when last heard, for the session
 local loginAt, loginSyncs = 0, 0
 local toldNewer = false -- the notice that a newer Mnemosyne exists, once a session
@@ -232,7 +233,7 @@ local function sendSync(outgoing)
 	end
 	local cut = {}
 	for _, out in ipairs(outgoing) do
-		local chunks = Protocol.split(out.text)
+		local chunks = writer:split(out.text)
 		if cut[out.peer] or #syncQueue + #chunks > MAX_SYNC_CHUNKS then
 			cut[out.peer] = true
 		else

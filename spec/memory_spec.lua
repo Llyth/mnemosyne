@@ -55,7 +55,7 @@ describe("Memory", function()
 
 	it("forgets a character's identity when the character answers that it is anonymous", function()
 		memory:hear("Hugh Jass", { nickname = "Tony", revision = 900 })
-		local message = Protocol.read("1:N:901")
+		local message = Protocol.read("2:N:901")
 		memory:hear("Hugh Jass", { nickname = message.nickname, revision = message.revision })
 		assert.is_nil(memory:recall("Hugh Jass"))
 	end)
@@ -505,7 +505,7 @@ describe("Memory, second-hand", function()
 			assert.equal(Protocol.DIGEST_LENGTH, #digest)
 			local reader = Protocol.newReader(clock)
 			local message
-			for _, chunk in ipairs(Protocol.split(Protocol.write({ kind = "digest", digest = digest }))) do
+			for _, chunk in ipairs(Protocol.newWriter():split(Protocol.write({ kind = "digest", digest = digest }))) do
 				message = reader:read("Barb Dwyer", chunk)
 			end
 			assert.equal(digest, message.digest)
