@@ -9,7 +9,7 @@ local function loadLocales(locale, L, ...)
 		end,
 	}, { __index = _G })
 	for _, file in ipairs({ ... }) do
-		local chunk = assert(loadfile("src/Locales/" .. file .. ".lua"))
+		local chunk = assert(loadfile("src/locales/" .. file .. ".lua"))
 		setfenv(chunk, client)("Mnemosyne", ns)
 	end
 	return ns.L

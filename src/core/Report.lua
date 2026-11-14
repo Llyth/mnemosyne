@@ -1,7 +1,7 @@
 -- Report: the debug report a player pastes in a bug report (/mnemosyne
 -- report), and the link that opens the bug report form already filled in with
 -- it. Pure: it takes the facts and the saved events and errors as
--- arguments (decision 0004); src/ReportWindow.lua shows it.
+-- arguments (decision 0004); src/interface/ReportWindow.lua shows it.
 --
 -- Other players' names never appear in a report: an event names its peer only
 -- by a label numbered within that report ("peer1", "peer2"...), so nothing in

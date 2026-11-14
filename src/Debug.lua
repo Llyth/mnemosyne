@@ -4,7 +4,7 @@
 -- shows as text and never runs as an escape sequence.
 --
 -- Each of these events is also kept, debug log on or off, in the last 200
--- events of the saved variables for the debug report (src/Report.lua): the
+-- events of the saved variables for the debug report (src/core/Report.lua): the
 -- peer's name, the channel, the kind of message or the reason, never the text.
 -- A sync's identities and chunks are left out, unless a send fails.
 local _, ns = ...
