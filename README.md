@@ -11,9 +11,9 @@ pick a word play or a role-play name instead of the nickname their friends know
 them by. Mnemosyne, named after the Greek goddess of memory, puts the nickname
 back: when you hover a character or read its chat line, you see who plays it.
 
-> **Status: in design.** Nothing is playable yet. This page describes what
-> version 1 will do; the plan is in [docs/decisions/](docs/decisions/) and the
-> words in [CONTEXT.md](CONTEXT.md).
+> **Status: early version (0.1.0).** Playable, still changing. Nameplates and
+> unit frames come later; the plan is in [docs/decisions/](docs/decisions/) and
+> the words in [CONTEXT.md](CONTEXT.md).
 
 ## Contents
 
@@ -73,8 +73,7 @@ Nameplates and unit frames come later.
 
 ## Installing
 
-Mnemosyne is for **WoW Forever** only (client 1.60.1). No release exists yet; once
-it does:
+Mnemosyne is for **WoW Forever** only (client 1.60.1). Install it with:
 
 - WoWUp: search for Mnemosyne (it comes from Wago), or add it from its GitHub
   URL, `https://github.com/Llyth/mnemosyne`.
