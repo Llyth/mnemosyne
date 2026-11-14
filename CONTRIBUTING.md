@@ -166,7 +166,8 @@ its own.
 packager writes it into the .toc's `## Version: @project-version@`. Releases start
 at `0.1.0`, once the first slice is playable, and every `0.x` is a normal release
 (WoWUp ignores prereleases while a stable release exists); `1.0.0` ships when the
-version 1 scope is complete. README.md says "early version" until then.
+version 1 scope is complete (it shipped as `1.0.0`); README.md's status line names
+the released version.
 
 **Cutting a release.** Run the **Release** workflow from the Actions tab, on `main`
 (a run from another branch fails), with `publish` ticked

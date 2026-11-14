@@ -11,9 +11,11 @@ pick a word play or a role-play name instead of the nickname their friends know
 them by. Mnemosyne, named after the Greek goddess of memory, puts the nickname
 back: when you hover a character or read its chat line, you see who plays it.
 
-> **Status: early version (0.1.0).** Playable, still changing. Nameplates and
-> unit frames come later; the plan is in [docs/decisions/](docs/decisions/) and
-> the words in [CONTEXT.md](CONTEXT.md).
+> **Status: 1.0.0.** Everything version 1 set out to do: registering,
+> recognition on tooltips and in chat, sharing first-hand and second-hand, and
+> every language WoW Forever has. Nameplates and unit frames come later; the
+> plan is in [docs/decisions/](docs/decisions/) and the words in
+> [CONTEXT.md](CONTEXT.md).
 
 ## Contents
 
