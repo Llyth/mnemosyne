@@ -5,7 +5,8 @@
 --
 -- Each peer sends its digest, then, once it has the other's, the identities
 -- the other lacks or holds at an older revision, then the end of its part. A
--- sync passes on at most what the other keeps in a day from one peer. A
+-- sync passes on at most what the other keeps in a day from one peer,
+-- first-hand changes of the last day first. A
 -- sync with a peer happens at most once every 6 hours; at most 2 run at once
 -- and at most 10 wait, the most recently heard peers first. A sync whose peer
 -- passes on nothing new for 2 minutes, or that lasts 20 minutes, is cut; the
@@ -25,6 +26,11 @@ Sync.TIMEOUT = 120 -- seconds without anything new from the peer before a sync i
 -- In an instance whispers go one a second, so two honest syncs can take 8 to 17
 -- minutes; the cut is for a peer that drips one new change every 2 minutes or less.
 Sync.MAX_DURATION = 20 * 60 -- seconds before a sync is cut, however much the peer passes on
+-- A first-hand change this recent (its revision, a day either way of the
+-- clock) is passed on before the rest;
+-- older first-hand identities take turns with second-hand ones, so the copies
+-- a peer already holds do not crowd out what it lacks.
+Sync.FRESH = 24 * 60 * 60 -- seconds
 
 -- saved: when each peer last synced (MnemosyneDB.syncs); entries older than
 -- the cooldown are let go here.
@@ -84,19 +90,33 @@ local function answer(self, peer, digest, now, outgoing)
 	session.active = now
 	self.synced[peer] = now
 	if self.settings.passOn then
-		local missing = {}
+		local fresh, missing = {}, {}
 		-- Hashed now, not at start: the memory may have changed while the peer's digest came.
 		for _, name in ipairs(self.memory:missing(digest)) do
 			-- A first-hand name is the server's, never checked: one too long would break a batch.
 			if #name <= Protocol.MAX_NAME_BYTES and not self.characters:registration(name) then
-				missing[#missing + 1] = name
+				local identity = self.memory:knows(name) and self.memory:passOn(name)
+				-- Not one far ahead either: a modified client's, which the peer refuses.
+				if identity and math.abs(now - identity.revision) <= Sync.FRESH then
+					fresh[#fresh + 1] = identity
+				else
+					missing[#missing + 1] = name
+				end
 			end
 		end
-		-- No more than the peer keeps in a day from one peer, from a point that
-		-- moves with the clock, so that later syncs pass on the rest.
+		-- First-hand changes of the last day first, the latest first, so a sync
+		-- cut short has passed on what the characters said of themselves lately.
+		table.sort(fresh, function(a, b)
+			return a.revision > b.revision
+		end)
 		local chosen = {}
-		for i = 1, math.min(#missing, Memory.MAX_CHANGES_PER_PEER) do
-			-- Appended, not set at i: a nil from passOn would leave a hole that ends the batches there.
+		for i = 1, math.min(#fresh, Memory.MAX_CHANGES_PER_PEER) do
+			chosen[i] = fresh[i]
+		end
+		-- Then the rest, no more than the peer keeps in a day from one peer in
+		-- all, from a point that moves with the clock, so later syncs pass on the rest.
+		for i = 1, math.min(#missing, Memory.MAX_CHANGES_PER_PEER - #chosen) do
+			-- Appended: a nil from passOn would leave a hole that ends the batches there.
 			chosen[#chosen + 1] = self.memory:passOn(missing[(now + i) % #missing + 1])
 		end
 		for _, batch in ipairs(Protocol.batch(chosen)) do
