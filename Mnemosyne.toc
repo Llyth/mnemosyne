@@ -27,6 +27,7 @@ src\core\Recognition.lua
 src\core\Strangers.lua
 src\core\Scope.lua
 src\core\Report.lua
+src\core\Outbox.lua
 src\locales\enUS.lua
 src\locales\frFR.lua
 src\locales\deDE.lua

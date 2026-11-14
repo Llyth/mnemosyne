@@ -7,3 +7,5 @@ The rules live in four pure modules that never call the WoW API: `Memory` (ident
 No library is embedded (Ace3, ChatThrottleLib, LibDeflate), against the habit of most addons: the queue, the hash and the locale table are small, and nothing then waits on a library's support for WoW Forever.
 
 **Update, 2026-11-14.** `src/` now has a folder per layer: `core/` for the nine pure modules (busted: the seven above, `News` and `Scope`), `client/` and `interface/` for the two adapters, `locales/`, and `Debug.lua` beside them, as it serves both. It follows the layout of the best-structured addons on CurseForge (BagBrother `core/`, `frames/`, `config/`; QuestieDB `src/`), grouped by layer rather than by feature, so the line between what busted tests and what is checked in the game is a path.
+
+**Update, 2026-11-14.** The paced queue moved out of `Client` into a tenth pure module, `Outbox` (the jobs, the sync messages in turns, the allowance and the 1 KB a second), so busted tests it. `Client` hands it a port: whether the client is paused, how to build a job's message, and how to send one. The decision holds.
