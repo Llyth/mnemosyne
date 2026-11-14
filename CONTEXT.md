@@ -85,7 +85,7 @@ A character met in the game (hovered or targeted) whose identity you don't know.
 _Avoid_: unknown character, newcomer
 
 **Scope**:
-Whom Mnemosyne talks with: by default your friends (your friend list and your Battle.net friends' characters) and your guild, or everyone once you turn it on. A message from outside the scope is ignored, and nothing goes out on a group's channel.
+Whom Mnemosyne talks with: by default your friends (your friend list and your Battle.net friends' characters) and your guild, or everyone once you turn it on. A message from outside the scope is ignored, and, unless you talk with everyone, nothing goes out on a group's channel.
 _Avoid_: whitelist, trust list
 
 **Unregistering**:
