@@ -178,6 +178,53 @@ describe("Sync", function()
 		end
 	end)
 
+	-- The names passed on in one answer to a peer whose memory is empty, in order.
+	local function answered(peer)
+		local order = {}
+		for _, out in ipairs(sync:receive(peer, { kind = "digest", digest = emptyDigest() })) do
+			for _, identity in ipairs(decode(out.text).identities or {}) do
+				order[#order + 1] = identity.name
+			end
+		end
+		return order
+	end
+
+	it("passes on first-hand changes of the last day first, the latest first, past the limit", function()
+		for i = 1, 1500 do
+			memory:hear("Barb Dwyer" .. i, { nickname = "Barb", revision = 900, source = "Peer" .. i % 2 })
+		end
+		memory:hear("Anna Conda", { nickname = "Ann", revision = now - 100 })
+		memory:hear("Ella Vator", { nickname = "Ella", revision = now - 10 })
+		local order = answered("Cole Slaw")
+		assert.equal(Memory.MAX_CHANGES_PER_PEER, #order)
+		assert.same({ "Ella Vator", "Anna Conda" }, { order[1], order[2] })
+	end)
+
+	it("does not put first a first-hand revision far ahead of the clock, which the peer refuses", function()
+		for i = 1, 1500 do
+			memory:hear("Barb Dwyer" .. i, { nickname = "Barb", revision = 900, source = "Peer" .. i % 2 })
+		end
+		memory:hear("Anna Conda", { nickname = "Ann", revision = now + 10 * Sync.FRESH })
+		memory:hear("Ella Vator", { nickname = "Ella", revision = now - 10 })
+		assert.equal("Ella Vator", answered("Cole Slaw")[1])
+	end)
+
+	it("lets older first-hand identities take turns with second-hand ones", function()
+		for i = 1, 1500 do
+			memory:hear("Anna Conda" .. i, { nickname = "Ann", revision = 900 })
+			memory:hear("Barb Dwyer" .. i, { nickname = "Barb", revision = 900, source = "Peer" .. i % 2 })
+		end
+		local firstHand, secondHand = 0, 0
+		for _, name in ipairs(answered("Cole Slaw")) do
+			if name:find("^Anna") then
+				firstHand = firstHand + 1
+			else
+				secondHand = secondHand + 1
+			end
+		end
+		assert.is_true(firstHand > 0 and secondHand > 0, firstHand .. " " .. secondHand)
+	end)
+
 	it("learns second-hand what a peer it syncs with passes on, with the peer as source", function()
 		sync:request("Barb Dwyer", now)
 		sync:receive("Barb Dwyer", { kind = "digest", digest = emptyDigest() })
