@@ -136,13 +136,42 @@ local function sum(self, name, known, sign)
 	end
 end
 
--- Stores an identity (or nil to drop it), keeping the digest's sums and the
--- names of its bucket in step.
+-- Adds (or with held false, takes out) a name in the index of full names by
+-- folded text. Two names rarely fold the same: then the index holds both, as
+-- a set.
+local function index(self, name, held)
+	local key = fold(name)
+	local indexed = self.byFolded[key]
+	if held then
+		if indexed == nil then
+			self.byFolded[key] = name
+		elseif type(indexed) == "table" then
+			indexed[name] = true
+		elseif indexed ~= name then
+			self.byFolded[key] = { [indexed] = true, [name] = true }
+		end
+	elseif indexed == name then
+		self.byFolded[key] = nil
+	elseif type(indexed) == "table" then
+		indexed[name] = nil
+		local only = next(indexed)
+		if next(indexed, only) == nil then
+			self.byFolded[key] = only
+		end
+	end
+end
+
+-- Stores an identity (or nil to drop it), keeping the digest's sums, the
+-- names of its bucket and, once built, the index of full names in step.
 local function store(self, name, known)
-	sum(self, name, self.identities[name], -1)
+	local before = self.identities[name]
+	sum(self, name, before, -1)
 	self.identities[name] = known
 	sum(self, name, known, 1)
 	self.names[bucketOf(name) + 1][name] = known and true or nil
+	if self.byFolded and (before == nil) ~= (known == nil) then
+		index(self, name, known ~= nil)
+	end
 end
 
 -- Queues a second-hand identity to be dropped after the ones heard before it.
@@ -189,6 +218,7 @@ function Memory.new(saved, clock, forgotten)
 		clock = clock,
 		sums = {},
 		names = {}, -- bucket -> set of the names held in it, so missing hashes no name
+		byFolded = nil, -- folded text -> full name held (or a set of them), built on the first fullName
 		queue = {},
 		queueStart = 1,
 		queueEnd = 0,
@@ -543,16 +573,23 @@ function Memory:unforget(name)
 end
 
 -- The full name of a character held or forgotten, from the text a player
--- typed, ignoring case and accents; nil when none matches.
+-- typed, ignoring case and accents; nil when none matches. The text itself
+-- when held or forgotten as typed. The first call indexes the names held.
 function Memory:fullName(text)
-	local wanted = fold(text)
-	for _, names in ipairs({ self.identities, self.forgottenNames }) do
-		for name in pairs(names) do
-			if fold(name) == wanted then
-				return name
-			end
+	if self.identities[text] or self.forgottenNames[text] then
+		return text
+	end
+	if not self.byFolded then
+		self.byFolded = {}
+		for name in pairs(self.identities) do
+			index(self, name, true)
 		end
 	end
+	local held = self.byFolded[fold(text)]
+	if type(held) == "table" then
+		held = next(held)
+	end
+	return held or self.folded[fold(text)]
 end
 
 -- Whether the player forgot the character.
