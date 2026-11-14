@@ -19,7 +19,9 @@
 --                               identities passed on, each
 --                               <revision>:<name>[:<nickname>], a removal
 --                               without a nickname, followed by a line
---                               G:<guid> when its character's GUID is known
+--                               G:<guid> when its character's GUID is known,
+--                               then a line F when the sender vouches it
+--                               heard it first-hand in the last day
 --   1:E                         the sender has sent all it had to send
 --
 -- News (decision 0002) adds, on the guild channel:
@@ -164,10 +166,12 @@ local function readRevision(text)
 end
 
 -- Writes an identity, and its GUID on a line of its own when known.
-local function writeIdentity(identity)
+-- A sync's identity vouches when it says so; news never does (it goes one hop already).
+local function writeIdentity(identity, vouching)
 	local nickname = identity.nickname and ":" .. identity.nickname or ""
 	local guid = identity.guid and "\nG:" .. identity.guid or ""
-	return identity.revision .. ":" .. identity.name .. nickname .. guid
+	local vouched = vouching and identity.vouched and "\nF" or ""
+	return identity.revision .. ":" .. identity.name .. nickname .. guid .. vouched
 end
 
 -- Writes a message table ({ kind = ..., nickname = ..., revision = ... }, as
@@ -180,7 +184,7 @@ function Protocol.write(message)
 	elseif message.identities then
 		local lines = {}
 		for i, identity in ipairs(message.identities) do
-			lines[i] = writeIdentity(identity)
+			lines[i] = writeIdentity(identity, true)
 		end
 		return text .. ":" .. table.concat(lines, "\n")
 	elseif message.identity then
@@ -196,11 +200,11 @@ function Protocol.write(message)
 end
 
 -- Splits identities into batches, each the identities of one message: at most
--- MAX_LINES lines, a GUID taking a line of its own.
+-- MAX_LINES lines, a GUID and a vouching each taking a line of their own.
 function Protocol.batch(identities)
 	local batches, lines = {}, Protocol.MAX_LINES
 	for _, identity in ipairs(identities) do
-		local cost = identity.guid and 2 or 1
+		local cost = 1 + (identity.guid and 1 or 0) + (identity.vouched and 1 or 0)
 		if lines + cost > Protocol.MAX_LINES then
 			batches[#batches + 1] = {}
 			lines = 0
@@ -280,8 +284,9 @@ local function readWhole(text, maxBytes)
 		-- Each identity stands alone: one that does not parse is dropped, the
 		-- others kept, so one odd name never holds back the rest of a sync. A
 		-- GUID goes with the identity on the line just before it; one that is
-		-- not a character's is dropped, and its identity kept.
-		local identities, reason, count, last = {}, nil, 0, nil
+		-- not a character's is dropped, and its identity kept. A line F after them
+		-- vouches for that identity; one with no identity before it is dropped.
+		local identities, reason, count, last, vouchable = {}, nil, 0, nil, nil
 		for line in (rest:sub(2) .. "\n"):gmatch("([^\n]*)\n") do
 			count = count + 1
 			if count > Protocol.MAX_LINES then
@@ -293,11 +298,16 @@ local function readWhole(text, maxBytes)
 					last.guid = readGuid(guid)
 				end
 				last = nil
+			elseif line == "F" then
+				if vouchable then
+					vouchable.vouched = true
+				end
+				last, vouchable = nil, nil
 			else
 				local identity, why = readIdentity(line)
 				identities[#identities + 1] = identity
 				reason = reason or why
-				last = identity
+				last, vouchable = identity, identity
 			end
 		end
 		if not identities[1] then

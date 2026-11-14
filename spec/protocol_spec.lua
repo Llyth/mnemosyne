@@ -271,6 +271,50 @@ describe("Protocol for syncs", function()
 			assert.is_nil(("G:Player-1-0A1B2C3D"):match("^[1-9]%d*:"))
 		end)
 
+		it("carries that the sender heard an identity first-hand lately, on a line after its GUID's", function()
+			local message = {
+				kind = "identities",
+				identities = {
+					{
+						name = "Hugh Jass",
+						nickname = "Tony",
+						revision = 900,
+						guid = "Player-1-0A1B2C3D",
+						vouched = true,
+					},
+					{ name = "Anna Conda", revision = 901, vouched = true },
+					{ name = "Cole Slaw", revision = 902 },
+				},
+			}
+			assert.same(message, roundTripSplit(message))
+			-- An older peer drops the line as an identity it cannot read, after the GUID took its place.
+			assert.equal(
+				"1:I:900:Hugh Jass:Tony\nG:Player-1-0A1B2C3D\nF",
+				Protocol.write({ kind = "identities", identities = { message.identities[1] } })
+			)
+		end)
+
+		it("counts a vouched identity's line toward the 16 lines of a batch", function()
+			local identities = {}
+			for i = 1, Protocol.MAX_LINES do
+				identities[i] =
+					{ name = "Peer" .. i .. " Last", revision = 1, guid = "Player-1-00000001", vouched = true }
+			end
+			assert.equal(5, #Protocol.batch(identities)[1]) -- 3 lines each: 5 fit in 16
+		end)
+
+		it("never vouches in guild news, which goes one hop already", function()
+			local identity = { name = "Hugh Jass", nickname = "Tony", revision = 900, vouched = true }
+			assert.equal("1:P:900:Hugh Jass:Tony", Protocol.write({ kind = "news", identity = identity }))
+		end)
+
+		it("drops a vouched line with no identity before it, and keeps the rest", function()
+			assert.same(
+				{ kind = "identities", identities = { { name = "Hugh Jass", revision = 900 } } },
+				readSplit("1:I:F\n900:Hugh Jass")
+			)
+		end)
+
 		it("carries the end of a sync", function()
 			assert.same({ kind = "done" }, roundTripSplit({ kind = "done" }))
 		end)

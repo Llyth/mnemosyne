@@ -253,18 +253,18 @@ describe("Several peers", function()
 		assert.is_true(d.memory:count() > Memory.MAX_CHANGES_PER_PEER)
 	end)
 
-	it("lets one peer forge at most 1,000 identities a day, even ones already held", function()
+	it("lets one peer forge at most 1,000 identities a day, 5,000 more vouched, even held ones", function()
 		local mallory = newPeer("Mallory Knox")
-		for i = 1, 1500 do
+		for i = 1, Memory.MAX_VOUCHED_PER_PEER + Memory.MAX_CHANGES_PER_PEER + 500 do
 			d.memory:hear("Real Name" .. i, { nickname = "Tony", revision = 900, source = "Peer" .. (i % 2) })
-			mallory.memory:hear("Real Name" .. i, { nickname = "Mallory", revision = now + DAY - 1 })
+			mallory.memory:hear("Real Name" .. i, { nickname = "Mallory", revision = now - 1 })
 		end
 		sync(mallory, d)
 		local forged = 0
 		for _, identity in ipairs(d.memory:search("Mallory")) do
 			forged = forged + (identity.source == mallory.name and 1 or 0)
 		end
-		assert.equal(Memory.MAX_CHANGES_PER_PEER, forged)
+		assert.equal(Memory.MAX_VOUCHED_PER_PEER + Memory.MAX_CHANGES_PER_PEER, forged)
 	end)
 
 	it("passes on nothing from a peer that switched it off, but still learns", function()

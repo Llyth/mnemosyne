@@ -196,7 +196,7 @@ describe("Sync", function()
 		memory:hear("Anna Conda", { nickname = "Ann", revision = now - 100 })
 		memory:hear("Ella Vator", { nickname = "Ella", revision = now - 10 })
 		local order = answered("Cole Slaw")
-		assert.equal(Memory.MAX_CHANGES_PER_PEER, #order)
+		assert.equal(2 + Memory.MAX_CHANGES_PER_PEER, #order)
 		assert.same({ "Ella Vator", "Anna Conda" }, { order[1], order[2] })
 	end)
 
@@ -207,6 +207,68 @@ describe("Sync", function()
 		memory:hear("Anna Conda", { nickname = "Ann", revision = now + 10 * Sync.FRESH })
 		memory:hear("Ella Vator", { nickname = "Ella", revision = now - 10 })
 		assert.equal("Ella Vator", answered("Cole Slaw")[1])
+	end)
+
+	it("vouches for the first-hand changes of the last day it passes on, not for the rest", function()
+		memory:hear("Anna Conda", { nickname = "Ann", revision = now - 10 })
+		memory:hear("Barb Dwyer", { nickname = "Barb", revision = 900, source = "Cole Slaw" })
+		local vouched = {}
+		for _, out in ipairs(sync:receive("Ella Vator", { kind = "digest", digest = emptyDigest() })) do
+			for _, identity in ipairs(decode(out.text).identities or {}) do
+				vouched[identity.name] = identity.vouched or false
+			end
+		end
+		assert.same({ ["Anna Conda"] = true, ["Hugh Jass"] = false, ["Barb Dwyer"] = false }, vouched)
+	end)
+
+	it("passes on up to 5,000 first-hand changes of the last day, besides its 1,000 others", function()
+		for i = 1, Memory.MAX_VOUCHED_PER_PEER + 10 do
+			memory:hear("Anna Conda" .. i, { nickname = "Ann", revision = now - i })
+		end
+		for i = 1, 1500 do
+			memory:hear("Barb Dwyer" .. i, { nickname = "Barb", revision = 900, source = "Peer" .. i % 2 })
+		end
+		local seen, vouched = {}, 0
+		for _, out in ipairs(sync:receive("Cole Slaw", { kind = "digest", digest = emptyDigest() })) do
+			for _, identity in ipairs(decode(out.text).identities or {}) do
+				assert.is_nil(seen[identity.name], identity.name)
+				seen[identity.name] = true
+				vouched = vouched + (identity.vouched and 1 or 0)
+			end
+		end
+		assert.equal(Memory.MAX_VOUCHED_PER_PEER, vouched)
+		assert.equal("Anna Conda1", answered("Ella Vator")[1])
+	end)
+
+	it("does not vouch for a first-hand revision ahead of the clock", function()
+		memory:hear("Anna Conda", { nickname = "Ann", revision = now + 60 })
+		for _, out in ipairs(sync:receive("Ella Vator", { kind = "digest", digest = emptyDigest() })) do
+			for _, identity in ipairs(decode(out.text).identities or {}) do
+				assert.is_nil(identity.vouched, identity.name)
+			end
+		end
+	end)
+
+	it("does not vouch for a change that may reach the peer past its day", function()
+		memory:hear("Anna Conda", { nickname = "Ann", revision = now - 24 * HOUR + 10 * 60 })
+		for _, out in ipairs(sync:receive("Ella Vator", { kind = "digest", digest = emptyDigest() })) do
+			for _, identity in ipairs(decode(out.text).identities or {}) do
+				assert.is_nil(identity.vouched, identity.name)
+			end
+		end
+	end)
+
+	it("learns, as vouched, what a peer vouches for", function()
+		sync:request("Barb Dwyer", now)
+		sync:receive("Barb Dwyer", { kind = "digest", digest = emptyDigest() })
+		for i = 1, Memory.MAX_CHANGES_PER_PEER + 1 do
+			sync:receive("Barb Dwyer", {
+				kind = "identities",
+				identities = { { name = "Anna Conda" .. i, nickname = "Ann", revision = now - 10, vouched = true } },
+			})
+		end
+		assert.equal("Ann", memory:recall("Anna Conda" .. (Memory.MAX_CHANGES_PER_PEER + 1)).nickname)
+		assert.equal("Barb Dwyer", memory:recall("Anna Conda1").source)
 	end)
 
 	it("lets older first-hand identities take turns with second-hand ones", function()

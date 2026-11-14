@@ -8,7 +8,8 @@
 -- unregistering and anonymous are revisions without a nickname; at most
 -- 20,000 second-hand identities are kept (the oldest heard dropped first) and
 -- at most 1,000 changes (new, later, removed or disputed) accepted from one
--- peer a day. Staleness too (decision 0003): an identity keeps its
+-- peer a day, and 5,000 more it vouches it heard first-hand in the last day.
+-- Staleness too (decision 0003): an identity keeps its
 -- character's GUID once seen in the game (see) or passed on with it, and goes
 -- stale, hidden until its full name speaks first-hand, when the name shows up
 -- with another GUID. A forgotten character's second-hand copies are refused
@@ -21,11 +22,17 @@ ns.Memory = Memory
 
 Memory.MAX_SECOND_HAND = 20000
 Memory.MAX_CHANGES_PER_PEER = 1000
+-- Changes a peer vouches it heard first-hand in the last day, taken from it a
+-- day besides its 1,000 (decision 0001).
+Memory.MAX_VOUCHED_PER_PEER = 5000
 Memory.BUCKETS = 128 -- of the digest, DIGITS each (BUCKETS * DIGITS = Protocol.DIGEST_LENGTH)
 
 local DIGITS = 8 -- hexadecimal, a bucket of the digest
 
 local DAY = 24 * 60 * 60
+-- How old, at most, a vouched change may be (its revision) to count as vouched;
+-- one ahead of the clock never does: no real change is.
+Memory.VOUCHED_WINDOW = DAY
 local HASH_MODULUS = 4294967296 -- 2^32: the hashes stay exact in a Lua number
 
 -- Latin letters with accents, by code point ranges, and the letters they fold
@@ -209,13 +216,18 @@ function Memory.new(saved, clock, forgotten)
 	return self
 end
 
--- Counts one second-hand change from a peer. Returns false once the peer
--- brought its 1,000 of the day.
-local function countChange(self, peer, now)
+-- Counts one second-hand change from a peer, toward its 5,000 vouched ones
+-- while they last when vouched, else its 1,000. Returns false once the peer
+-- brought all it may of the day.
+local function countChange(self, peer, now, vouched)
 	local counted = self.newFrom[peer]
 	if not counted or now - counted.since >= DAY then
 		counted = { since = now, count = 0 }
 		self.newFrom[peer] = counted
+	end
+	if vouched and (counted.vouched or 0) < Memory.MAX_VOUCHED_PER_PEER then
+		counted.vouched = (counted.vouched or 0) + 1
+		return true
 	end
 	if counted.count >= Memory.MAX_CHANGES_PER_PEER then
 		return false
@@ -256,7 +268,9 @@ local function hearSecondHand(self, name, heard, known)
 	end
 	-- Every change counts, not only new identities: else a peer could rewrite
 	-- all it was ever told, with no limit.
-	if not countChange(self, heard.source, now) then
+	-- Vouched only lately: a revision older than a day, or ahead of the clock, counts as any other.
+	local age = now - heard.revision
+	if not countChange(self, heard.source, now, heard.vouched and age >= 0 and age <= Memory.VOUCHED_WINDOW) then
 		return false
 	end
 	if not known then

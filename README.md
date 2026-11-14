@@ -62,8 +62,10 @@ character is deleted or renamed and another one takes its name, Mnemosyne
 notices the new character in chat or in your group and stops showing the old
 nickname until the new character says who plays it. You keep at
 most 20,000 second-hand nicknames, and take at most 1,000 changes a day (new
-nicknames, newer ones, removed ones and disputed ones) from any one player; a
-sync passes on at most 1,000 too, the rest in later syncs.
+nicknames, newer ones, removed ones and disputed ones) from any one player,
+plus up to 5,000 that player says it heard from the characters themselves in
+the last day; a sync passes on at most as much, those first-hand changes first,
+the rest in later syncs.
 
 Nicknames show on tooltips and in chat (the **Show on tooltips** and **Show in
 chat** switches turn each off): every chat type except emotes (channels and

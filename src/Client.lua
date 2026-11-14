@@ -20,8 +20,9 @@ local BYTES_PER_SECOND = 1000 -- the paced queue's pace, all messages together (
 local SYNC_TICK = 5 -- seconds between two looks at the syncs (cut, start waiting ones)
 local NEWS_TICK = 1 -- seconds between two looks at the news due
 local LOGIN_WINDOW, LOGIN_SYNCS = 60, 3 -- after login, sync with the first 3 peers answering within a minute
--- Chunks the sync queue holds at most, about a whole memory's worth: what comes
--- beyond is dropped, so peers asking for syncs one after another cannot grow it.
+-- Chunks the sync queue holds at most, about 15,000 identities, two or three
+-- answers at their largest (5,000 vouched and 1,000 others): what comes beyond is
+-- dropped, so peers asking for syncs one after another cannot grow it.
 local MAX_SYNC_CHUNKS = 4000
 
 -- The channels of the group: a message there from a peer is a group member's.

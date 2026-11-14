@@ -44,6 +44,10 @@ _Avoid_: verified, trusted (nothing is verified: a player can still lie about th
 Heard from a peer that is not the character, passed along from its memory. Shown apart from first-hand, because any peer can pass along something false.
 _Avoid_: gossip, rumor, relayed, unverified
 
+**Vouched**:
+A second-hand identity whose source says it heard it first-hand in the last day. Still second-hand: nothing proves the claim. It only counts toward a larger daily limit, and is passed on without the claim.
+_Avoid_: verified, trusted, certified
+
 **Source**:
 The peer a second-hand identity came from, shown with it so you can judge it.
 _Avoid_: origin, provider, relay
