@@ -363,6 +363,20 @@ describe("Sync", function()
 		assert.is_true(learned[1].disputed)
 	end)
 
+	it("posts the GUID its memory holds, not the one a peer passed on", function()
+		memory:hear(
+			"Anna Conda",
+			{ nickname = "Ann", revision = 900, source = "Barb Dwyer", guid = "Player-1-00000001" }
+		)
+		sync:request("Mallory Knox", now)
+		sync:receive("Mallory Knox", { kind = "digest", digest = emptyDigest() })
+		local _, learned = sync:receive("Mallory Knox", {
+			kind = "identities",
+			identities = { { name = "Anna Conda", nickname = "Ann", revision = 901, guid = "Player-1-00000666" } },
+		})
+		assert.equal("Player-1-00000001", learned[1].guid)
+	end)
+
 	it("drops identities a peer sends before its digest", function()
 		sync:request("Mallory Knox", now)
 		sync:receive("Mallory Knox", {
