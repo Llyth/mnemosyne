@@ -128,7 +128,8 @@ end
 
 -- Checks text from a peer: valid UTF-8, no '|' (the client's escape character:
 -- colors, textures, links), no control character, at most maxCharacters
--- UTF-8 characters. Returns true, or false and why: "empty", "long",
+-- UTF-8 characters. Invisible and direction characters count as control
+-- characters. Returns true, or false and why: "empty", "long",
 -- "escape", "control" or "encoding".
 local function checkText(text, maxCharacters)
 	if type(text) ~= "string" or text == "" then
@@ -141,7 +142,18 @@ local function checkText(text, maxCharacters)
 			return false, "encoding"
 		elseif codePoint == 0x7C then
 			return false, "escape"
-		elseif codePoint < 0x20 or (codePoint >= 0x7F and codePoint <= 0x9F) then
+		elseif
+			codePoint < 0x20
+			or (codePoint >= 0x7F and codePoint <= 0x9F)
+			-- Invisible and direction characters: soft hyphen, zero-width and
+			-- joiner, bidi marks, line and paragraph separators, embeddings and
+			-- overrides, word joiner and isolates, zero-width no-break space.
+			or codePoint == 0xAD
+			or (codePoint >= 0x200B and codePoint <= 0x200F)
+			or (codePoint >= 0x2028 and codePoint <= 0x202E)
+			or (codePoint >= 0x2060 and codePoint <= 0x206F)
+			or codePoint == 0xFEFF
+		then
 			return false, "control"
 		end
 		count = count + 1

@@ -164,12 +164,30 @@ describe("Protocol", function()
 		it("drops an empty nickname", function()
 			assertDropped("2:A:5:", "nickname")
 		end)
+
+		it("drops a nickname that is only a zero-width space", function()
+			assertDropped("2:A:5:\226\128\139", "nickname")
+		end)
+
+		it("drops a nickname with a right-to-left override inside", function()
+			assertDropped("2:A:5:To\226\128\174ny", "nickname")
+		end)
+
+		it("drops a nickname with a line separator inside", function()
+			assertDropped("2:A:5:To\226\128\168ny", "nickname")
+		end)
 	end)
 
 	describe("checks a nickname", function()
 		it("accepts 32 characters, counted as characters and not bytes", function()
 			assert.is_true(Protocol.checkNickname(string.rep("é", 32)))
 			assert.is_true(Protocol.checkNickname(string.rep("😀", 32)))
+		end)
+
+		it("accepts the letters of every alphabet", function()
+			for _, nickname in ipairs({ "Zoë", "Élodie", "Дмитрий", "토니", "東京", "e\204\129" }) do
+				assert.is_true(Protocol.checkNickname(nickname))
+			end
 		end)
 
 		it("says why it refuses a nickname", function()
@@ -179,6 +197,9 @@ describe("Protocol", function()
 				["|cffTony"] = "escape",
 				["To\nny"] = "control",
 				["To\255ny"] = "encoding",
+				["To\194\173ny"] = "control", -- soft hyphen
+				["To\239\187\191ny"] = "control", -- zero-width no-break space
+				["To\226\129\166ny"] = "control", -- left-to-right isolate
 			}
 			for nickname, reason in pairs(cases) do
 				local ok, why = Protocol.checkNickname(nickname)
