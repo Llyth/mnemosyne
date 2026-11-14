@@ -2,6 +2,14 @@
 ## Title: Mnemosyne
 ## Notes: Recognize the players you know behind their WoW Forever characters: the nickname they go by, on their tooltip and in chat.
 ## Notes-frFR: Reconnaissez les joueurs que vous connaissez derrière leurs personnages de WoW Forever : le pseudonyme sous lequel ils jouent, dans leur infobulle et dans la discussion.
+## Notes-deDE: Erkennt die Spieler, die Ihr kennt, hinter ihren WoW-Forever-Charakteren: den Spitznamen, unter dem sie bekannt sind, in ihrem Tooltip und im Chat.
+## Notes-esES: Reconoce a los jugadores que conoces tras sus personajes de WoW Forever: el apodo que usan, en su descripción y en el chat.
+## Notes-esMX: Reconoce a los jugadores que conoces detrás de sus personajes de WoW Forever: el apodo con el que se les conoce, en su descripción emergente y en el chat.
+## Notes-ptBR: Reconheça os jogadores que você conhece por trás dos personagens de WoW Forever: o apelido que eles usam, na dica de interface e no bate-papo.
+## Notes-ruRU: Узнавайте знакомых игроков за их персонажами в WoW Forever: прозвище, под которым их знают, в подсказке и в чате.
+## Notes-koKR: WoW Forever 캐릭터 뒤에 있는 아는 플레이어를 알아보세요: 그 플레이어의 별명을 툴팁과 대화창에 표시합니다.
+## Notes-zhCN: 在WoW Forever中认出你认识的玩家，无论他们用哪个角色：在鼠标提示和聊天中显示他们的昵称。
+## Notes-zhTW: 在WoW Forever角色背後認出你認識的玩家：在他們的滑鼠提示和聊天中顯示他們使用的暱稱。
 ## Author: Llyth
 ## Version: @project-version@
 ## SavedVariables: MnemosyneDB
@@ -21,6 +29,14 @@ src\core\Scope.lua
 src\core\Report.lua
 src\locales\enUS.lua
 src\locales\frFR.lua
+src\locales\deDE.lua
+src\locales\esES.lua
+src\locales\esMX.lua
+src\locales\ptBR.lua
+src\locales\ruRU.lua
+src\locales\koKR.lua
+src\locales\zhCN.lua
+src\locales\zhTW.lua
 src\Debug.lua
 src\client\Client.lua
 src\interface\Interface.lua

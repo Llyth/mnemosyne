@@ -1,0 +1,154 @@
+-- zhTW, the Traditional Chinese (Taiwan) translation of enUS: it replaces the
+-- strings it translates when the client is zhTW, and any string it lacks stays
+-- enUS. Same keys and format specifiers in the same order as enUS; no
+-- |4singular:plural; forms, as Blizzard writes zhTW (spec/locales_spec.lua
+-- checks both). '||' prints as one '|'.
+local _, ns = ...
+
+if GetLocale() ~= "zhTW" then
+	return
+end
+
+local L = ns.L
+
+L.REGISTERED = "這個角色已登記為%s。"
+L.UNREGISTERED = "這個角色已不再登記。有Mnemosyne的玩家會遺忘它的暱稱。"
+L.NOT_REGISTERED = "這個角色尚未登記。"
+L.NICKNAME_EMPTY = "請在指令後輸入暱稱：/mnemosyne register <暱稱>"
+L.NICKNAME_LONG = "暱稱最多32個字元。"
+L.NICKNAME_ESCAPE = "暱稱不能包含||。"
+L.NICKNAME_CONTROL = "暱稱不能包含控制字元。"
+L.NICKNAME_ENCODING = "這個暱稱包含Mnemosyne無法讀取的字元。"
+L.HELP = "指令："
+L.HELP_REGISTER = "/mnemosyne register <暱稱>：登記你正在玩的角色"
+L.HELP_UNREGISTER = "/mnemosyne unregister：取消它的登記；有Mnemosyne的玩家會遺忘它"
+L.TOOLTIP_PLAYED_BY = "玩家：%s"
+-- The sender's name in a chat line, then the nickname: "Hugh Jass (Tony)".
+L.CHAT_NAME = "%s（%s）"
+L.HEARD = "上次聽聞：%s" -- an AGO_ string: "Last heard 5 minutes ago"
+-- |4singular:plural; picks the word for the number before it.
+L.AGO_NOW = "剛剛"
+L.AGO_MINUTES = "%d分鐘前"
+L.AGO_HOURS = "%d小時前"
+L.AGO_DAYS = "%d天前"
+-- The registration prompt.
+L.PROMPT = "誰在玩%s？\n\n"
+	.. "你的暱稱會分享給每位有Mnemosyne的玩家，也會經由其他玩家轉傳。"
+L.PROMPT_FROM_PEERS = "誰在玩%s？\n\n"
+	.. "其他有Mnemosyne的玩家說這個角色的玩家是%s。登記以確認。\n\n"
+	.. "你的暱稱會分享給每位有Mnemosyne的玩家，也會經由其他玩家轉傳。"
+L.PROMPT_NICKNAME = "你的暱稱"
+L.PROMPT_REGISTER = "登記"
+L.PROMPT_ANONYMOUS = "保持匿名"
+L.PROMPT_LATER = "稍後再問"
+L.KEPT_ANONYMOUS = "這個角色為匿名。有Mnemosyne的玩家不會將它連結到任何暱稱。"
+L.ASK_LATER = "下次你登入這個角色時，Mnemosyne會再詢問。"
+-- The other commands.
+L.HELP_LOOKUP = "/mnemosyne lookup <文字>：以名稱或暱稱搜尋角色"
+L.HELP_STATUS = "/mnemosyne status：你的記憶中有什麼"
+L.HELP_DEBUG = "/mnemosyne debug：在聊天框記錄每則送出和收到的訊息，或停止；"
+	.. "/mnemosyne debug copy：在視窗中顯示紀錄以便複製"
+L.HELP_HELP = "/mnemosyne help：這份列表"
+L.LOOKUP_EMPTY = "請在指令後輸入名稱或暱稱：/mnemosyne lookup <文字>"
+L.LOOKUP_NONE = "沒有已知角色符合「%s」。"
+L.LOOKUP_FOUND = "%s：玩家是%s"
+L.LOOKUP_MORE = "……還有%d個。輸入更多名稱以縮小搜尋範圍。"
+L.STATUS_IDENTITIES = "已知身分：%d"
+L.STATUS_CHARACTERS = "你的角色：%d個已登記，%d個匿名"
+L.STATUS_REGISTERED = "這個角色：已登記為%s"
+L.STATUS_ANONYMOUS = "這個角色：匿名"
+L.STATUS_NOT_ASKED = "這個角色：尚未登記"
+L.STATUS_UNREGISTERED = "這個角色：已取消登記"
+L.STATUS_CANNOT_SEND = "這個帳號無法在此送出插件訊息（體驗帳號）：Mnemosyne只會接收。"
+L.DEBUG_ON = "Debug紀錄已開啟：每則送出和收到的訊息都會顯示在這裡。/mnemosyne debug可停止。"
+L.DEBUG_OFF = "Debug紀錄已關閉。"
+L.HELP_ECHO =
+	"/mnemosyne echo：一個測試用的Mnemosyne玩家，會傳回你送出的內容，方便獨自測試，或停止"
+L.ECHO_ON =
+	"回音測試玩家已開啟：Echo Mnemosyne會傳回你對它的悄悄話或廣播。/mnemosyne echo可停止。"
+L.ECHO_OFF = "回音測試玩家已關閉：Echo Mnemosyne已被遺忘。"
+L.DEBUG_LOG_TITLE = "Mnemosyne Debug紀錄"
+L.DEBUG_LOG_TEXT = "本次登入的紀錄，包含其他玩家的名稱：複製它（Ctrl+C）以分享。"
+L.DEBUG_SENT = "已在%s送出：%s"
+L.DEBUG_NOT_SENT = "未在%s送出（%s）：%s"
+L.DEBUG_RECEIVED = "收到來自%s，於%s：%s"
+L.DEBUG_DROPPED = "已捨棄來自%s的訊息（%s）：%s"
+-- The debug report.
+L.HELP_REPORT = "/mnemosyne report：一份可貼到錯誤回報中的Debug報告"
+L.REPORT_TITLE = "Mnemosyne Debug報告"
+L.REPORT_LINK = "複製這個連結（Ctrl+C）並在瀏覽器中開啟：它會開啟一份已填好的錯誤回報。"
+L.REPORT_TEXT = "如果連結無法開啟，請複製整份報告（Ctrl+C）並貼到錯誤回報中："
+L.REPORT_OFFER = "Mnemosyne發生錯誤。你願意回報嗎？報告會隱藏其他玩家的名稱。"
+L.REPORT_SHOW = "顯示報告"
+L.REPORT_NOT_NOW = "現在不要"
+L.REPORT_NEVER = "不再詢問"
+-- Second-hand identities and syncs.
+L.SECOND_HAND = "~%s" -- a nickname heard second-hand: "~Tony"
+L.HEARD_FROM = "轉傳自%s"
+L.LOOKUP_FOUND_SECOND_HAND = "%s：玩家是%s，轉傳自%s" -- the nickname marked as SECOND_HAND
+L.HELP_SYNC = "/mnemosyne sync：與現在聯絡得到的Mnemosyne玩家同步你的記憶"
+L.SYNC_STARTED = "正在與%d位Mnemosyne玩家同步。"
+L.SYNC_NONE =
+	"現在沒有可同步的Mnemosyne玩家：本次登入沒有聽到任何Mnemosyne玩家，或全部已在過去6小時內同步。"
+-- Forgetting.
+L.HELP_FORGET = "/mnemosyne forget <角色>：捨棄一個角色的暱稱，並拒絕其他人轉傳的相關內容"
+L.HELP_UNFORGET = "/mnemosyne unforget <角色>：撤銷forget"
+L.FORGOTTEN = "已遺忘%s。現在只採信它自己說的內容，直到/mnemosyne unforget %s。"
+L.ALREADY_FORGOTTEN = "%s已被遺忘。"
+L.UNFORGOTTEN = "%s不再被遺忘。"
+L.NOT_FORGOTTEN = "%s未被遺忘。"
+L.FORGOTTEN_LIST = "已遺忘：%s"
+L.FORGET_FULL_NAME = "請輸入角色的完整名稱（名字和姓氏）：/mnemosyne forget <角色>"
+L.FORGOTTEN_NONE = "沒有被遺忘的角色。請輸入角色的完整名稱：/mnemosyne forget <角色>"
+L.NEWER_VERSION =
+	"Mnemosyne已有較新的版本：請更新，否則部分來自其他玩家的訊息會持續被忽略。"
+-- The settings panel (Options, AddOns, Mnemosyne).
+L.HELP_PANEL = "/mnemosyne：開啟設定面板"
+L.PANEL_CHARACTER = "這個角色"
+L.PANEL_NICKNAME = "暱稱"
+L.PANEL_REGISTER = "登記"
+L.PANEL_CHANGE = "更改"
+L.PANEL_UNREGISTER = "取消登記"
+L.PANEL_CANNOT_REGISTER =
+	"這個帳號無法在此送出插件訊息（體驗帳號），因此無法登記角色：Mnemosyne只會接收。"
+L.PANEL_SWITCHES = "選項"
+L.PANEL_TOOLTIP = "在滑鼠提示中顯示"
+L.PANEL_TOOLTIP_HELP = "在角色的滑鼠提示中顯示是誰在玩它。"
+L.PANEL_CHAT = "在聊天中顯示"
+L.PANEL_CHAT_HELP = "在聊天中角色名稱後方，以及名稱的滑鼠提示中，顯示是誰在玩它。"
+L.PANEL_SECOND_HAND = "顯示二手資訊"
+L.PANEL_SECOND_HAND_HELP = "以灰色並標上~顯示其他玩家轉傳的內容。"
+	.. "關閉時，你只會看到角色自己說的內容。"
+L.PANEL_PASS_ON = "轉傳我知道的"
+L.PANEL_PASS_ON_HELP = "與其他玩家同步時，轉傳你知道的每個暱稱，並將同步帶來的新暱稱發布到你的公會。"
+	.. "關閉時，你只會分享自己的登記。"
+L.PANEL_EVERYONE = "與所有人交流"
+L.PANEL_EVERYONE_HELP = "關閉時，Mnemosyne只與你的好友（好友名單和Battle.net好友）及公會交流。"
+	.. "開啟時，也會與你的隊伍，以及任何你滑鼠指向或選為目標的人交流。"
+L.PANEL_ASK_STRANGERS = "詢問陌生人"
+L.PANEL_ASK_STRANGERS_HELP = "向你滑鼠指向或選為目標、但不認識的角色發送一則詢問悄悄話（聊天中看不到），"
+	.. "每個角色每天最多一次。"
+L.PANEL_OFFER_REPORT = "發生錯誤後提供報告"
+L.PANEL_OFFER_REPORT_HELP = "當Mnemosyne本身發生錯誤時，每次登入提供一次Debug報告。"
+L.PANEL_STATUS = "狀態"
+L.PANEL_REPORT = "回報錯誤"
+L.PANEL_IDENTITIES = "身分"
+L.PANEL_SEARCH = "搜尋名稱和暱稱"
+L.PANEL_COLUMN_CHARACTER = "角色"
+L.PANEL_COLUMN_NICKNAME = "暱稱"
+L.PANEL_COLUMN_HEARD = "來源"
+L.PANEL_COLUMN_AGO = "上次聽聞"
+L.PANEL_FORGET = "遺忘"
+L.PANEL_UNDO = "撤銷"
+L.PANEL_NONE = "找不到身分。"
+L.PANEL_FIRST_HAND = "第一手"
+L.PANEL_FIRST_HAND_FORGOTTEN = "第一手，已遺忘" -- heard from the character after you forgot it
+L.PANEL_FROM = "來自%s" -- a second-hand identity's source
+L.PANEL_DISPUTED = "有爭議"
+L.PANEL_FORGOTTEN = "已遺忘"
+L.PANEL_YOURS = "你的" -- one of your own characters
+L.PANEL_ANONYMOUS = "匿名" -- one of your own characters, kept anonymous
+L.STATUS_PEERS = "本次登入聽到的Mnemosyne玩家：%d"
+L.STATUS_SYNCS = "過去6小時內已同步：%s"
+L.STATUS_SYNC = "%s（%s）" -- a peer and how long ago: "Anna Conda (5 minutes ago)"
+L.STATUS_NO_SYNC = "過去6小時內沒有同步。"
