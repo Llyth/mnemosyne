@@ -1,7 +1,7 @@
 -- Sync: two peers bringing each other's memory up to date (decision 0002).
 -- Pure: it takes its saved table, the clock (the server time), the memory and
 -- the settings as arguments (decision 0004), and returns what to send; Client
--- sends it by whisper through its paced queue.
+-- sends it by whisper through the paced queue (Outbox).
 --
 -- Each peer sends its digest, then, once it has the other's, the identities
 -- the other lacks or holds at an older revision, then the end of its part. A

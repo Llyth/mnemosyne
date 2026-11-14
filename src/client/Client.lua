@@ -1,7 +1,7 @@
 -- Client: the adapter that faces the game for data and messages (decision
--- 0004): the saved variables, the events, the paced queue and the addon
--- messages. The rules live in the pure modules; this file only wires them to
--- the WoW API (docs/agents/wow-api.md).
+-- 0004): the saved variables, the events and the addon messages, sent through
+-- the paced queue (Outbox). The rules live in the pure modules; this file only
+-- wires them to the WoW API (docs/agents/wow-api.md).
 local addonName, ns = ...
 
 local Protocol = ns.Protocol
@@ -13,17 +13,10 @@ ns.Client = Client
 
 local SCHEMA = 1
 local ANSWER_COOLDOWN = 60 -- seconds before answering the same sender again
-local BURST, REFILL = 10, 1 -- the client's allowance per prefix: 10 messages, then 1 per second
 local TICK = 0.25 -- seconds between two looks at the queue
-local MAX_ANSWERS = 20 -- once this many jobs wait, an ask is dropped, not answered
-local BYTES_PER_SECOND = 1000 -- the paced queue's pace, all messages together (decision 0002)
 local SYNC_TICK = 5 -- seconds between two looks at the syncs (cut, start waiting ones)
 local NEWS_TICK = 1 -- seconds between two looks at the news due
 local LOGIN_WINDOW, LOGIN_SYNCS = 60, 3 -- after login, sync with the first 3 peers answering within a minute
--- Chunks the sync queue holds at most, about 15,000 identities, two or three
--- answers at their largest (5,000 vouched and 1,000 others): what comes beyond is
--- dropped, so peers asking for syncs one after another cannot grow it.
-local MAX_SYNC_CHUNKS = 4000
 
 -- The channels of the group: a message there from a peer is a group member's.
 local GROUP_CHANNELS = { PARTY = true, RAID = true, INSTANCE_CHAT = true }
@@ -36,15 +29,11 @@ local RETRY = {
 }
 
 local playerName
-local queue, waiting = {}, {} -- jobs in order, and the keys of those in it
-local syncQueue = {} -- sync messages, sent once the queue is empty: { text, target, kind }
-local syncSends, servedAt = 0, {} -- sync messages sent, and the count when each peer was last sent one
-local tokens, bytes, refilledAt = BURST, BYTES_PER_SECOND, 0
+local outbox -- the paced queue, once loaded
 local ticker
 local answeredAt = {} -- sender -> GetTime() of the last answer, for the session
 local groupSize, inGuild = 0, false
 local reader -- puts chunked messages back together
-local writer = Protocol.newWriter() -- splits long messages into chunks
 local peersHeard = {} -- peer -> GetServerTime() when last heard, for the session
 local loginAt, loginSyncs = 0, 0
 local toldNewer = false -- the notice that a newer Mnemosyne exists, once a session
@@ -88,18 +77,26 @@ local function groupChannel()
 	return channel
 end
 
+-- A job's message: { text, chatType, target, kind }, and costs when it spends
+-- the per-prefix allowance; whispers outside instances are exempt (decision
+-- 0002), so answers and syncs spend no token.
+local function toSend(text, chatType, target, kind)
+	local costs = chatType ~= "WHISPER" or IsInInstance()
+	return { text = text, chatType = chatType, target = target, kind = kind, costs = costs }
+end
+
 -- Builds a job's message when it is sent, from the registration as it is then:
 -- a job that waited through a lockdown carries the latest nickname, or the
 -- removal if the character unregistered meanwhile (Self:message). Returns
 -- nothing to drop the job.
 local function compose(job)
 	if job.text then
-		return job.text, "WHISPER", job.target, job.kind
+		return toSend(job.text, "WHISPER", job.target, job.kind)
 	elseif job.news then
-		return Protocol.write({ kind = "news", identity = job.news }), "GUILD", nil, "news"
+		return toSend(Protocol.write({ kind = "news", identity = job.news }), "GUILD", nil, "news")
 	end
-	local message = ns.characters:message(playerName, job.kind)
-	if not message then
+	local registration = ns.characters:message(playerName, job.kind)
+	if not registration then
 		return
 	end
 	local chatType = job.channel
@@ -110,7 +107,7 @@ local function compose(job)
 		chatType = nil
 	end
 	if chatType then
-		return Protocol.write(message), chatType, job.target, message.kind
+		return toSend(Protocol.write(registration), chatType, job.target, registration.kind)
 	end
 end
 
@@ -119,84 +116,35 @@ function Client.isPaused()
 	return InCombatLockdown() or C_ChatInfo.InChatMessagingLockdown()
 end
 
--- Sends what the allowance permits, oldest job first and syncs last, about
--- 1 KB a second in all, unless in combat or in lockdown; stops ticking once
--- both queues are empty. Whispers outside instances are exempt from the
--- per-prefix allowance (decision 0002), so answers and syncs spend no token.
-local function flush()
-	local now = GetTime()
-	tokens = math.min(BURST, tokens + (now - refilledAt) * REFILL)
-	bytes = math.min(BYTES_PER_SECOND, bytes + (now - refilledAt) * BYTES_PER_SECOND)
-	refilledAt = now
-	while (queue[1] or syncQueue[1]) and not Client.isPaused() do
-		local jobs, at = queue, 1
-		if not queue[1] then
-			-- Syncs take turns, the peer served longest ago first, so each keeps
-			-- hearing from its sync and none times out.
-			jobs = syncQueue
-			local oldest
-			for i, job in ipairs(syncQueue) do
-				local served = servedAt[job.target] or 0
-				if not oldest or served < oldest then
-					at, oldest = i, served
-				end
-			end
-		end
-		local job = jobs[at]
-		local text, chatType, target, kind = compose(job)
-		if text then
-			local costs = chatType ~= "WHISPER" or IsInInstance()
-			if (costs and tokens < 1) or bytes < #text then
-				return
-			end
-			local result
-			if echoing and target == Client.ECHO then
-				result = Enum.SendAddonMessageResult.Success -- no such character: never sent
-			else
-				result = C_ChatInfo.SendAddonMessage(Protocol.PREFIX, text, chatType, target)
-			end
-			Debug.sent(text, chatType, target, result, kind)
-			if
-				echoing
-				and result == Enum.SendAddonMessageResult.Success
-				and (target == Client.ECHO or chatType ~= "WHISPER")
-			then
-				C_Timer.After(0, function()
-					loopBack(Protocol.PREFIX, text, chatType, Client.ECHO)
-				end)
-			end
-			if RETRY[result] then
-				tokens = 0
-				return
-			end
-			if costs then
-				tokens = tokens - 1
-			end
-			bytes = bytes - #text
-			if job.text then
-				syncSends = syncSends + 1
-				servedAt[target] = syncSends
-			end
-			if job.text and result ~= Enum.SendAddonMessageResult.Success then
-				-- The peer cannot get it (offline): the rest of its sync, this one
-				-- included, would go nowhere.
-				local kept = {}
-				for _, other in ipairs(syncQueue) do
-					if other.target ~= target then
-						kept[#kept + 1] = other
-					end
-				end
-				syncQueue, at = kept, nil
-			end
-		end
-		if at then
-			table.remove(jobs, at)
-		end
-		if job.key then
-			waiting[job.key] = nil
-		end
+-- Sends a message, or loops it back from the echo peer, and logs it. Returns
+-- "sent", "retry" or "failed", as Outbox:flush needs.
+local function send(out)
+	local text, chatType, target = out.text, out.chatType, out.target
+	local result
+	if echoing and target == Client.ECHO then
+		result = Enum.SendAddonMessageResult.Success -- no such character: never sent
+	else
+		result = C_ChatInfo.SendAddonMessage(Protocol.PREFIX, text, chatType, target)
 	end
-	if not queue[1] and not syncQueue[1] and ticker then
+	Debug.sent(text, chatType, target, result, out.kind)
+	if RETRY[result] then
+		return "retry"
+	elseif result ~= Enum.SendAddonMessageResult.Success then
+		return "failed"
+	end
+	if echoing and (target == Client.ECHO or chatType ~= "WHISPER") then
+		C_Timer.After(0, function()
+			loopBack(Protocol.PREFIX, text, chatType, Client.ECHO)
+		end)
+	end
+	return "sent"
+end
+
+local port = { paused = Client.isPaused, compose = compose, send = send }
+
+-- Sends what the paced queue allows; stops ticking once it is empty.
+local function flush()
+	if not outbox:flush(port) and ticker then
 		ticker:Cancel()
 		ticker = nil
 	end
@@ -208,42 +156,19 @@ local function wake()
 	end
 end
 
--- Queues a job once: a job already waiting (one announcement per channel, one
--- answer per sender) is not queued twice. Returns true when it queued the job.
+-- Queues a job once (Outbox:add). Returns true when it queued the job.
 local function enqueue(kind, channel, target)
-	if not Client.canSend() then
-		return false
+	if outbox:add(kind, channel, target) then
+		wake()
+		return true
 	end
-	local key = kind .. ":" .. channel .. ":" .. (target or "")
-	if waiting[key] or (kind == "answer" and #queue >= MAX_ANSWERS) then
-		return false
-	end
-	waiting[key] = true
-	queue[#queue + 1] = { key = key, kind = kind, channel = channel, target = target }
-	wake()
-	return true
+	return false
 end
 
--- Queues what Sync returned, each message as its chunks, after everything else.
--- A sync that does not fit is cut from the first message that does not fit:
--- the peer stops hearing it and lets it go.
+-- Queues what Sync returned, after everything else (Outbox:addSyncs).
 local function sendSync(outgoing)
-	if not Client.canSend() then
-		return
-	end
-	local cut = {}
-	for _, out in ipairs(outgoing) do
-		local chunks = writer:split(out.text)
-		if cut[out.peer] or #syncQueue + #chunks > MAX_SYNC_CHUNKS then
-			cut[out.peer] = true
-		else
-			for i, text in ipairs(chunks) do
-				-- The kind, for the debug log: the message's on its first chunk.
-				syncQueue[#syncQueue + 1] = { text = text, target = out.peer, kind = i == 1 and out.kind or "chunk" }
-			end
-		end
-	end
-	if syncQueue[1] then
+	if outgoing[1] then
+		outbox:addSyncs(outgoing)
 		wake()
 	end
 end
@@ -252,12 +177,12 @@ end
 -- then, and in combat or in lockdown, news waits in News, where a guildmate's
 -- post can still cancel it.
 local function postNews()
-	if Client.isPaused() or queue[1] then
+	if Client.isPaused() or outbox:hasJobs() then
 		return
 	end
 	local identity = ns.news:due()
 	if identity and Client.canSend() and IsInGuild() then
-		queue[1] = { news = identity }
+		outbox:addNews(identity)
 		wake()
 	end
 end
@@ -423,6 +348,7 @@ function handlers.ADDON_LOADED(name)
 	ns.sync = ns.Sync.new(db.syncs, GetServerTime, ns.memory, db.settings, ns.characters)
 	ns.news = ns.News.new(GetTime, math.random, ns.memory, ns.characters, db.settings)
 	reader = Protocol.newReader(GetTime)
+	outbox = ns.Outbox.new(GetTime, Client.canSend)
 	ns.scope = ns.Scope.new(db.settings)
 	ns.recognition = ns.Recognition.new(ns.memory, db.settings, ns.L, GetServerTime, ns.characters)
 	-- The debug report (src/core/Report.lua): its events, the caught errors, and
