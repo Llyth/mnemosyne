@@ -120,8 +120,8 @@ the minimap and `/mnemosyne settings` open it too. It has:
   Unregister and Keep anonymous, working like the commands and the first-login
   question. A trial account sees why it cannot register.
 - **Options**, the switches: **Show on tooltips**, **Show in chat**, **Show
-  second-hand**, **Pass on what I know**, **Ask strangers** and **Offer a report
-  after an error**, on until you turn them off, and **Talk with everyone**, off
+  second-hand**, **Pass on what I know**, **Share my professions**, **Ask
+  strangers** and **Offer a report after an error**, on until you turn them off, and **Talk with everyone**, off
   until you turn it on (see [Privacy](#privacy)). Each is saved for all your characters and applies at
   once.
 - **Status**: what `/mnemosyne status` says, and a **Report a bug** button that
@@ -165,6 +165,13 @@ Mnemosyne, through other players too. Characters you don't register are never
 shared: an anonymous character only tells other players who have Mnemosyne that
 it is anonymous, so they forget any nickname they held for it. Unregistering
 spreads the same way, but more slowly than the nickname did.
+
+Mnemosyne also reads your registered characters' professions: each one's skill
+level, and the recipes you have learned once you open its window (Mnemosyne
+never opens it itself). **Share my professions**, on by default for all your
+characters, is meant to share them when you sync with another player; off, or
+for a character you don't register, other players forget them. Nothing shows or
+shares professions yet: that comes in a later version.
 
 Forgetting a character (`/mnemosyne forget`) removes it from your own memory
 and keeps what other players pass on about it out until you undo it, on all your

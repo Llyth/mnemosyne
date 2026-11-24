@@ -123,6 +123,9 @@ L.PANEL_SECOND_HAND_HELP = "以灰色並標上~顯示其他玩家轉傳的內容
 L.PANEL_PASS_ON = "轉傳我知道的"
 L.PANEL_PASS_ON_HELP = "與其他玩家同步時，轉傳你知道的每個暱稱，並將同步帶來的新暱稱發布到你的公會。"
 	.. "關閉時，你只會分享自己的登記。"
+L.PANEL_SHARE_PROFESSIONS = "分享我的專業技能"
+L.PANEL_SHARE_PROFESSIONS_HELP =
+	"將你已登記角色的專業技能（技能等級與已學會的配方）分享給你公會與好友中有Mnemosyne的玩家。關閉時，他們會遺忘這些資訊。"
 L.PANEL_EVERYONE = "與所有人交流"
 L.PANEL_EVERYONE_HELP = "關閉時，Mnemosyne只與你的好友（好友名單和Battle.net好友）及公會交流。"
 	.. "開啟時，也會與你的隊伍，以及任何你滑鼠指向或選為目標的人交流。"
