@@ -10,6 +10,8 @@ On WoW Forever every character has a first and a last name, and most players
 pick a word play or a role-play name instead of the nickname their friends know
 them by. Mnemosyne, named after the Greek goddess of memory, puts the nickname
 back: when you hover a character or read its chat line, you see who plays it.
+It also shows the professions and recipes of your guildmates and friends, which
+WoW Forever's own guild professions view no longer does.
 
 > **Status: 1.1.0.** Everything version 1 set out to do: registering,
 > recognition on tooltips and in chat, sharing first-hand and second-hand, and
