@@ -151,4 +151,17 @@ ns.L = {
 	WINDOW_WHISPER = "Whisper",
 	WINDOW_LAST_SYNC = "Last sync: %s, %s.", -- a peer and how long ago: "Last sync: Anna Conda, 5 minutes ago."
 	WINDOW_WAITING = "Waiting to sync: %d",
+	-- The window's Professions tab: profession and recipe names come from the game.
+	PROFESSIONS = "Professions",
+	PROFESSIONS_PRIMARY = "Primary Professions",
+	PROFESSIONS_SECONDARY = "Secondary Professions",
+	PROFESSIONS_RECIPES = "Recipes",
+	PROFESSIONS_CHARACTERS = "Characters",
+	PROFESSIONS_KNOWN_BY = "Who knows %s",
+	PROFESSIONS_RECIPE_COUNT = "%d |4recipe:recipes;",
+	PROFESSIONS_CHARACTER_COUNT = "%d |4character:characters;",
+	PROFESSIONS_SEARCH = "Search recipes, names and nicknames",
+	PROFESSIONS_NO_RECIPE = "No recipe found.",
+	PROFESSIONS_BACK = "Back",
+	HELP_PROFESSIONS = "/mnemosyne professions: open the Professions tab",
 }

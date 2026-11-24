@@ -78,6 +78,7 @@ function Professions.new(saved, clock, memory, characters, settings)
 		characters = characters,
 		settings = settings,
 		roster = {}, -- the current guild roster, a set, for this session
+		changes = 0, -- how many changes were heard this session: the window redraws when it moves
 		hashes = setmetatable({}, { __mode = "k" }), -- profession -> its hash, computed once
 	}, Professions)
 end
@@ -184,6 +185,7 @@ function Professions:hear(peer, heard)
 			return false
 		elseif known and known.revision == heard.revision then
 			character.skills[skillLine] = { revision = known.revision, disputed = true, heard = now }
+			self.changes = self.changes + 1
 			return true
 		end
 	end
@@ -202,6 +204,7 @@ function Professions:hear(peer, heard)
 		source = not firstHand and peer or nil,
 		heard = now,
 	}
+	self.changes = self.changes + 1
 	return true
 end
 

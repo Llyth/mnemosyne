@@ -11,9 +11,10 @@ pick a word play or a role-play name instead of the nickname their friends know
 them by. Mnemosyne, named after the Greek goddess of memory, puts the nickname
 back: when you hover a character or read its chat line, you see who plays it.
 
-> **Status: 1.0.0.** Everything version 1 set out to do: registering,
+> **Status: 1.1.0.** Everything version 1 set out to do: registering,
 > recognition on tooltips and in chat, sharing first-hand and second-hand, and
-> every language WoW Forever has. Nameplates and unit frames come later; the
+> every language WoW Forever has; since 1.1.0, Mnemosyne's window and the
+> professions of the characters you know. Nameplates and unit frames come later; the
 > plan is in [docs/decisions/](docs/decisions/) and the words in
 > [CONTEXT.md](CONTEXT.md).
 
@@ -99,8 +100,7 @@ the same in every language (`/mnemosyne register`, `/mnemosyne lookup`...).
 ## Using it
 
 Mnemosyne's window opens from the **Mnemosyne** button under the Escape menu,
-or with `/mnemosyne` alone (not released yet: in 1.0.0, `/mnemosyne` opens the
-settings panel and the list of identities is in it). You can drag the window
+or with `/mnemosyne` alone. You can drag the window
 anywhere; it opens again where you left it, on the tab you last used, and Escape
 closes it. Its **Identities** tab lists the characters you know, one row each,
 sorted by nickname, searched by name or nickname, ignoring case and accents.
@@ -112,6 +112,20 @@ second-hand** is on, and the first 50 found show. Your own registered and
 anonymous characters come first, marked as yours. Under the list, the sync
 status: your last sync, with whom and when, and how many players wait for
 theirs.
+
+Its **Professions** tab (`/mnemosyne professions` opens it) shows every profession of the game as a tile, primary ones first, then
+secondary ones, each with how many distinct recipes and how many of the
+characters you know and your own have it (0 when none does). Click one for its page: its recipes, sorted by name with how
+many characters know each, and its characters, sorted by skill level. Each
+shows its icon, and a recipe its tooltip when you point at it. Click a recipe
+to see who knows it, online characters first (shift-click links it in chat);
+click a character to whisper it. The search box
+finds recipes by name and characters by name or nickname, ignoring case and
+accents. A character shows its nickname only while its identity shows, and is
+listed by name otherwise; your own characters are marked as yours and show
+their professions as they are now, shared or not. A
+profession heard second-hand shows its skill level with ~ and who passed it on,
+and only while **Show second-hand** is on.
 
 The settings panel is in Options, AddOns, Mnemosyne; the addon drawer next to
 the minimap and `/mnemosyne settings` open it too. It has:
@@ -130,6 +144,7 @@ the minimap and `/mnemosyne settings` open it too. It has:
 | Command | What it does |
 | --- | --- |
 | `/mnemosyne` | Open Mnemosyne's window |
+| `/mnemosyne professions` | Open the Professions tab of Mnemosyne's window |
 | `/mnemosyne settings` | Open the settings panel |
 | `/mnemosyne register <nickname>` | Register the character you are playing |
 | `/mnemosyne unregister` | Withdraw its registration; peers forget it |
@@ -175,8 +190,8 @@ professions of your guild roster and of your own characters (only your own with
 **Pass on what I know** off); a friend outside your guild gets only your own
 characters'. You keep the professions of your guild roster's characters and your
 friends' only, dropped once a character has gone 30 days unseen on your roster
-or online as a friend's. Nothing shows professions yet: a Professions tab comes
-in a later version.
+or online as a friend's. The **Professions** tab of Mnemosyne's window shows
+them (see [Using it](#using-it)).
 
 Forgetting a character (`/mnemosyne forget`) removes it from your own memory
 and keeps what other players pass on about it out until you undo it, on all your
