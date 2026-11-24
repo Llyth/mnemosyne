@@ -103,7 +103,8 @@ L.FORGET_FULL_NAME = "输入角色的完整名字，包括名和姓：/mnemosyne
 L.FORGOTTEN_NONE = "没有被遗忘的角色。输入角色的完整名字：/mnemosyne forget <角色>"
 L.NEWER_VERSION = "Mnemosyne有新版本：请更新，否则其他玩家的部分消息将继续被忽略。"
 -- The settings panel (Options, AddOns, Mnemosyne).
-L.HELP_PANEL = "/mnemosyne：打开设置面板"
+L.HELP_PANEL = "/mnemosyne：打开Mnemosyne窗口"
+L.HELP_SETTINGS = "/mnemosyne settings：打开设置面板"
 L.PANEL_CHARACTER = "此角色"
 L.PANEL_NICKNAME = "昵称"
 L.PANEL_REGISTER = "登记"
@@ -152,3 +153,7 @@ L.STATUS_PEERS = "本次会话收到的Mnemosyne玩家：%d"
 L.STATUS_SYNCS = "过去6小时内已同步：%s"
 L.STATUS_SYNC = "%s（%s）" -- a peer and how long ago: "Anna Conda (5 minutes ago)"
 L.STATUS_NO_SYNC = "过去6小时内没有同步。"
+-- Mnemosyne's window.
+L.WINDOW_WHISPER = "密语"
+L.WINDOW_LAST_SYNC = "上次同步：%s，%s。" -- a peer and how long ago
+L.WINDOW_WAITING = "等待中：%d"

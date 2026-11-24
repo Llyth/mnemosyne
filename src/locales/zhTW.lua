@@ -103,7 +103,8 @@ L.FORGOTTEN_NONE = "沒有被遺忘的角色。請輸入角色的完整名稱：
 L.NEWER_VERSION =
 	"Mnemosyne已有較新的版本：請更新，否則部分來自其他玩家的訊息會持續被忽略。"
 -- The settings panel (Options, AddOns, Mnemosyne).
-L.HELP_PANEL = "/mnemosyne：開啟設定面板"
+L.HELP_PANEL = "/mnemosyne：開啟Mnemosyne視窗"
+L.HELP_SETTINGS = "/mnemosyne settings：開啟設定面板"
 L.PANEL_CHARACTER = "這個角色"
 L.PANEL_NICKNAME = "暱稱"
 L.PANEL_REGISTER = "登記"
@@ -152,3 +153,7 @@ L.STATUS_PEERS = "本次登入聽到的Mnemosyne玩家：%d"
 L.STATUS_SYNCS = "過去6小時內已同步：%s"
 L.STATUS_SYNC = "%s（%s）" -- a peer and how long ago: "Anna Conda (5 minutes ago)"
 L.STATUS_NO_SYNC = "過去6小時內沒有同步。"
+-- Mnemosyne's window.
+L.WINDOW_WHISPER = "悄悄話"
+L.WINDOW_LAST_SYNC = "上次同步：%s，%s。" -- a peer and how long ago
+L.WINDOW_WAITING = "等待中：%d"

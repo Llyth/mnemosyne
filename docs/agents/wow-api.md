@@ -35,7 +35,7 @@ Read in Blizzard's UI source for Forever (`Blizzard_Settings_Shared`, `Blizzard_
 
 ## Rules
 
-- **Keep the WoW API in the adapters**, `Client` and `Interface` and their files (`Encounter`, `Chat`, `Commands`, `Prompt`, `Panel`, `ReportWindow`, `Debug`). `Protocol`, `Memory`, `Self`, `Sync`, `News`, `Recognition`, `Strangers`, `Scope` and `Report` (`src/core/`) are pure: they take the clock and their saved tables as arguments, so the tests run them outside the game ([testing.md](testing.md), [decision 0004](../decisions/0004-a-pure-core-two-adapters-no-libraries.md)).
+- **Keep the WoW API in the adapters**, `Client` and `Interface` and their files (`Encounter`, `Chat`, `Commands`, `Prompt`, `Panel`, `Window`, `Identities`, `ReportWindow`, `Debug`). `Protocol`, `Memory`, `Self`, `Sync`, `News`, `Recognition`, `Strangers`, `Scope` and `Report` (`src/core/`) are pure: they take the clock and their saved tables as arguments, so the tests run them outside the game ([testing.md](testing.md), [decision 0004](../decisions/0004-a-pure-core-two-adapters-no-libraries.md)).
 - **Declare every WoW global in `.luacheckrc`.** An undeclared global fails luacheck: a typo, or an API missing on Forever.
 - **Use the namespaced APIs.** Missing on Forever (reported): `GetSpellInfo`, `GetItemInfo` (use `C_Spell.GetSpellInfo`, which returns a table, and `C_Item.GetItemInfo`), `GetSpellBookItemName`, the talent and skill-line globals, `CombatLogGetCurrentEventInfo`.
 - **Expect secret values.** Unit names, GUIDs and chat lines can be secret (unreadable by addon code) during combat and chat lockdown. Check every value read from a unit or an event with `issecretvalue` and treat a secret as unknown; comparing or concatenating one raises an error. A chat line that is secret shows without a nickname.
@@ -67,6 +67,7 @@ Open, to settle in the game and record here:
 - whether, with BugGrabber and BugSack loaded, an error in Mnemosyne still shows in BugSack and the Mnemosyne report offer appears;
 - whether `BasicFrameTemplateWithInset`, `InputBoxTemplate` and `UIPanelScrollFrameTemplate` exist on Forever, for the report window.
 - whether a character's GUID reads `Player-<server>-<hex id>`, at most 32 bytes, the same in its chat lines (`CHAT_MSG_*`, 12th value) and as a group member (`UnitGUID`): a stale identity relies on it, and a peer drops a GUID of any other shape;
+- whether Mnemosyne's window works as Forever's UI source says: `PanelTabButtonTemplate` and `PanelTemplates_SetTab` for its tabs, a `MainMenuFrameButtonTemplate` button parented to `GameMenuFrame` (`Blizzard_GameMenu`, not load on demand) and placed in the Escape menu's list from a `hooksecurefunc` on its `Layout` (moving the pooled buttons after Shop or Options down, as EllesmereUI does) without tainting Logout or Exit Game, with and without EllesmereUI, and `ChatFrameUtil.SendTell("First Last")` opening a whisper to the full name, space included;
 - whether the settings panel's page looks and lays out as the source says (`SettingsListSectionHeaderTemplate` and `SettingsCheckboxTemplate` outside a vertical layout, the canvas's width), and whether `Settings.OpenToCategory` opens it in combat.
 
 `/dump select(4, GetBuildInfo())` prints the Interface number; `/dump WOW_PROJECT_ID` the project.

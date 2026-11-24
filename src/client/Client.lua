@@ -310,6 +310,7 @@ function handlers.ADDON_LOADED(name)
 	end
 	db.asked = db.asked or {}
 	db.syncs = db.syncs or {}
+	db.window = db.window or {} -- Mnemosyne's window: its position and last tab
 	ns.sync = ns.Sync.new(db.syncs, GetServerTime, ns.memory, db.settings, ns.characters)
 	ns.news = ns.News.new(GetTime, math.random, ns.memory, ns.characters, db.settings)
 	outbox = ns.Outbox.new(GetTime, Client.canSend)

@@ -110,7 +110,7 @@ function Self:message(name, job)
 end
 
 -- The registered and anonymous characters whose name or nickname contains the
--- text (Memory.matches), sorted by name: { name, nickname }, nickname nil for
+-- text (Memory.matches), sorted by nickname (Memory.byNickname): { name, nickname }, nickname nil for
 -- an anonymous one.
 function Self:list(text)
 	local found = {}
@@ -120,9 +120,7 @@ function Self:list(text)
 			found[#found + 1] = { name = name, nickname = character.nickname }
 		end
 	end
-	table.sort(found, function(a, b)
-		return a.name < b.name
-	end)
+	table.sort(found, ns.Memory.byNickname)
 	return found
 end
 

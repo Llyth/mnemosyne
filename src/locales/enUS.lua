@@ -93,7 +93,8 @@ ns.L = {
 	FORGOTTEN_NONE = "No character is forgotten. Type a character's full name: /mnemosyne forget <character>",
 	NEWER_VERSION = "A newer Mnemosyne exists: update it, or some messages from other players stay ignored.",
 	-- The settings panel (Options, AddOns, Mnemosyne).
-	HELP_PANEL = "/mnemosyne: open the settings panel",
+	HELP_PANEL = "/mnemosyne: open Mnemosyne's window",
+	HELP_SETTINGS = "/mnemosyne settings: open the settings panel",
 	PANEL_CHARACTER = "This character",
 	PANEL_NICKNAME = "Nickname",
 	PANEL_REGISTER = "Register",
@@ -143,4 +144,8 @@ ns.L = {
 	STATUS_SYNCS = "Synced in the last 6 hours: %s",
 	STATUS_SYNC = "%s (%s)", -- a peer and how long ago: "Anna Conda (5 minutes ago)"
 	STATUS_NO_SYNC = "No sync in the last 6 hours.",
+	-- Mnemosyne's window, opened from the Escape menu and by /mnemosyne alone.
+	WINDOW_WHISPER = "Whisper",
+	WINDOW_LAST_SYNC = "Last sync: %s, %s.", -- a peer and how long ago: "Last sync: Anna Conda, 5 minutes ago."
+	WINDOW_WAITING = "Waiting to sync: %d",
 }

@@ -106,7 +106,8 @@ L.FORGOTTEN_NONE = "Aucun personnage n'est oublié. Tapez le nom complet d'un pe
 L.NEWER_VERSION = "Une version plus récente de Mnemosyne existe : mettez-la à jour, "
 	.. "sinon certains messages d'autres joueurs restent ignorés."
 -- The settings panel (Options, AddOns, Mnemosyne).
-L.HELP_PANEL = "/mnemosyne : ouvrir le panneau d'options"
+L.HELP_PANEL = "/mnemosyne : ouvrir la fenêtre de Mnemosyne"
+L.HELP_SETTINGS = "/mnemosyne settings : ouvrir le panneau d'options"
 L.PANEL_CHARACTER = "Ce personnage"
 L.PANEL_NICKNAME = "Pseudonyme"
 L.PANEL_REGISTER = "Enregistrer"
@@ -157,3 +158,7 @@ L.STATUS_PEERS = "Pairs entendus cette session : %d"
 L.STATUS_SYNCS = "Synchronisés ces 6 dernières heures : %s"
 L.STATUS_SYNC = "%s (%s)" -- a peer and how long ago: "Anna Conda (il y a 5 minutes)"
 L.STATUS_NO_SYNC = "Aucune synchronisation ces 6 dernières heures."
+-- Mnemosyne's window.
+L.WINDOW_WHISPER = "Chuchoter"
+L.WINDOW_LAST_SYNC = "Dernière synchronisation : %s, %s." -- a peer and how long ago
+L.WINDOW_WAITING = "En attente : %d"
