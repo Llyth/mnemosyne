@@ -37,6 +37,9 @@ ns.L = {
 	PROMPT_LATER = "Ask me later",
 	KEPT_ANONYMOUS = "This character is anonymous. Players who have Mnemosyne will not link it to a nickname.",
 	ASK_LATER = "Mnemosyne will ask again at your next login on this character.",
+	-- Once per character, in the prompt or the chat frame: the game's names of
+	-- the professions whose window was never opened, joined with ", ".
+	OPEN_PROFESSIONS = "Open each profession's window once so Mnemosyne can share its recipes: %s.",
 	-- The other commands.
 	HELP_LOOKUP = "/mnemosyne lookup <text>: find characters by name or by nickname",
 	HELP_STATUS = "/mnemosyne status: what your memory holds",

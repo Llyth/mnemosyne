@@ -435,6 +435,24 @@ local function recipeSkillLine(recipeID)
 	return found
 end
 
+-- Looks with the windows closed for recipes peers know of this character's
+-- professions: one counts as learned when the game knows its spell and puts it
+-- in that profession (a recipe read by an older version under the wrong skill
+-- line may have spread). Returns true when it changed what was read.
+local function findRecipes()
+	local changed = false
+	for skillLine, recipeIDs in pairs(ns.professions:recipesToFind(playerName)) do
+		local found = {}
+		for _, recipeID in ipairs(recipeIDs) do
+			if C_SpellBook.IsSpellKnown(recipeID) then
+				found[recipeID] = recipeSkillLine(recipeID) -- nil when unknown: not taken
+			end
+		end
+		changed = ns.characters:learnRecipes(playerName, skillLine, found) or changed
+	end
+	return changed
+end
+
 -- Fires before login too: read only once the character is known.
 function handlers.SKILL_LINES_CHANGED()
 	if playerName then
@@ -520,6 +538,7 @@ function handlers.PLAYER_LOGIN()
 	inbox:loggedIn()
 	readProfessions(true)
 	recheckRecipes()
+	redraw(findRecipes())
 	C_Timer.NewTicker(SYNC_TICK, function()
 		sendSync(ns.sync:tick())
 	end)
@@ -584,12 +603,16 @@ function handlers.CHAT_MSG_ADDON(prefix, text, channel, sender)
 	end
 	local changes = ns.professions.changes
 	inbox:receive(sender, channel, text)
-	if ns.professions.changes ~= changes and ns.Window and not redrawPending then
-		-- A sync brought professions: one redraw for a burst of messages.
+	if ns.professions.changes ~= changes and not redrawPending then
+		-- A sync brought professions: one look for this character's recipes
+		-- and one redraw for a burst of messages.
 		redrawPending = true
 		C_Timer.After(0.5, function()
 			redrawPending = false
-			ns.Window.refresh()
+			findRecipes()
+			if ns.Window then
+				ns.Window.refresh()
+			end
 		end)
 	end
 end

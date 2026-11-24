@@ -373,6 +373,27 @@ describe("Professions", function()
 		}, professions:recipes(ALCHEMY))
 	end)
 
+	describe("the recipes to look for", function()
+		local function tailoring(name, recipes)
+			return { name = name, skillLine = TAILORING, level = 50, maxLevel = 75, recipes = recipes, revision = 900 }
+		end
+
+		it("gives the recipes others know of each of a character's professions that it has not learned", function()
+			characters.current["Ann Thrax"] = { { skillLine = TAILORING, level = 10, maxLevel = 75, recipes = { 10 } } }
+			professions:hear("Anna Conda", tailoring("Anna Conda", { 30, 10, 20 }))
+			professions:hear("Cole Slaw", tailoring("Cole Slaw", { 20, 40 }))
+			professions:hear("Hugh Jass", alchemy())
+			assert.same({ [TAILORING] = { 20, 30, 40 } }, professions:recipesToFind("Ann Thrax"))
+		end)
+
+		it("gives none for a character without professions, or when no one knows more", function()
+			professions:hear("Anna Conda", tailoring("Anna Conda", { 10 }))
+			assert.same({}, professions:recipesToFind("Ann Thrax"))
+			characters.current["Ann Thrax"] = { { skillLine = TAILORING, level = 10, maxLevel = 75, recipes = { 10 } } }
+			assert.same({}, professions:recipesToFind("Ann Thrax"))
+		end)
+	end)
+
 	describe("in a sync", function()
 		local function other(roster)
 			local theirs = Professions.new({}, clock, Memory.new({}, clock), newCharacters(), { passOn = true })

@@ -4,7 +4,10 @@
 -- to pre-fill; this file decides when it may open. It never opens in combat,
 -- during a loading screen or in an instance, waits a few seconds after the
 -- character enters the world, never shows when this account cannot send addon
--- messages (a trial account), and opens at most once per session.
+-- messages (a trial account), and opens at most once per session. It also
+-- gives, once per character, the hint to open each profession's window once
+-- (Self decides when): in the prompt, or in the chat frame for a registered
+-- character, under the same conditions.
 local _, ns = ...
 
 local L = ns.L
@@ -55,6 +58,32 @@ StaticPopupDialogs[DIALOG] = {
 	end,
 }
 
+-- The game's names of this character's professions among skillLines, joined.
+local function professionNames(skillLines)
+	local wanted, names = {}, {}
+	for _, skillLine in ipairs(skillLines) do
+		wanted[skillLine] = true
+	end
+	local indexes = { GetProfessions() } -- holes where a slot is empty
+	for i = 1, table.maxn(indexes) do
+		if indexes[i] then
+			local professionName, _, _, _, _, _, skillLine = GetProfessionInfo(indexes[i])
+			if wanted[skillLine] and professionName then
+				names[#names + 1] = professionName
+			end
+		end
+	end
+	return names[1] and table.concat(names, ", ")
+end
+
+-- The one-time hint to open each profession's window once, or nil: in the
+-- prompt, or at login for a registered character.
+local function recipeHint(name, prompting)
+	local skillLines = ns.characters:recipeHint(name, prompting)
+	local names = skillLines and professionNames(skillLines)
+	return names and L.OPEN_PROFESSIONS:format(names)
+end
+
 local function try()
 	waiting = false
 	local name = Client.playerName()
@@ -64,12 +93,21 @@ local function try()
 	local offer = ns.characters:prompt(name, ns.memory:recall(name))
 	if not offer then
 		asked = true
+		local hint = recipeHint(name)
+		if hint then
+			ns.characters:hintRecipes(name)
+			ns.say(hint)
+		end
 		return
 	end
+	local hint = recipeHint(name, true)
 	local dialogInfo = StaticPopupDialogs[DIALOG]
-	dialogInfo.text = offer.fromPeers and L.PROMPT_FROM_PEERS or L.PROMPT
+	dialogInfo.text = (offer.fromPeers and L.PROMPT_FROM_PEERS or L.PROMPT) .. (hint and "\n\n" .. hint or "")
 	if StaticPopup_Show(DIALOG, name, offer.nickname, offer) then
 		asked = true
+		if hint then
+			ns.characters:hintRecipes(name)
+		end
 	end
 end
 
