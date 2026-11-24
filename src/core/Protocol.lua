@@ -10,6 +10,10 @@
 --   2:R:<revision>:<nickname>   answer to an ask
 --   2:U:<revision>              removal: the character unregistered
 --   2:N:<revision>              anonymous: the character is kept anonymous
+--   2:V:<version>               the version of Mnemosyne the sender runs
+--                               (1.4.0 and later), sent with each
+--                               announcement; one heard on the guild's or the
+--                               group's channel is whispered back once
 --
 -- A sync (decision 0002) adds, by whisper:
 --
@@ -103,7 +107,17 @@ local KIND_LETTER = {
 	news = "P", -- posted; G is a GUID's line, inside identities
 	professionDigest = "H", -- hashed
 	professions = "K",
+	version = "V",
 }
+local MAX_VERSION_BYTES = 20
+
+-- Whether text is a version of Mnemosyne that can go out: a release's tag,
+-- digits and dots then letters, digits, dots and hyphens ("1.4.0-beta.1"), not
+-- the packager's placeholder of a copy it did not build.
+function Protocol.isVersion(text)
+	return type(text) == "string" and #text <= MAX_VERSION_BYTES and text:match("^%d+%.%d+%.%d+[%w%.%-]*$") ~= nil
+end
+
 local KIND_NAME = {}
 for name, letter in pairs(KIND_LETTER) do
 	KIND_NAME[letter] = name
@@ -216,6 +230,8 @@ function Protocol.write(message)
 	local text = Protocol.VERSION .. ":" .. KIND_LETTER[message.kind]
 	if message.digest then
 		return text .. ":" .. message.digest
+	elseif message.version then
+		return text .. ":" .. message.version
 	elseif message.identities then
 		local lines = {}
 		for i, identity in ipairs(message.identities) do
@@ -503,6 +519,12 @@ local function readWhole(text, maxBytes)
 		end
 		identity.guid = guid and readGuid(guid)
 		return { kind = kind, identity = identity }
+	elseif kind == "version" then
+		local version = rest:match("^:(.*)$")
+		if not Protocol.isVersion(version) then
+			return nil, "malformed"
+		end
+		return { kind = kind, version = version }
 	elseif kind == "ask" or kind == "done" then
 		if rest ~= "" then
 			return nil, "malformed"

@@ -25,6 +25,12 @@ describe("Protocol", function()
 			assert.same(message, roundTrip(message))
 		end)
 
+		it("carries the version of Mnemosyne a peer runs", function()
+			local message = { kind = "version", version = "1.4.0" }
+			assert.same(message, roundTrip(message))
+			assert.equal("2:V:1.4.0", Protocol.write(message))
+		end)
+
 		it("carries an anonymous character's answer", function()
 			local message = { kind = "anonymous", revision = 1731500001 }
 			assert.same(message, roundTrip(message))
@@ -93,6 +99,22 @@ describe("Protocol", function()
 			assertDropped("2:Z:5:Tony", "malformed")
 			assertDropped("2:a:5:Tony", "malformed")
 			assertDropped("2:AA:5:Tony", "malformed")
+		end)
+
+		it("drops a version that is not one", function()
+			assertDropped("2:V", "malformed")
+			assertDropped("2:V:", "malformed")
+			assertDropped("2:V:1.4", "malformed")
+			assertDropped("2:V:v1.4.0", "malformed")
+			assertDropped("2:V:1.4.0 beta", "malformed")
+			assertDropped("2:V:1.4.0-" .. ("a"):rep(20), "malformed")
+			assert.same({ kind = "version", version = "1.4.0-beta.1" }, Protocol.read("2:V:1.4.0-beta.1"))
+		end)
+
+		it("tells a version that can go out from one that cannot", function()
+			assert.is_true(Protocol.isVersion("1.4.0"))
+			assert.is_false(Protocol.isVersion("@project-version@"))
+			assert.is_false(Protocol.isVersion(nil))
 		end)
 
 		it("drops an announcement or answer without a valid revision", function()

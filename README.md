@@ -108,7 +108,8 @@ anywhere; it opens again where you left it, on the tab you last used, and Escape
 closes it. Its **Identities** tab lists the characters you know, one row each,
 sorted by nickname, searched by name or nickname, ignoring case and accents.
 Each row shows the nickname, whether you heard it first-hand or from whom, and
-when; disputed ones are listed as disputed. Forget drops one (as
+when, and the version of Mnemosyne the player runs (sent by 1.4.0 and later, so
+blank for older versions and for players you haven't heard since); disputed ones are listed as disputed. Forget drops one (as
 `/mnemosyne forget` does), Undo takes the forgetting back, and Whisper opens a
 whisper to the character. Second-hand ones are listed only while **Show
 second-hand** is on, and the first 50 found show. Your own registered and
