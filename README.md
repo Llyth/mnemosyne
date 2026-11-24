@@ -115,8 +115,8 @@ anonymous characters come first, marked as yours. Under the list, the sync
 status: your last sync, with whom and when, and how many players wait for
 theirs.
 
-Its **Professions** tab (`/mnemosyne professions` opens it) shows every profession of the game as a tile, primary ones first, then
-secondary ones, each with how many distinct recipes and how many of the
+Its **Professions** tab (`/mnemosyne professions` opens it) shows every profession of the game as a tile, primary ones first (the
+gathering ones on their own row, after the crafting ones), then secondary ones, each with how many distinct recipes and how many of the
 characters you know and your own have it (0 when none does). Click one for its page: its recipes, sorted by name with how
 many characters know each, and its characters, sorted by skill level. Each
 shows its icon, and a recipe its tooltip when you point at it. Click a recipe

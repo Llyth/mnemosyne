@@ -55,9 +55,10 @@ local function sortByName(found, idKey, before)
 	end)
 end
 
--- Every profession that shows: { skillLine, name, secondary, recipes (how
--- many distinct recipes its characters know), characters (how many) }, the
--- known ones and those heard of, the primary ones first, each part by name.
+-- Every profession that shows: { skillLine, name, secondary, gathering,
+-- recipes (how many distinct recipes its characters know), characters (how
+-- many) }, the known ones and those heard of: the primary crafting ones, then
+-- the primary gathering ones, then the secondary ones, each part by name.
 function Catalog:professions()
 	local found, bySkillLine = {}, {}
 	local function add(skillLine)
@@ -66,6 +67,7 @@ function Catalog:professions()
 				skillLine = skillLine,
 				name = named(self.lookups.profession, skillLine),
 				secondary = Catalog.isSecondary(skillLine),
+				gathering = ns.Professions.SKILL_LINES[skillLine] == "gathering",
 				recipes = 0,
 				characters = 0,
 				known = {},
@@ -93,6 +95,9 @@ function Catalog:professions()
 	sortByName(found, "skillLine", function(a, b)
 		if a.secondary ~= b.secondary then
 			return b.secondary
+		end
+		if a.gathering ~= b.gathering then
+			return b.gathering
 		end
 	end)
 	return found
