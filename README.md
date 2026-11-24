@@ -190,7 +190,8 @@ characters, shares them when you sync with another player; off, or for a
 character you don't register, other players forget them. A guildmate gets the
 professions of your guild roster and of your own characters (only your own with
 **Pass on what I know** off); a friend outside your guild gets only your own
-characters'. You keep the professions of your guild roster's characters and your
+characters'. A player whose professions you never received gets one sync even
+within 6 hours of the last one, so professions don't wait for the next. You keep the professions of your guild roster's characters and your
 friends' only, dropped once a character has gone 30 days unseen on your roster
 or online as a friend's. The **Professions** tab of Mnemosyne's window shows
 them (see [Using it](#using-it)).

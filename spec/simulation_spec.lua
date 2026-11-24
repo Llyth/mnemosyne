@@ -391,6 +391,33 @@ describe("Several peers", function()
 			assert.is_nil(shown(c))
 		end)
 
+		it("lets two peers that synced before sharing professions sync once more early to share them", function()
+			for _, peer in ipairs({ a, b }) do
+				peer.saved, peer.early = {}, {}
+				peer.sync = Sync.new(peer.saved, clock, peer.memory, { passOn = true }, peer.characters) -- before the update
+			end
+			sync(a, b)
+			now = now + HOUR
+			for _, peer in ipairs({ a, b }) do
+				peer.sync = Sync.new(
+					peer.saved,
+					clock,
+					peer.memory,
+					{ passOn = true },
+					peer.characters,
+					peer.professions,
+					peer.early
+				)
+			end
+			sync(a, b)
+			assert.equal(50, shown(b).level)
+			now = now + 1
+			a.characters:seeProfessions(a.name, { { skillLine = ALCHEMY, level = 60, maxLevel = 75 } })
+			sync(a, b)
+			sync(b, a)
+			assert.equal(50, shown(b).level)
+		end)
+
 		it("takes at most 2,000 second-hand professions a day from one peer", function()
 			local names = { a, b, c, d, mallory }
 			for i = 1, Professions.MAX_CHANGES_PER_PEER + 100 do
