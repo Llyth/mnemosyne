@@ -280,6 +280,67 @@ function Self:seeRecipes(name, skillLine, recipeIDs, learned)
 	return changed
 end
 
+-- Adds the recipes found learned with the profession's window closed: found
+-- maps each recipe ID to the skill line the game puts it in, and only those of
+-- this profession count (a peer may have read a recipe under the wrong one).
+-- Ignored for a profession the character does not have; its full recipe list
+-- stays the window's. Returns true when it changed what was read.
+function Self:learnRecipes(name, skillLine, found)
+	local profession = professionsOf(self, name)[skillLine]
+	if not (profession and profession.level) then
+		return false
+	end
+	local learned, known = copy(profession.learned) or {}, {}
+	for _, recipe in ipairs(learned) do
+		known[recipe] = true
+	end
+	local changed = false
+	for recipe, line in pairs(found) do
+		if line == skillLine and not known[recipe] then
+			learned[#learned + 1], changed = recipe, true
+		end
+	end
+	if changed then
+		table.sort(learned)
+		profession.learned = learned
+	end
+	return changed
+end
+
+-- The professions to name in the one-time hint to open each profession's
+-- window once (its recipes are shared only then): the skill lines of those
+-- with no saved recipe list, sorted. In the registration prompt (prompting)
+-- any such profession counts; at login only for a registered character none
+-- of whose professions has a saved list. nil once the hint was shown
+-- (hintRecipes) or when there is nothing to name.
+function Self:recipeHint(name, prompting)
+	local character = self.characters[name]
+	if not character or character.recipesHinted then
+		return nil
+	end
+	local unread, count = {}, 0
+	for skillLine, profession in pairs(professionsOf(self, name)) do
+		if profession.level then
+			count = count + 1
+			if not profession.recipeIDs then
+				unread[#unread + 1] = skillLine
+			end
+		end
+	end
+	if not unread[1] or not (prompting or (self:state(name) == "registered" and #unread == count)) then
+		return nil
+	end
+	table.sort(unread)
+	return unread
+end
+
+-- Remembers that the hint to open the profession windows was shown.
+function Self:hintRecipes(name)
+	local character = self.characters[name] or {}
+	self.characters[name] = character
+	character.recipesHinted = true
+end
+
 -- This account's characters with a profession read now, sorted by name: what
 -- they show to their own player never depends on what is shared.
 function Self:withProfessions()

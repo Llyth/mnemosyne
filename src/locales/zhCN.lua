@@ -43,6 +43,7 @@ L.PROMPT_ANONYMOUS = "保持匿名"
 L.PROMPT_LATER = "稍后再问"
 L.KEPT_ANONYMOUS = "此角色为匿名。安装了Mnemosyne的玩家不会把它与任何昵称关联。"
 L.ASK_LATER = "你下次登录此角色时，Mnemosyne会再次询问。"
+L.OPEN_PROFESSIONS = "请把每个专业的窗口各打开一次，Mnemosyne才能分享其配方：%s。"
 -- The other commands.
 L.HELP_LOOKUP = "/mnemosyne lookup <文字>：按名字或昵称查找角色"
 L.HELP_STATUS = "/mnemosyne status：你的记忆中有什么"

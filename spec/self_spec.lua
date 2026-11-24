@@ -355,6 +355,73 @@ describe("Self", function()
 			assert.same({ 10 }, characters:professions("Hugh Jass")[1].recipes)
 		end)
 
+		describe("recipes found learned", function()
+			it("adds them to a profession with no saved recipe list when the game puts them in it", function()
+				characters:seeProfessions("Hugh Jass", { { skillLine = TAILORING, level = 50, maxLevel = 75 } })
+				assert.is_true(characters:learnRecipes("Hugh Jass", TAILORING, { [30] = TAILORING, [20] = COOKING }))
+				characters:stampProfessions("Hugh Jass")
+				assert.same({ 30 }, characters:professions("Hugh Jass")[1].recipes)
+				assert.same({}, characters:recipeIDs("Hugh Jass"))
+			end)
+
+			it("merges them with the learned ones, sorted, and says when nothing changed", function()
+				characters:seeProfessions("Hugh Jass", { { skillLine = TAILORING, level = 50, maxLevel = 75 } })
+				characters:seeRecipes("Hugh Jass", TAILORING, { 10, 30 }, { 30 })
+				assert.is_true(characters:learnRecipes("Hugh Jass", TAILORING, { [10] = TAILORING, [5] = TAILORING }))
+				assert.is_false(characters:learnRecipes("Hugh Jass", TAILORING, { [10] = TAILORING }))
+				assert.same({ 5, 10, 30 }, characters:currentProfessions("Hugh Jass")[1].recipes)
+				assert.same({ [TAILORING] = { 10, 30 } }, characters:recipeIDs("Hugh Jass"))
+			end)
+
+			it("ignores them for a profession the character does not have, or when none belongs to it", function()
+				assert.is_false(characters:learnRecipes("Hugh Jass", TAILORING, { [10] = TAILORING }))
+				characters:seeProfessions("Hugh Jass", { { skillLine = TAILORING, level = 50, maxLevel = 75 } })
+				assert.is_false(characters:learnRecipes("Hugh Jass", TAILORING, { [10] = COOKING }))
+				assert.is_nil(characters:currentProfessions("Hugh Jass")[1].recipes)
+			end)
+		end)
+
+		describe("the hint to open the profession windows", function()
+			local function both()
+				characters:seeProfessions("Hugh Jass", {
+					{ skillLine = TAILORING, level = 50, maxLevel = 75 },
+					{ skillLine = COOKING, level = 1, maxLevel = 75 },
+				})
+			end
+
+			it("names in the prompt the professions with no saved recipe list", function()
+				both()
+				characters:seeRecipes("Hugh Jass", TAILORING, { 10 }, { 10 })
+				assert.same({ COOKING }, characters:recipeHint("Hugh Jass", true))
+			end)
+
+			it("shows once per character", function()
+				both()
+				characters:hintRecipes("Hugh Jass")
+				assert.is_nil(characters:recipeHint("Hugh Jass", true))
+				assert.is_nil(characters:recipeHint("Hugh Jass"))
+			end)
+
+			it("does not show at login for a character not registered", function()
+				characters:seeProfessions("Anna Conda", { { skillLine = TAILORING, level = 50, maxLevel = 75 } })
+				assert.is_nil(characters:recipeHint("Anna Conda"))
+				assert.same({ TAILORING }, characters:recipeHint("Anna Conda", true))
+			end)
+
+			it("shows at login for a registered character none of whose professions has a saved list", function()
+				both()
+				assert.same({ COOKING, TAILORING }, characters:recipeHint("Hugh Jass"))
+				characters:seeRecipes("Hugh Jass", TAILORING, { 10 }, { 10 })
+				assert.is_nil(characters:recipeHint("Hugh Jass"))
+			end)
+
+			it("does not show for a character without professions", function()
+				characters:register("Hugh Jass", "Tony")
+				assert.is_nil(characters:recipeHint("Hugh Jass"))
+				assert.is_nil(characters:recipeHint("Anna Conda", true))
+			end)
+		end)
+
 		it("turns a dropped profession into a removal at the next stamp", function()
 			characters:seeProfessions("Hugh Jass", { { skillLine = TAILORING, level = 50, maxLevel = 75 } })
 			characters:seeRecipes("Hugh Jass", TAILORING, { 10 }, { 10 })

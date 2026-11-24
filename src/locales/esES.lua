@@ -43,6 +43,7 @@ L.PROMPT_ANONYMOUS = "Seguir anónimo"
 L.PROMPT_LATER = "Preguntar más tarde"
 L.KEPT_ANONYMOUS = "Este personaje es anónimo. Los jugadores que tienen Mnemosyne no lo vincularán a ningún apodo."
 L.ASK_LATER = "Mnemosyne volverá a preguntar la próxima vez que te conectes con este personaje."
+L.OPEN_PROFESSIONS = "Abre una vez la ventana de cada profesión para que Mnemosyne pueda compartir sus recetas: %s."
 -- The other commands.
 L.HELP_LOOKUP = "/mnemosyne lookup <texto>: buscar personajes por nombre o por apodo"
 L.HELP_STATUS = "/mnemosyne status: lo que contiene tu memoria"

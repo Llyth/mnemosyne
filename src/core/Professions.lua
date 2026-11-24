@@ -535,3 +535,34 @@ function Professions:recipes(skillLine)
 	end)
 	return found
 end
+
+-- The recipes others know of each of a character's professions (one of this
+-- account's) that it has not learned, by skill line, sorted: the game says
+-- which it has learned even with the profession's window closed, so a
+-- character finds its recipes without opening it.
+function Professions:recipesToFind(name)
+	local wanted = {}
+	for _, profession in ipairs(self.characters:currentProfessions(name)) do
+		local skip = {}
+		for _, recipe in ipairs(profession.recipes or {}) do
+			skip[recipe] = true
+		end
+		wanted[profession.skillLine] = skip
+	end
+	local found = {}
+	for _, profession in ipairs(self:list()) do
+		local skip = wanted[profession.skillLine]
+		for _, recipe in ipairs(skip and profession.recipes or {}) do
+			if not skip[recipe] then
+				skip[recipe] = true
+				local list = found[profession.skillLine] or {}
+				found[profession.skillLine] = list
+				list[#list + 1] = recipe
+			end
+		end
+	end
+	for _, list in pairs(found) do
+		table.sort(list)
+	end
+	return found
+end

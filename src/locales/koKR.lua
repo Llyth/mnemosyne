@@ -47,6 +47,8 @@ L.PROMPT_LATER = "나중에 묻기"
 L.KEPT_ANONYMOUS =
 	"이 캐릭터는 익명입니다. Mnemosyne를 사용하는 플레이어들은 이 캐릭터를 어떤 별명과도 연결하지 않습니다."
 L.ASK_LATER = "이 캐릭터로 다음에 접속하면 Mnemosyne가 다시 묻습니다."
+L.OPEN_PROFESSIONS =
+	"Mnemosyne가 제조법을 공유할 수 있도록 각 전문 기술 창을 한 번씩 여십시오: %s."
 -- The other commands.
 L.HELP_LOOKUP = "/mnemosyne lookup <텍스트>: 이름이나 별명으로 캐릭터 검색"
 L.HELP_STATUS = "/mnemosyne status: 기억에 담긴 내용"
