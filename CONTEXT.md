@@ -32,6 +32,18 @@ _Avoid_: identification, detection
 What Mnemosyne knows about one character: that it belongs to the player with a given nickname, heard first-hand or second-hand.
 _Avoid_: record, entry, mapping, profile
 
+**Profession**:
+What Mnemosyne knows about one of a character's professions: its skill level and the recipes it has learned, heard first-hand or second-hand.
+_Avoid_: record, tradeskill, craft, trade
+
+**Recipe**:
+Something a profession lets a character make, once learned.
+_Avoid_: craft, pattern, schematic
+
+**Sharing professions**:
+Letting your registered characters' professions spread to peers. On by default, account-wide; turning it off makes peers forget them.
+_Avoid_: publishing, broadcasting
+
 **Peer**:
 Another player's character running Mnemosyne, which you can exchange messages with.
 _Avoid_: node, client, user
@@ -53,7 +65,7 @@ The peer a second-hand identity came from, shown with it so you can judge it.
 _Avoid_: origin, provider, relay
 
 **Memory**:
-Every identity one account holds, first-hand and second-hand, shared by all its characters.
+Every identity and profession one account holds, first-hand and second-hand, shared by all its characters.
 _Avoid_: database, cache, store
 
 **Revision**:
@@ -65,7 +77,7 @@ An identity heard second-hand with the same revision but different nicknames. No
 _Avoid_: conflict, invalid
 
 **Stale**:
-An identity whose full name now belongs to another character (a different GUID), after its own was deleted or renamed. Hidden until the new character speaks first-hand.
+An identity or profession whose full name now belongs to another character (a different GUID), after its own was deleted or renamed. Hidden until the new character speaks first-hand.
 _Avoid_: expired, outdated, invalid
 
 **Sync**:
@@ -93,7 +105,7 @@ Withdrawing a character's registration. The character tells its peers, and they 
 _Avoid_: deleting, opting out
 
 **Removal**:
-The message a character sends when it unregisters: a revision without a nickname, so its peers forget its identity. In a sync, any identity passed on without a nickname is a removal, whether the character unregistered or is anonymous.
+The message a character sends when it unregisters: a revision without a nickname, so its peers forget its identity. In a sync, any identity passed on without a nickname is a removal, whether the character unregistered or is anonymous. A profession passed on empty is a removal too: the character dropped it, unregistered, or stopped sharing professions.
 _Avoid_: deletion
 
 **Forgetting**:
