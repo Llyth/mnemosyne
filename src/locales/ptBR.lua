@@ -92,6 +92,10 @@ L.HELP_SYNC = "/mnemosyne sync: atualizar a sua memória com os contatos que voc
 L.SYNC_STARTED = "Sincronizando com %d |4contato:contatos;."
 L.SYNC_NONE = "Nenhum contato para sincronizar agora: nenhum ouvido nesta sessão, "
 	.. "ou todos sincronizados nas últimas 6 horas."
+L.HELP_SYNC_RESET = "/mnemosyne sync reset: esquecer quando você sincronizou com cada jogador, "
+	.. "para sincronizar de novo na hora (o outro também precisa fazer isso)"
+L.SYNC_RESET = "Esperas entre sincronizações apagadas do seu lado. O outro jogador também precisa digitar "
+	.. "/mnemosyne sync reset antes que vocês possam sincronizar de novo."
 -- Forgetting.
 L.HELP_FORGET = "/mnemosyne forget <personagem>: apagar o apelido de um personagem "
 	.. "e recusar o que outros repassam sobre ele"

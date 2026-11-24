@@ -84,6 +84,10 @@ ns.L = {
 	HELP_SYNC = "/mnemosyne sync: bring your memory up to date with the peers you can reach now",
 	SYNC_STARTED = "Syncing with %d |4peer:peers;.",
 	SYNC_NONE = "No peer to sync with now: none heard this session, or all synced in the last 6 hours.",
+	HELP_SYNC_RESET = "/mnemosyne sync reset: forget when you last synced with each player, to sync again at once "
+		.. "(they must reset too)",
+	SYNC_RESET = "Sync cooldowns cleared on your side. The other player must also type /mnemosyne sync reset "
+		.. "before you can sync again.",
 	-- Forgetting.
 	HELP_FORGET = "/mnemosyne forget <character>: drop a character's nickname and refuse what others pass on about it",
 	HELP_UNFORGET = "/mnemosyne unforget <character>: undo forget",

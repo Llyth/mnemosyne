@@ -92,6 +92,10 @@ L.HELP_SYNC = "/mnemosyne sync : mettre votre mémoire à jour avec les pairs jo
 L.SYNC_STARTED = "Synchronisation avec %d |4pair:pairs;."
 L.SYNC_NONE = "Aucun pair avec qui se synchroniser pour l'instant : aucun entendu cette session, "
 	.. "ou tous synchronisés ces 6 dernières heures."
+L.HELP_SYNC_RESET = "/mnemosyne sync reset : oublier quand vous vous êtes synchronisé avec chaque joueur, "
+	.. "pour vous resynchroniser tout de suite (il doit le faire aussi)"
+L.SYNC_RESET = "Délais entre synchronisations effacés de votre côté. L'autre joueur doit aussi taper "
+	.. "/mnemosyne sync reset avant que vous puissiez vous resynchroniser."
 -- Forgetting.
 L.HELP_FORGET = "/mnemosyne forget <personnage> : effacer le pseudonyme d'un personnage "
 	.. "et refuser ce que d'autres en transmettent"

@@ -617,7 +617,7 @@ end
 -- it is passed on like any other. Returns false when it was already
 -- forgotten.
 -- shortcut: a peer that still holds it keeps that digest bucket differing, so
--- each sync with it (at most every 6 hours) resends the bucket, about 1/128 of
+-- each sync with it (at most every hour) resends the bucket, about 1/128 of
 -- the memory, to be refused or already held; keep a hidden copy in the digest
 -- if players forget many characters.
 function Memory:forget(name)

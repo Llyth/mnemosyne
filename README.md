@@ -53,7 +53,8 @@ when you hover them. Other players also pass along
 what they learned before you, second-hand: two copies of Mnemosyne sync their
 memories privately by whisper, in the background, at login with the first few
 players who answer, with each new group member who has Mnemosyne, and when you
-type `/mnemosyne sync`, at most once every 6 hours with the same player. When a
+type `/mnemosyne sync`, at most once an hour with the same guildmate and once
+every 6 hours with anyone else. When a
 sync brings you a nickname that is new to you or newer, or an unregistration,
 Mnemosyne posts it to your guild once, after a few seconds, unless a guildmate
 posted it first, so the whole guild learns it at once.
@@ -153,7 +154,8 @@ the minimap and `/mnemosyne settings` open it too. It has:
 | `/mnemosyne lookup <text>` | Find characters by name or by nickname, ignoring case and accents; a second-hand nickname shows with who passed it on |
 | `/mnemosyne forget <character>` | Forget a character (its full name): drop its nickname from your memory and refuse what other players pass on about it; what the character says itself still counts. Without a name, lists the characters you forgot |
 | `/mnemosyne unforget <character>` | Undo forget: learn about the character from other players again |
-| `/mnemosyne sync` | Sync with the players heard this session who have Mnemosyne (at most once every 6 hours each) |
+| `/mnemosyne sync` | Sync with the players heard this session who have Mnemosyne (at most once an hour with each guildmate, once every 6 hours with anyone else) |
+| `/mnemosyne sync reset` | Forget when you last synced with each player, so you can sync with them again at once. It works on your side only: a player who synced with you recently still refuses until they type `/mnemosyne sync reset` too |
 | `/mnemosyne status` | How many identities you know (second-hand ones only while **Show second-hand** is on), how many of your characters are registered or anonymous, how many players who have Mnemosyne you heard this session, whom you synced with in the last 6 hours, and this character's registration (registered, anonymous, unregistered, or not registered yet) |
 | `/mnemosyne report` | A debug report to paste in a bug report |
 | `/mnemosyne debug` | Log every message sent and received in the chat frame, or stop |
@@ -192,7 +194,7 @@ character you don't register, other players forget them. A guildmate gets the
 professions of your guild roster and of your own characters (only your own with
 **Pass on what I know** off); a friend outside your guild gets only your own
 characters'. A player whose professions you never received gets one sync even
-within 6 hours of the last one, so professions don't wait for the next. You keep the professions of your guild roster's characters and your
+within an hour (a guildmate) or 6 hours of the last one, so professions don't wait for the next. You keep the professions of your guild roster's characters and your
 friends' only, dropped once a character has gone 30 days unseen on your roster
 or online as a friend's. The **Professions** tab of Mnemosyne's window shows
 them (see [Using it](#using-it)).
