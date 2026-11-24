@@ -51,5 +51,6 @@ src\interface\Panel.lua
 src\interface\Window.lua
 src\interface\Identities.lua
 src\interface\ProfessionsTab.lua
+src\interface\CommunitiesTab.lua
 src\client\Encounter.lua
 src\interface\ReportWindow.lua
