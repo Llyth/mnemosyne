@@ -12,6 +12,10 @@ local L = ns.L
 local Client = {}
 ns.Client = Client
 
+-- This copy's version: the release's tag, or the placeholder in a copy the
+-- packager did not build.
+Client.VERSION = C_AddOns.GetAddOnMetadata(addonName, "Version")
+
 local SCHEMA = 1
 local TICK = 0.25 -- seconds between two looks at the queue
 local SYNC_TICK = 5 -- seconds between two looks at the syncs (cut, start waiting ones)
@@ -87,8 +91,9 @@ local function compose(job)
 	elseif job.news then
 		return toSend(Protocol.write({ kind = "news", identity = job.news }), "GUILD", nil, "news")
 	end
-	local registration = ns.characters:message(playerName, job.kind)
-	if not registration then
+	local message = job.kind == "version" and { kind = "version", version = Client.VERSION }
+		or ns.characters:message(playerName, job.kind)
+	if not message then
 		return
 	end
 	local chatType = job.channel
@@ -99,7 +104,7 @@ local function compose(job)
 		chatType = nil
 	end
 	if chatType then
-		return toSend(Protocol.write(registration), chatType, job.target, registration.kind)
+		return toSend(Protocol.write(message), chatType, job.target, message.kind)
 	end
 end
 
@@ -148,9 +153,14 @@ local function wake()
 	end
 end
 
--- Queues a job once (Outbox:add). Returns true when it queued the job.
+-- Queues a job once (Outbox:add), an announcement with this account's
+-- version after it (when a release's: Protocol.isVersion). Returns true when
+-- it queued the job.
 local function enqueue(kind, channel, target)
 	if outbox:add(kind, channel, target) then
+		if kind == "announce" and Protocol.isVersion(Client.VERSION) then
+			outbox:add("version", channel, target)
+		end
 		wake()
 		return true
 	end
@@ -494,6 +504,9 @@ function handlers.ADDON_LOADED(name)
 	db.earlySyncs = db.earlySyncs or {}
 	db.window = db.window or {} -- Mnemosyne's window: its position and last tab
 	db.professions = db.professions or {}
+	-- The versions of Mnemosyne peers run, by name (Inbox).
+	-- shortcut: never pruned, one short entry per peer ever heard; prune with the memory if it grows.
+	db.versions = db.versions or {}
 	ns.professions =
 		ns.Professions.new(db.professions, GetServerTime, ns.memory, ns.characters, db.settings, recipeSkillLine)
 	ns.sync = ns.Sync.new(db.syncs, GetServerTime, ns.memory, db.settings, ns.characters, ns.professions, db.earlySyncs)
@@ -515,6 +528,7 @@ function handlers.ADDON_LOADED(name)
 		onNewer = function()
 			ns.say(L.NEWER_VERSION)
 		end,
+		versions = db.versions,
 	})
 	ns.scope = ns.Scope.new(db.settings)
 	ns.recognition = ns.Recognition.new(ns.memory, db.settings, ns.L, GetServerTime, ns.characters, ns.professions)

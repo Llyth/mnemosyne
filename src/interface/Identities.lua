@@ -1,7 +1,8 @@
 -- Identities: the window's first tab, the list of identities that was the
 -- settings panel's. Part of the Interface adapter (decision 0004): it draws
--- what Recognition:rows gives (one row per character, by nickname) with the
--- forget, undo and whisper actions, and Recognition:syncStatus in its footer.
+-- what Recognition:rows gives (one row per character, by nickname), the
+-- version of Mnemosyne each last said it runs, the forget, undo and whisper
+-- actions, and Recognition:syncStatus in its footer.
 local _, ns = ...
 
 local L = ns.L
@@ -16,10 +17,11 @@ local STATUS_EVERY = 5 -- seconds between two redraws of the sync status
 
 -- The list's columns: the row field each shows, its x and its width.
 local COLUMNS = {
-	{ "name", L.PANEL_COLUMN_CHARACTER, 7, 150 },
-	{ "nickname", L.PANEL_COLUMN_NICKNAME, 160, 120 },
-	{ "heard", L.PANEL_COLUMN_HEARD, 285, 140 },
-	{ "ago", L.PANEL_COLUMN_AGO, 430, 85 },
+	{ "name", L.PANEL_COLUMN_CHARACTER, 7, 140 },
+	{ "nickname", L.PANEL_COLUMN_NICKNAME, 150, 110 },
+	{ "heard", L.PANEL_COLUMN_HEARD, 265, 115 },
+	{ "ago", L.PANEL_COLUMN_AGO, 385, 75 },
+	{ "version", L.PANEL_COLUMN_VERSION, 465, 55 },
 }
 
 local tab = ns.Window.addTab("identities", L.PANEL_IDENTITIES)
@@ -98,6 +100,8 @@ function refresh()
 	end
 	local found, total = ns.recognition:rows(search:GetText(), MAX_ROWS)
 	for i, row in ipairs(found) do
+		-- The version of Mnemosyne it last said it runs: this copy's for your own.
+		row.version = row.own and Client.VERSION or MnemosyneDB.versions[row.name] or ""
 		local frame = rowFrame(i)
 		for _, column in ipairs(COLUMNS) do
 			frame[column[1]]:SetText(row[column[1]])

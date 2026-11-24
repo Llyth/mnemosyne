@@ -140,6 +140,7 @@ ns.L = {
 	PANEL_COLUMN_NICKNAME = "Nickname",
 	PANEL_COLUMN_HEARD = "Heard",
 	PANEL_COLUMN_AGO = "Last heard",
+	PANEL_COLUMN_VERSION = "Version",
 	PANEL_FORGET = "Forget",
 	PANEL_UNDO = "Undo",
 	PANEL_NONE = "No identity found.",

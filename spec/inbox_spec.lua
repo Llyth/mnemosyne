@@ -2,14 +2,14 @@ local ns = require("spec.helpers.addon")("Protocol", "Memory", "Self", "Sync", "
 local Protocol, Inbox = ns.Protocol, ns.Inbox
 
 describe("Inbox", function()
-	local now, inbox, memory, outbox, dropped, newer, inScope
+	local now, inbox, memory, outbox, dropped, newer, inScope, versions
 
 	local function clock()
 		return now
 	end
 
 	before_each(function()
-		now, dropped, newer = 1000, {}, 0
+		now, dropped, newer, versions = 1000, {}, 0, {}
 		inScope = function(name)
 			return name ~= "Mallory Knox"
 		end
@@ -51,6 +51,7 @@ describe("Inbox", function()
 			onNewer = function()
 				newer = newer + 1
 			end,
+			versions = versions,
 		})
 	end)
 
@@ -101,6 +102,35 @@ describe("Inbox", function()
 		assert.same({ "Mallory Knox scope" }, dropped)
 		inbox:receive("Mallory Knox", "GUILD", announce)
 		assert.equal("Tony", memory:recall("Mallory Knox").nickname)
+	end)
+
+	describe("versions", function()
+		local version = Protocol.write({ kind = "version", version = "1.4.0" })
+
+		it("keeps the version a peer runs, under the name the server gives", function()
+			inbox:receive("Anna Conda", "GUILD", version)
+			assert.equal("1.4.0", versions["Anna Conda"])
+			assert.is_nil(memory:recall("Anna Conda"))
+		end)
+
+		it("whispers its own back, once a session, to a version heard on the guild's or the group's channel", function()
+			inbox:receive("Anna Conda", "GUILD", version)
+			inbox:receive("Anna Conda", "GUILD", version)
+			inbox:receive("Barb Dwyer", "PARTY", version)
+			assert.same({ "Anna Conda", "Barb Dwyer" }, targets())
+		end)
+
+		it("never whispers back a version that came by whisper, so two peers never loop", function()
+			inbox:receive("Anna Conda", "WHISPER", version)
+			assert.equal("1.4.0", versions["Anna Conda"])
+			assert.same({}, targets())
+		end)
+
+		it("drops a version from outside the scope", function()
+			inbox:receive("Mallory Knox", "WHISPER", version)
+			assert.is_nil(versions["Mallory Knox"])
+			assert.same({ "Mallory Knox scope" }, dropped)
+		end)
 	end)
 
 	it("says once a session that a newer Mnemosyne exists", function()
