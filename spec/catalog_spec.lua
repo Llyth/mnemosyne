@@ -1,11 +1,17 @@
 local ns = require("spec.helpers.addon")("Protocol", "Memory", "Professions", "Catalog")
 local Catalog = ns.Catalog
 
-local TAILORING, ALCHEMY, COOKING, FIRST_AID = 197, 171, 185, 129
+local TAILORING, ALCHEMY, COOKING, FIRST_AID, MINING, HERBALISM = 197, 171, 185, 129, 186, 182
 
 -- What the game would name them, looked up when shown.
-local PROFESSION_NAMES =
-	{ [TAILORING] = "Tailoring", [ALCHEMY] = "Alchemy", [COOKING] = "Cooking", [FIRST_AID] = "First Aid" }
+local PROFESSION_NAMES = {
+	[TAILORING] = "Tailoring",
+	[ALCHEMY] = "Alchemy",
+	[COOKING] = "Cooking",
+	[FIRST_AID] = "First Aid",
+	[MINING] = "Mining",
+	[HERBALISM] = "Herbalism",
+}
 local RECIPE_NAMES = { [10] = "Linen Cloak", [11] = "Brown Linen Vest", [12] = "Élan Robe", [20] = "Spiced Bread" }
 local NICKNAMES = { ["Hugh Jass"] = "Tony", ["Anna Conda"] = "~Zoé" }
 
@@ -70,10 +76,14 @@ describe("Catalog", function()
 
 		it("counts each profession's distinct recipes and its characters, leaving out disputed ones", function()
 			local tailoring = Catalog.new(entries(), true, lookups):professions()[2]
-			assert.same(
-				{ skillLine = TAILORING, name = "Tailoring", secondary = false, recipes = 3, characters = 3 },
-				tailoring
-			)
+			assert.same({
+				skillLine = TAILORING,
+				name = "Tailoring",
+				secondary = false,
+				gathering = false,
+				recipes = 3,
+				characters = 3,
+			}, tailoring)
 		end)
 
 		it("counts a profession whose window was never opened, with no recipe", function()
@@ -99,10 +109,14 @@ describe("Catalog", function()
 			local catalog = Catalog.new(entries(), true, lookups, { [TAILORING] = true, [FIRST_AID] = true })
 			local professions = catalog:professions()
 			assert.same({ "Alchemy", "Tailoring", "Cooking", "First Aid" }, names(professions))
-			assert.same(
-				{ skillLine = FIRST_AID, name = "First Aid", secondary = true, recipes = 0, characters = 0 },
-				professions[4]
-			)
+			assert.same({
+				skillLine = FIRST_AID,
+				name = "First Aid",
+				secondary = true,
+				gathering = false,
+				recipes = 0,
+				characters = 0,
+			}, professions[4])
 			assert.equal(3, professions[2].characters)
 		end)
 
@@ -113,11 +127,28 @@ describe("Catalog", function()
 			assert.same({}, catalog:characters(FIRST_AID, "", {}))
 		end)
 
+		it("lists the gathering professions after the crafting ones, before the secondary ones", function()
+			local catalog = Catalog.new(
+				{ { name = "Hugh Jass", skillLine = MINING, level = 1, maxLevel = 75 } },
+				true,
+				lookups,
+				{ [HERBALISM] = true, [TAILORING] = true, [ALCHEMY] = true, [COOKING] = true }
+			)
+			local professions = catalog:professions()
+			assert.same({ "Alchemy", "Tailoring", "Herbalism", "Mining", "Cooking" }, names(professions))
+			assert.same({ false, false, true, true, false }, {
+				professions[1].gathering,
+				professions[2].gathering,
+				professions[3].gathering,
+				professions[4].gathering,
+				professions[5].gathering,
+			})
+		end)
+
 		it("splits primary and secondary professions by skill line", function()
 			assert.is_true(Catalog.isSecondary(COOKING))
 			assert.is_true(Catalog.isSecondary(FIRST_AID))
 			assert.is_true(Catalog.isSecondary(356)) -- Fishing
-			assert.is_true(Catalog.isSecondary(794)) -- Archaeology
 			assert.is_false(Catalog.isSecondary(TAILORING))
 		end)
 	end)

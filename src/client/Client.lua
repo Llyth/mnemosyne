@@ -381,10 +381,16 @@ end
 -- opens one itself. Read once per window open: the list update fires again
 -- and again while crafting, and NEW_RECIPE_LEARNED covers what changes after.
 -- Switching to another profession with the window open reads that one too.
+-- Read only once the game has switched its data to the profession shown, as
+-- Blizzard's Professions window does: until then, GetBaseProfessionInfo can
+-- still give the profession shown before while the recipes are the new one's.
 local recipesReadFor -- the profession read since the window opened
 local function readRecipes()
 	if not playerName or not isOwnWindow() then
 		return
+	end
+	if C_TradeSkillUI.IsDataSourceChanging and C_TradeSkillUI.IsDataSourceChanging() then
+		return -- a TRADE_SKILL_LIST_UPDATE follows once it has changed
 	end
 	local profession = C_TradeSkillUI.GetBaseProfessionInfo()
 	local recipeIDs = C_TradeSkillUI.GetAllRecipeIDs()
@@ -405,11 +411,29 @@ local function readRecipes()
 	redraw(ns.characters:seeRecipes(playerName, profession.professionID, recipeIDs, learned))
 end
 
+-- The read waits for TRADE_SKILL_LIST_UPDATE, which follows.
 function handlers.TRADE_SKILL_SHOW()
 	recipesReadFor = nil
-	readRecipes()
 end
 handlers.TRADE_SKILL_LIST_UPDATE = readRecipes
+
+-- The skill line the game places a recipe in (its parent profession's, as
+-- ProfessionsUtil.OpenProfessionFrameToRecipe reads it), or nil when it cannot:
+-- Professions drops a peer's recipe placed in another profession. Cached for
+-- the session.
+local skillLineOfRecipe = {}
+local function recipeSkillLine(recipeID)
+	local found = skillLineOfRecipe[recipeID]
+	if found == nil and C_TradeSkillUI.GetTradeSkillLineForRecipe then
+		local skillLine, _, parent = C_TradeSkillUI.GetTradeSkillLineForRecipe(recipeID)
+		found = parent or skillLine
+		if not Client.isKnown(found) or type(found) ~= "number" then
+			return nil
+		end
+		skillLineOfRecipe[recipeID] = found
+	end
+	return found
+end
 
 -- Fires before login too: read only once the character is known.
 function handlers.SKILL_LINES_CHANGED()
@@ -452,7 +476,8 @@ function handlers.ADDON_LOADED(name)
 	db.earlySyncs = db.earlySyncs or {}
 	db.window = db.window or {} -- Mnemosyne's window: its position and last tab
 	db.professions = db.professions or {}
-	ns.professions = ns.Professions.new(db.professions, GetServerTime, ns.memory, ns.characters, db.settings)
+	ns.professions =
+		ns.Professions.new(db.professions, GetServerTime, ns.memory, ns.characters, db.settings, recipeSkillLine)
 	ns.sync = ns.Sync.new(db.syncs, GetServerTime, ns.memory, db.settings, ns.characters, ns.professions, db.earlySyncs)
 	ns.news = ns.News.new(GetTime, math.random, ns.memory, ns.characters, db.settings)
 	outbox = ns.Outbox.new(GetTime, Client.canSend)

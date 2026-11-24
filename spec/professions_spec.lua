@@ -3,8 +3,14 @@ local Memory, Professions, Protocol = ns.Memory, ns.Professions, ns.Protocol
 
 describe("Professions", function()
 	local DAY = 24 * 60 * 60
-	local ALCHEMY, TAILORING = 171, 197
-	local now, saved, memory, characters, settings, professions
+	local ALCHEMY, TAILORING, ENCHANTING = 171, 197, 333
+	local now, saved, memory, characters, settings, professions, recipeLines
+
+	-- The game's skill line of each recipe, as Client looks it up; nil when the
+	-- game cannot place it.
+	local function recipeSkillLine(recipe)
+		return recipeLines[recipe]
+	end
 
 	local function clock()
 		return now
@@ -53,7 +59,8 @@ describe("Professions", function()
 		memory = Memory.new({}, clock)
 		characters = newCharacters()
 		settings = { passOn = true }
-		professions = Professions.new(saved, clock, memory, characters, settings)
+		recipeLines = { [2329] = ALCHEMY, [2330] = ALCHEMY, [7421] = ENCHANTING }
+		professions = Professions.new(saved, clock, memory, characters, settings, recipeSkillLine)
 		professions:seeLists({ "Bo Nanza" }, { "Hugh Jass", "Anna Conda", "Cole Slaw" })
 	end)
 
@@ -279,6 +286,46 @@ describe("Professions", function()
 		assert.is_nil(saved.held["Hugh Jass"])
 	end)
 
+	it("drops Jewelcrafting, Inscription and Archaeology, which Forever does not have", function()
+		for _, skillLine in ipairs({ 755, 773, 794 }) do
+			assert.is_false(
+				professions:hear("Hugh Jass", { name = "Hugh Jass", skillLine = skillLine, revision = 900, level = 1 })
+			)
+		end
+		assert.is_nil(saved.held["Hugh Jass"])
+	end)
+
+	it("drops a peer's recipe the game places in another profession", function()
+		assert.is_true(professions:hear("Anna Conda", alchemy(900, { 2329, 7421, 2330 })))
+		assert.same({ 2329, 2330 }, shown("Hugh Jass")[1].recipes)
+	end)
+
+	it("keeps a peer's recipe the game cannot place", function()
+		professions:hear("Hugh Jass", alchemy(900, { 2329, 99999 }))
+		assert.same({ 2329, 99999 }, shown("Hugh Jass")[1].recipes)
+	end)
+
+	it("hears again a copy with another profession's recipe without disputing it", function()
+		professions:hear("Anna Conda", alchemy(900, { 2329, 7421 }))
+		assert.is_false(professions:hear("Cole Slaw", alchemy(900, { 2329, 7421 })))
+		assert.same({ 2329 }, shown("Hugh Jass")[1].recipes)
+	end)
+
+	it("drops from the copies it holds the recipes the game places in another profession", function()
+		recipeLines = {}
+		professions:hear("Anna Conda", alchemy(900, { 2329, 7421 }))
+		recipeLines = { [7421] = ENCHANTING }
+		professions:prune()
+		assert.same({ 2329 }, shown("Hugh Jass")[1].recipes)
+	end)
+
+	it("says a recipe belongs to a profession unless the game places it in another", function()
+		assert.is_true(Professions.belongsTo(ALCHEMY, ALCHEMY))
+		assert.is_false(Professions.belongsTo(ENCHANTING, ALCHEMY))
+		assert.is_true(Professions.belongsTo(nil, ALCHEMY))
+		assert.is_true(Professions.belongsTo(2540, ALCHEMY)) -- a skill line not of the game's
+	end)
+
 	it("shows this account's characters' professions before any sync, registered or not", function()
 		settings.shareProfessions = false
 		characters.current["Dee Zaster"] = { { skillLine = ALCHEMY, level = 5, maxLevel = 75, recipes = { 2329 } } }
@@ -389,6 +436,13 @@ describe("Professions", function()
 			professions:hear("Anna Conda", alchemy())
 			local theirs = other()
 			theirs:hear("Cole Slaw", alchemy())
+			assert.same({}, professions:answer("Anna Conda", theirs:digest("Cole Slaw")))
+		end)
+
+		it("passes on nothing to a peer that dropped the same recipes from a copy", function()
+			professions:hear("Anna Conda", alchemy(900, { 2329, 7421 }))
+			local theirs = other()
+			theirs:hear("Cole Slaw", alchemy(900, { 2329 }))
 			assert.same({}, professions:answer("Anna Conda", theirs:digest("Cole Slaw")))
 		end)
 

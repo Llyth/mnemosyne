@@ -335,6 +335,18 @@ describe("Self", function()
 			)
 		end)
 
+		it("takes recipes read under the wrong profession away from it", function()
+			characters:seeProfessions("Hugh Jass", {
+				{ skillLine = TAILORING, level = 50, maxLevel = 75 },
+				{ skillLine = COOKING, level = 1, maxLevel = 75 },
+			})
+			-- A window read while the game still gave the profession before it.
+			characters:seeRecipes("Hugh Jass", COOKING, { 10, 20 }, { 10 })
+			characters:seeRecipes("Hugh Jass", TAILORING, { 10, 20, 30 }, { 10 })
+			assert.same({ [TAILORING] = { 10, 20, 30 } }, characters:recipeIDs("Hugh Jass"))
+			assert.is_nil(characters:currentProfessions("Hugh Jass")[1].recipes) -- Cooking
+		end)
+
 		it("keeps the recipes when the skill level is read again", function()
 			characters:seeProfessions("Hugh Jass", { { skillLine = TAILORING, level = 50, maxLevel = 75 } })
 			characters:seeRecipes("Hugh Jass", TAILORING, { 10 }, { 10 })

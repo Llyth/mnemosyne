@@ -16,10 +16,28 @@ local WIDTH = ns.Window.WIDTH
 local ROW = 20
 local RECIPES_WIDTH = 290 -- the recipes list, left of the characters list
 
--- The game's names, looked up when shown (decision 0008).
+-- One of your professions' name and icon from GetProfessionInfo, or nil.
+local function ownProfession(skillLine)
+	local indexes = { GetProfessions() } -- holes where a slot is empty
+	for i = 1, 5 do
+		if indexes[i] then
+			local name, icon, _, _, _, _, line = GetProfessionInfo(indexes[i])
+			if line == skillLine then
+				return name, icon
+			end
+		end
+	end
+end
+
+-- The game's names, looked up when shown (decision 0008): one of yours as
+-- GetProfessionInfo names it, the name your Professions window shows.
 local lookups = {
 	profession = function(skillLine)
-		local name = C_TradeSkillUI.GetTradeSkillDisplayName(skillLine)
+		local name = ownProfession(skillLine)
+		if name and name ~= "" then
+			return name
+		end
+		name = C_TradeSkillUI.GetTradeSkillDisplayName(skillLine)
 		if name and name ~= "" then
 			return name
 		end
@@ -41,8 +59,6 @@ local PROFESSION_ICONS = {
 	[333] = "Interface\\Icons\\Trade_Engraving",
 	[202] = "Interface\\Icons\\Trade_Engineering",
 	[182] = "Interface\\Icons\\Trade_Herbalism",
-	[773] = "Interface\\Icons\\INV_Inscription_Tradeskill01",
-	[755] = "Interface\\Icons\\INV_Misc_Gem_01",
 	[165] = "Interface\\Icons\\Trade_LeatherWorking",
 	[186] = "Interface\\Icons\\Trade_Mining",
 	[393] = "Interface\\Icons\\INV_Misc_Pelt_Wolf_01",
@@ -50,22 +66,13 @@ local PROFESSION_ICONS = {
 	[185] = "Interface\\Icons\\INV_Misc_Food_15",
 	[129] = "Interface\\Icons\\Spell_Holy_SealOfSacrifice",
 	[356] = "Interface\\Icons\\Trade_Fishing",
-	[794] = "Interface\\Icons\\Trade_Archaeology",
 }
 local UNKNOWN_ICON = 134400 -- the question mark
 
 -- A profession's icon: the game's for one of yours, else the table's.
 local function professionIcon(skillLine)
-	local indexes = { GetProfessions() } -- holes where a slot is empty
-	for i = 1, 5 do
-		if indexes[i] then
-			local _, icon, _, _, _, _, line = GetProfessionInfo(indexes[i])
-			if line == skillLine and icon then
-				return icon
-			end
-		end
-	end
-	return PROFESSION_ICONS[skillLine] or UNKNOWN_ICON
+	local _, icon = ownProfession(skillLine)
+	return icon or PROFESSION_ICONS[skillLine] or UNKNOWN_ICON
 end
 
 -- Recipes' crafted items (false for none) and icons, by recipe ID, looked up
@@ -201,20 +208,27 @@ local function tile(i)
 end
 
 -- Lays the professions out as tiles filling the overview: the column count
--- giving the biggest tiles, at most twice as wide as high.
+-- giving the biggest tiles, at most twice as wide as high. The gathering
+-- professions start their own row, under the Primary heading too.
+local HEADING_OF = { 1, 1, 2 } -- crafting, gathering, secondary
 local function layOut(found)
-	local sections = { {}, {} }
+	local sections = { {}, {}, {} }
 	for _, profession in ipairs(found) do
-		table.insert(sections[profession.secondary and 2 or 1], profession)
+		table.insert(sections[profession.secondary and 3 or profession.gathering and 2 or 1], profession)
 	end
 	local width, height = overview:GetSize()
-	local headed = (#sections[1] > 0 and 1 or 0) + (#sections[2] > 0 and 1 or 0)
+	local primary = #sections[1] + #sections[2] > 0
+	local headed = (primary and 1 or 0) + (#sections[3] > 0 and 1 or 0)
 	local free = height - headed * HEADING
 	local function rows(columns)
-		return math.ceil(#sections[1] / columns) + math.ceil(#sections[2] / columns)
+		local count = 0
+		for _, section in ipairs(sections) do
+			count = count + math.ceil(#section / columns)
+		end
+		return count
 	end
 	local columns, best = 1, 0
-	for count = 1, math.max(#sections[1], #sections[2]) do
+	for count = 1, math.max(#sections[1], #sections[2], #sections[3]) do
 		local size = math.min(width / count, 2 * free / rows(count))
 		if size > best then
 			columns, best = count, size
@@ -222,12 +236,18 @@ local function layOut(found)
 	end
 	local tileWidth, tileHeight = width / columns - GAP, free / rows(columns) - GAP
 	local y, shown = 0, 0
+	headings[1]:SetShown(primary)
+	headings[2]:SetShown(#sections[3] > 0)
+	local placed = {}
 	for i, section in ipairs(sections) do
-		headings[i]:SetShown(#section > 0)
-		if #section > 0 then
-			headings[i]:SetText(i == 1 and L.PROFESSIONS_PRIMARY or L.PROFESSIONS_SECONDARY)
-			headings[i]:SetPoint("TOPLEFT", 7, -(y + 4))
+		local h = HEADING_OF[i]
+		if #section > 0 and not placed[h] then
+			placed[h] = true
+			headings[h]:SetText(h == 1 and L.PROFESSIONS_PRIMARY or L.PROFESSIONS_SECONDARY)
+			headings[h]:SetPoint("TOPLEFT", 7, -(y + 4))
 			y = y + HEADING
+		end
+		if #section > 0 then
 			for j, profession in ipairs(section) do
 				shown = shown + 1
 				local button = tile(shown)

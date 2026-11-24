@@ -31,23 +31,22 @@ local BUCKETS = Protocol.DIGEST_LENGTH / 8 -- 8 hexadecimal digits a bucket
 
 Professions.MAX_CHANGES_PER_PEER = 2000
 -- The game's professions, by skill line ID: any other heard is dropped, so a
--- peer cannot grow one character without end.
+-- peer cannot grow one character without end. Each is "crafting", "gathering"
+-- (both primary) or "secondary". Forever has no Jewelcrafting, Inscription or
+-- Archaeology.
 Professions.SKILL_LINES = {
-	[171] = "primary", -- Alchemy
-	[164] = "primary", -- Blacksmithing
-	[333] = "primary", -- Enchanting
-	[202] = "primary", -- Engineering
-	[182] = "primary", -- Herbalism
-	[773] = "primary", -- Inscription
-	[755] = "primary", -- Jewelcrafting
-	[165] = "primary", -- Leatherworking
-	[186] = "primary", -- Mining
-	[393] = "primary", -- Skinning
-	[197] = "primary", -- Tailoring
+	[171] = "crafting", -- Alchemy
+	[164] = "crafting", -- Blacksmithing
+	[333] = "crafting", -- Enchanting
+	[202] = "crafting", -- Engineering
+	[165] = "crafting", -- Leatherworking
+	[197] = "crafting", -- Tailoring
+	[182] = "gathering", -- Herbalism
+	[186] = "gathering", -- Mining
+	[393] = "gathering", -- Skinning
 	[185] = "secondary", -- Cooking
 	[129] = "secondary", -- First Aid
 	[356] = "secondary", -- Fishing
-	[794] = "secondary", -- Archaeology
 }
 Professions.KEPT_FOR = 30 * DAY -- after a character was last seen on a roster or as a friend's
 Professions.MAX_SYNC_BYTES = 100000 -- of professions a sync passes on
@@ -59,7 +58,9 @@ Professions.MAX_SYNC_BYTES = 100000 -- of professions a sync passes on
 -- from it, and never adopted from peers.
 -- settings: the saved settings; settings.passOn switches passing on what was
 -- heard from others (this account's characters' professions always go).
-function Professions.new(saved, clock, memory, characters, settings)
+-- recipeSkillLine: returns the skill line the game places a recipe ID in, or
+-- nil when it cannot; peers' recipes placed in another profession are dropped.
+function Professions.new(saved, clock, memory, characters, settings, recipeSkillLine)
 	saved.held = saved.held or {} -- name -> { guid, own, skills = { [skillLine] = profession } }
 	saved.seen = saved.seen or {} -- name -> when last seen on a roster or as a friend's
 	saved.newFrom = saved.newFrom or {} -- peer -> { since, count }
@@ -77,10 +78,35 @@ function Professions.new(saved, clock, memory, characters, settings)
 		memory = memory,
 		characters = characters,
 		settings = settings,
+		recipeSkillLine = recipeSkillLine or function() end,
 		roster = {}, -- the current guild roster, a set, for this session
 		changes = 0, -- how many changes were heard this session: the window redraws when it moves
 		hashes = setmetatable({}, { __mode = "k" }), -- profession -> its hash, computed once
 	}, Professions)
+end
+
+-- Whether a recipe belongs to a profession (a skill line), from the skill line
+-- the game places it in: yes unless that is another of the game's skill lines,
+-- so a recipe the game cannot place (nil, or a skill line it has no
+-- profession for) is kept.
+function Professions.belongsTo(lookedUp, skillLine)
+	return not Professions.SKILL_LINES[lookedUp] or lookedUp == skillLine
+end
+
+-- A peer's recipes of a profession without those the game places in another:
+-- 1.1.x saved a window's recipes under the profession opened before. The
+-- same table when none is dropped.
+local function ownRecipes(self, skillLine, recipes)
+	if not recipes then
+		return nil
+	end
+	local kept = {}
+	for _, recipe in ipairs(recipes) do
+		if Professions.belongsTo(self.recipeSkillLine(recipe), skillLine) then
+			kept[#kept + 1] = recipe
+		end
+	end
+	return #kept < #recipes and kept or recipes
 end
 
 local function hash(text)
@@ -167,6 +193,15 @@ function Professions:hear(peer, heard)
 	then
 		return false
 	end
+	heard = {
+		name = name,
+		skillLine = skillLine,
+		revision = heard.revision,
+		level = heard.level,
+		maxLevel = heard.maxLevel,
+		recipes = ownRecipes(self, skillLine, heard.recipes),
+		guid = heard.guid,
+	}
 	local character = self.held[name]
 	local known = character and character.skills[skillLine]
 	local same = known
@@ -225,7 +260,8 @@ end
 
 -- Drops quietly the professions no longer kept: of characters neither seen on
 -- a roster nor as a friend's in the last 30 days or whose identity is held as
--- a removal, and the second-hand ones of forgotten characters.
+-- a removal, and the second-hand ones of forgotten characters. Drops from the
+-- peers' professions held the recipes the game places in another profession.
 function Professions:prune()
 	local now = self.clock()
 	for name, seenAt in pairs(self.seen) do
@@ -245,6 +281,13 @@ function Professions:prune()
 				end
 				if not next(character.skills) then
 					self.held[name] = nil
+				end
+			end
+			for skillLine, profession in pairs(character.skills) do
+				local recipes = ownRecipes(self, skillLine, profession.recipes)
+				if recipes ~= profession.recipes then
+					profession.recipes = recipes
+					self.hashes[profession] = nil
 				end
 			end
 		end

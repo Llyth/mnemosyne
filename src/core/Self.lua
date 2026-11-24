@@ -252,15 +252,31 @@ end
 
 -- Reads a profession's recipes: every recipe ID of the profession (read while
 -- its window is open) and the learned ones. Ignored for a profession the
--- character does not have. Returns true when it changed what was read.
+-- character does not have. A recipe belongs to one profession: another of the
+-- character's holding any of them read them under the wrong skill line, and
+-- loses its recipes until its own window is read. Returns true when it
+-- changed what was read.
 function Self:seeRecipes(name, skillLine, recipeIDs, learned)
-	local profession = professionsOf(self, name)[skillLine]
+	local professions = professionsOf(self, name)
+	local profession = professions[skillLine]
 	if not (profession and profession.level) then
 		return false
 	end
 	recipeIDs, learned = sorted(recipeIDs), sorted(learned)
 	local changed = not (sameList(recipeIDs, profession.recipeIDs) and sameList(learned, profession.learned))
 	profession.recipeIDs, profession.learned = recipeIDs, learned
+	local read = {}
+	for _, id in ipairs(recipeIDs) do
+		read[id] = true
+	end
+	for other, held in pairs(professions) do
+		for _, id in ipairs(other ~= skillLine and held.recipeIDs or {}) do
+			if read[id] then
+				held.recipeIDs, held.learned, changed = nil, nil, true
+				break
+			end
+		end
+	end
 	return changed
 end
 
