@@ -1,15 +1,15 @@
 ## Interface: 16001
 ## Title: Mnemosyne
-## Notes: Recognize the players you know behind their WoW Forever characters: the nickname they go by, on their tooltip and in chat.
-## Notes-frFR: Reconnaissez les joueurs que vous connaissez derrière leurs personnages de WoW Forever : le pseudonyme sous lequel ils jouent, dans leur infobulle et dans la discussion.
-## Notes-deDE: Erkennt die Spieler, die Ihr kennt, hinter ihren WoW-Forever-Charakteren: den Spitznamen, unter dem sie bekannt sind, in ihrem Tooltip und im Chat.
-## Notes-esES: Reconoce a los jugadores que conoces tras sus personajes de WoW Forever: el apodo que usan, en su descripción y en el chat.
-## Notes-esMX: Reconoce a los jugadores que conoces detrás de sus personajes de WoW Forever: el apodo con el que se les conoce, en su descripción emergente y en el chat.
-## Notes-ptBR: Reconheça os jogadores que você conhece por trás dos personagens de WoW Forever: o apelido que eles usam, na dica de interface e no bate-papo.
-## Notes-ruRU: Узнавайте знакомых игроков за их персонажами в WoW Forever: прозвище, под которым их знают, в подсказке и в чате.
-## Notes-koKR: WoW Forever 캐릭터 뒤에 있는 아는 플레이어를 알아보세요: 그 플레이어의 별명을 툴팁과 대화창에 표시합니다.
-## Notes-zhCN: 在WoW Forever中认出你认识的玩家，无论他们用哪个角色：在鼠标提示和聊天中显示他们的昵称。
-## Notes-zhTW: 在WoW Forever角色背後認出你認識的玩家：在他們的滑鼠提示和聊天中顯示他們使用的暱稱。
+## Notes: Recognize the players you know behind their WoW Forever characters: the nickname they go by, on their tooltip and in chat. See the professions and recipes of your guild and friends.
+## Notes-frFR: Reconnaissez les joueurs que vous connaissez derrière leurs personnages de WoW Forever : le pseudonyme sous lequel ils jouent, dans leur infobulle et dans la discussion. Consultez les métiers et les recettes de votre guilde et de vos amis.
+## Notes-deDE: Erkennt die Spieler, die Ihr kennt, hinter ihren WoW-Forever-Charakteren: den Spitznamen, unter dem sie bekannt sind, in ihrem Tooltip und im Chat. Seht die Berufe und Rezepte Eurer Gilde und Eurer Freunde.
+## Notes-esES: Reconoce a los jugadores que conoces tras sus personajes de WoW Forever: el apodo que usan, en su descripción y en el chat. Consulta las profesiones y recetas de tu hermandad y tus amigos.
+## Notes-esMX: Reconoce a los jugadores que conoces detrás de sus personajes de WoW Forever: el apodo con el que se les conoce, en su descripción emergente y en el chat. Consulta las profesiones y recetas de tu hermandad y tus amigos.
+## Notes-ptBR: Reconheça os jogadores que você conhece por trás dos personagens de WoW Forever: o apelido que eles usam, na dica de interface e no bate-papo. Veja as profissões e receitas da sua guilda e dos seus amigos.
+## Notes-ruRU: Узнавайте знакомых игроков за их персонажами в WoW Forever: прозвище, под которым их знают, в подсказке и в чате. Смотрите профессии и рецепты вашей гильдии и друзей.
+## Notes-koKR: WoW Forever 캐릭터 뒤에 있는 아는 플레이어를 알아보세요: 그 플레이어의 별명을 툴팁과 대화창에 표시합니다. 길드원과 친구의 전문 기술과 제조법도 확인하세요.
+## Notes-zhCN: 在WoW Forever中认出你认识的玩家，无论他们用哪个角色：在鼠标提示和聊天中显示他们的昵称。还可以查看公会成员和好友的专业和配方。
+## Notes-zhTW: 在WoW Forever角色背後認出你認識的玩家：在他們的滑鼠提示和聊天中顯示他們使用的暱稱。還可以查看公會成員和好友的專業技能和配方。
 ## Author: Llyth
 ## Version: @project-version@
 ## SavedVariables: MnemosyneDB
