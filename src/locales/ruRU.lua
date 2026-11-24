@@ -188,3 +188,17 @@ L.STATUS_NO_SYNC = "Не было синхронизаций за последн
 L.WINDOW_WHISPER = "Шепот"
 L.WINDOW_LAST_SYNC = "Последняя синхронизация: %s, %s." -- a peer and how long ago
 L.WINDOW_WAITING = "В очереди: %d"
+
+-- The window's Professions tab.
+L.PROFESSIONS = "Профессии"
+L.PROFESSIONS_PRIMARY = "Основные профессии"
+L.PROFESSIONS_SECONDARY = "Вспомогательные профессии"
+L.PROFESSIONS_RECIPES = "Рецепты"
+L.PROFESSIONS_CHARACTERS = "Персонажи"
+L.PROFESSIONS_KNOWN_BY = "Кто знает рецепт «%s»"
+L.PROFESSIONS_RECIPE_COUNT = "%d |4рецепт:рецепта:рецептов;"
+L.PROFESSIONS_CHARACTER_COUNT = "%d |4персонаж:персонажа:персонажей;"
+L.PROFESSIONS_SEARCH = "Поиск по рецептам, именам и прозвищам"
+L.PROFESSIONS_NO_RECIPE = "Рецепты не найдены."
+L.PROFESSIONS_BACK = "Назад"
+L.HELP_PROFESSIONS = "/mnemosyne professions: открыть вкладку «Профессии»"

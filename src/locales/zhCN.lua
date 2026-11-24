@@ -160,3 +160,17 @@ L.STATUS_NO_SYNC = "过去6小时内没有同步。"
 L.WINDOW_WHISPER = "密语"
 L.WINDOW_LAST_SYNC = "上次同步：%s，%s。" -- a peer and how long ago
 L.WINDOW_WAITING = "等待中：%d"
+
+-- The window's Professions tab.
+L.PROFESSIONS = "专业"
+L.PROFESSIONS_PRIMARY = "主要专业"
+L.PROFESSIONS_SECONDARY = "辅助专业"
+L.PROFESSIONS_RECIPES = "配方"
+L.PROFESSIONS_CHARACTERS = "角色"
+L.PROFESSIONS_KNOWN_BY = "已学会%s的角色"
+L.PROFESSIONS_RECIPE_COUNT = "%d个配方"
+L.PROFESSIONS_CHARACTER_COUNT = "%d个角色"
+L.PROFESSIONS_SEARCH = "搜索配方、名字和昵称"
+L.PROFESSIONS_NO_RECIPE = "没有找到配方。"
+L.PROFESSIONS_BACK = "返回"
+L.HELP_PROFESSIONS = "/mnemosyne professions：打开专业标签页"

@@ -299,6 +299,15 @@ describe("Professions", function()
 		)
 	end)
 
+	it("counts the changes heard from peers, for the window to redraw", function()
+		assert.equal(0, professions.changes)
+		professions:hear("Anna Conda", alchemy())
+		professions:hear("Anna Conda", alchemy())
+		assert.equal(1, professions.changes)
+		professions:hear("Cole Slaw", alchemy(900, { 1 }))
+		assert.equal(2, professions.changes)
+	end)
+
 	it("lists who knows each recipe of a profession", function()
 		professions:hear("Hugh Jass", alchemy(900, { 2329, 2330 }))
 		professions:hear(

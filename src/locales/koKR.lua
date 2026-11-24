@@ -175,3 +175,17 @@ L.STATUS_NO_SYNC = "최근 6시간 내 동기화 없음."
 L.WINDOW_WHISPER = "귓속말"
 L.WINDOW_LAST_SYNC = "마지막 동기화: %s, %s." -- a peer and how long ago
 L.WINDOW_WAITING = "대기 중: %d"
+
+-- The window's Professions tab.
+L.PROFESSIONS = "전문 기술"
+L.PROFESSIONS_PRIMARY = "주 전문 기술"
+L.PROFESSIONS_SECONDARY = "보조 전문 기술"
+L.PROFESSIONS_RECIPES = "제조법"
+L.PROFESSIONS_CHARACTERS = "캐릭터"
+L.PROFESSIONS_KNOWN_BY = "%s을(를) 아는 캐릭터"
+L.PROFESSIONS_RECIPE_COUNT = "제조법 %d개"
+L.PROFESSIONS_CHARACTER_COUNT = "캐릭터 %d명"
+L.PROFESSIONS_SEARCH = "제조법, 이름 및 별명 검색"
+L.PROFESSIONS_NO_RECIPE = "찾은 제조법이 없습니다."
+L.PROFESSIONS_BACK = "뒤로"
+L.HELP_PROFESSIONS = "/mnemosyne professions: 전문 기술 탭 열기"

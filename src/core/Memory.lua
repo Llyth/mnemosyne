@@ -99,6 +99,7 @@ end
 local function fold(text)
 	return (text:gsub("[\192-\223][\128-\191]", FOLDED):lower())
 end
+Memory.fold = fold -- for sorting by name elsewhere (Catalog)
 
 -- Whether a character's name or nickname contains the folded text.
 local function matches(wanted, name, nickname)

@@ -30,6 +30,7 @@ src\core\Scope.lua
 src\core\Report.lua
 src\core\Outbox.lua
 src\core\Inbox.lua
+src\core\Catalog.lua
 src\locales\enUS.lua
 src\locales\frFR.lua
 src\locales\deDE.lua
@@ -49,5 +50,6 @@ src\interface\Prompt.lua
 src\interface\Panel.lua
 src\interface\Window.lua
 src\interface\Identities.lua
+src\interface\ProfessionsTab.lua
 src\client\Encounter.lua
 src\interface\ReportWindow.lua

@@ -167,3 +167,17 @@ L.STATUS_NO_SYNC = "Nenhuma sincronização nas últimas 6 horas."
 L.WINDOW_WHISPER = "Sussurrar"
 L.WINDOW_LAST_SYNC = "Última sincronização: %s, %s." -- a peer and how long ago
 L.WINDOW_WAITING = "Na fila: %d"
+
+-- The window's Professions tab.
+L.PROFESSIONS = "Profissões"
+L.PROFESSIONS_PRIMARY = "Profissões primárias"
+L.PROFESSIONS_SECONDARY = "Profissões secundárias"
+L.PROFESSIONS_RECIPES = "Receitas"
+L.PROFESSIONS_CHARACTERS = "Personagens"
+L.PROFESSIONS_KNOWN_BY = "Quem conhece %s"
+L.PROFESSIONS_RECIPE_COUNT = "%d |4receita:receitas;"
+L.PROFESSIONS_CHARACTER_COUNT = "%d |4personagem:personagens;"
+L.PROFESSIONS_SEARCH = "Procurar receitas, nomes e apelidos"
+L.PROFESSIONS_NO_RECIPE = "Nenhuma receita encontrada."
+L.PROFESSIONS_BACK = "Voltar"
+L.HELP_PROFESSIONS = "/mnemosyne professions: abrir a aba Profissões"

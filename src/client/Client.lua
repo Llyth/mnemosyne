@@ -250,6 +250,33 @@ function Client.inScope(name)
 	return ns.scope:allows(name)
 end
 
+-- The characters online now that the game tells of, as a set of names: this
+-- one, the friends' and the guildmates'.
+function Client.onlineNames()
+	local online, isKnown = {}, Client.isKnown
+	online[Client.playerName() or ""] = true
+	for i = 1, BNGetNumFriends() do
+		for j = 1, C_BattleNet.GetFriendNumGameAccounts(i) do
+			local account = C_BattleNet.GetFriendGameAccountInfo(i, j)
+			if
+				account
+				and account.clientProgram == BNET_CLIENT_WOW
+				and account.isOnline
+				and isKnown(account.characterName)
+			then
+				online[account.characterName] = true
+			end
+		end
+	end
+	for i = 1, GetNumGuildMembers() do
+		local name, _, _, _, _, _, _, _, isOnline = GetGuildRosterInfo(i)
+		if isKnown(isOnline) and isOnline and isKnown(name) then
+			online[name] = true
+		end
+	end
+	return online
+end
+
 local function listsChanged()
 	scopeRead = false
 end
@@ -294,6 +321,14 @@ local handlers = {}
 -- This character's professions (decision 0008), read into Self as they change;
 -- peers get them only once a sync stamps them.
 
+-- Redraws the window's open tab once this character's professions changed:
+-- the Professions tab shows them as read now.
+local function redraw(changed)
+	if changed and ns.Window then
+		ns.Window.refresh()
+	end
+end
+
 -- Reads the skill level of each profession, secondary ones included, keyed by
 -- skill line ID (GetProfessionInfo's 7th value), never by the name. At login an
 -- empty read is skipped: the game may not have the professions yet, and an
@@ -310,12 +345,13 @@ local function readProfessions(atLogin)
 		end
 	end
 	if list[1] or not atLogin then
-		ns.characters:seeProfessions(playerName, list)
+		redraw(ns.characters:seeProfessions(playerName, list))
 	end
 end
 
 -- Rechecks which saved recipes are learned, with the windows closed.
 local function recheckRecipes()
+	local changed = false
 	for skillLine, recipeIDs in pairs(ns.characters:recipeIDs(playerName)) do
 		local learned = {}
 		for _, recipeID in ipairs(recipeIDs) do
@@ -323,8 +359,9 @@ local function recheckRecipes()
 				learned[#learned + 1] = recipeID
 			end
 		end
-		ns.characters:seeRecipes(playerName, skillLine, recipeIDs, learned)
+		changed = ns.characters:seeRecipes(playerName, skillLine, recipeIDs, learned) or changed
 	end
+	redraw(changed)
 end
 
 -- Whether the open profession window is the player's own: not a linked
@@ -365,7 +402,7 @@ local function readRecipes()
 			learned[#learned + 1] = recipeID
 		end
 	end
-	ns.characters:seeRecipes(playerName, profession.professionID, recipeIDs, learned)
+	redraw(ns.characters:seeRecipes(playerName, profession.professionID, recipeIDs, learned))
 end
 
 function handlers.TRADE_SKILL_SHOW()
@@ -506,6 +543,8 @@ end
 handlers.BN_FRIEND_INFO_CHANGED = listsChanged
 handlers.GUILD_ROSTER_UPDATE = listsChanged
 
+local redrawPending -- a redraw for professions a sync brought, due soon
+
 -- A message from a peer goes to Inbox once known to hold no secret value
 -- (comparing one raises an error).
 function handlers.CHAT_MSG_ADDON(prefix, text, channel, sender)
@@ -517,7 +556,16 @@ function handlers.CHAT_MSG_ADDON(prefix, text, channel, sender)
 		Debug.dropped(nil, "secret", "?")
 		return
 	end
+	local changes = ns.professions.changes
 	inbox:receive(sender, channel, text)
+	if ns.professions.changes ~= changes and ns.Window and not redrawPending then
+		-- A sync brought professions: one redraw for a burst of messages.
+		redrawPending = true
+		C_Timer.After(0.5, function()
+			redrawPending = false
+			ns.Window.refresh()
+		end)
+	end
 end
 
 loopBack = handlers.CHAT_MSG_ADDON
