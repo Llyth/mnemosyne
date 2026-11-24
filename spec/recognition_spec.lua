@@ -86,6 +86,19 @@ describe("Recognition", function()
 			assert.equal("Bob", recognition:recall("Hugh", "Player-1-00000002").nickname)
 		end)
 
+		it("shows each GUID it learns to the professions, so a reused name's go stale", function()
+			local seen = {}
+			local professions = {
+				see = function(_, name, guid)
+					seen[#seen + 1] = name .. " " .. guid
+				end,
+			}
+			recognition = Recognition.new(memory, settings, ns.L, clock, nil, professions)
+			recognition:learn(GUID, "Anna Conda")
+			recognition:learn("", "Anna Conda")
+			assert.same({ "Anna Conda " .. GUID }, seen)
+		end)
+
 		it("learns nothing from a line without a GUID or a name", function()
 			recognition:learn("", "Hugh Jass")
 			recognition:learn(GUID, "")

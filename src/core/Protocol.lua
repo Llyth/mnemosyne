@@ -22,6 +22,17 @@
 --                               G:<guid> when its character's GUID is known,
 --                               then a line F when the sender vouches it
 --                               heard it first-hand in the last day
+--   2:H:<digest>                the sender's professions hashed in buckets,
+--                               as 2:D (decision 0008), sent before it
+--   2:K:<profession>[\n<profession>...]
+--                               professions passed on, after the identities,
+--                               each <revision>:<name>:<skill line ID>, then
+--                               :<level>:<max level> unless it is a removal,
+--                               then :<recipes> once the recipes were read:
+--                               the recipe IDs sorted, as base-36 differences
+--                               (the first ID, then each minus the one before),
+--                               comma-separated; followed by a line G:<guid>
+--                               when its character's GUID is known
 --   2:E                         the sender has sent all it had to send
 --
 -- News (decision 0002) adds, on the guild channel:
@@ -69,6 +80,9 @@ Protocol.MAX_CHUNKED_BYTES = 4096
 -- dropped, so one costs the reader little.
 Protocol.MAX_LINES = 16
 Protocol.MAX_GUID_BYTES = 32 -- a character's GUID, "Player-<server>-<id>", is about 20
+-- Recipes of one profession: the largest, Tailoring, holds 471, learned or not.
+Protocol.MAX_RECIPES = 600
+local MAX_RECIPE_ID = 2147483647
 
 local CHUNK_HEADER_BYTES = #"2:C:99:99:99:" -- the longest chunk header
 local MAX_ID = 99
@@ -87,6 +101,8 @@ local KIND_LETTER = {
 	identities = "I",
 	done = "E",
 	news = "P", -- posted; G is a GUID's line, inside identities
+	professionDigest = "H", -- hashed
+	professions = "K",
 }
 local KIND_NAME = {}
 for name, letter in pairs(KIND_LETTER) do
@@ -208,6 +224,12 @@ function Protocol.write(message)
 		return text .. ":" .. table.concat(lines, "\n")
 	elseif message.identity then
 		return text .. ":" .. writeIdentity(message.identity)
+	elseif message.professions then
+		local lines = {}
+		for i, profession in ipairs(message.professions) do
+			lines[i] = Protocol.writeProfession(profession)
+		end
+		return text .. ":" .. table.concat(lines, "\n")
 	end
 	if message.revision then
 		text = text .. ":" .. tostring(message.revision)
@@ -233,6 +255,117 @@ function Protocol.batch(identities)
 		lines = lines + cost
 	end
 	return batches
+end
+
+local BASE36 = "0123456789abcdefghijklmnopqrstuvwxyz"
+
+local function base36(number)
+	local text = ""
+	repeat
+		local digit = number % 36
+		text = BASE36:sub(digit + 1, digit + 1) .. text
+		number = (number - digit) / 36
+	until number == 0
+	return text
+end
+
+-- Writes a profession passed on ({ name, skillLine, revision, level, maxLevel,
+-- recipes, guid }, a removal without a level), and its GUID on a line of its
+-- own when known. Trusts its input: the recipe IDs sorted, from Self or a peer
+-- checked by read.
+function Protocol.writeProfession(profession)
+	local text = profession.revision .. ":" .. profession.name .. ":" .. profession.skillLine
+	if profession.level then
+		text = text .. ":" .. profession.level .. ":" .. profession.maxLevel
+		if profession.recipes then
+			local previous, parts = 0, {}
+			for i, recipe in ipairs(profession.recipes) do
+				parts[i] = base36(recipe - previous)
+				previous = recipe
+			end
+			text = text .. ":" .. table.concat(parts, ",")
+		end
+	end
+	return text .. (profession.guid and "\nG:" .. profession.guid or "")
+end
+
+-- Splits professions into batches, each the professions of one message that a
+-- peer reads whole (at most MAX_CHUNKED_BYTES). One that could never fit is
+-- left out.
+-- shortcut: a profession past about 4 KB (over 1,000 recipes) never goes; split
+-- its recipes over lines if professions ever grow that large.
+function Protocol.batchProfessions(professions)
+	local limit = Protocol.MAX_CHUNKED_BYTES - #"2:K:"
+	local batches, bytes = {}, limit
+	for _, profession in ipairs(professions) do
+		local cost = #Protocol.writeProfession(profession) + 1
+		if cost <= limit then
+			if bytes + cost > limit then
+				batches[#batches + 1] = {}
+				bytes = 0
+			end
+			local batch = batches[#batches]
+			batch[#batch + 1] = profession
+			bytes = bytes + cost
+		end
+	end
+	return batches
+end
+
+-- Reads a decimal number of at most maxDigits digits, without leading zeros.
+local function readNumber(text, maxDigits)
+	if text and #text <= maxDigits and (text == "0" or text:match("^[1-9]%d*$")) then
+		return tonumber(text)
+	end
+end
+
+-- Reads recipe IDs written by writeProfession: at most MAX_RECIPES, each
+-- difference 1 to 6 base-36 digits without leading zeros, so the IDs come out
+-- sorted, each once. Returns them, or nil.
+local function readRecipes(text)
+	local recipes, previous = {}, 0
+	if text == "" then
+		return recipes
+	end
+	for token in (text .. ","):gmatch("([^,]*),") do
+		if #recipes >= Protocol.MAX_RECIPES or #token > 6 or not token:match("^[1-9a-z][0-9a-z]*$") then
+			return nil
+		end
+		previous = previous + tonumber(token, 36)
+		if previous > MAX_RECIPE_ID then
+			return nil
+		end
+		recipes[#recipes + 1] = previous
+	end
+	return recipes
+end
+
+-- Reads one profession passed on (writeProfession's line). Returns it, or nil.
+local function readProfession(line)
+	local revisionText, name, rest = line:match("^([^:]*):([^:]*):(.*)$")
+	local revision = readRevision(revisionText)
+	if not revision or not isFullName(name) then
+		return nil
+	end
+	local skillText, levelText, maxText, recipesText = rest:match("^([^:]*):?([^:]*):?([^:]*):?(.*)$")
+	local skillLine = readNumber(skillText, 6)
+	if not skillLine or skillLine == 0 then
+		return nil
+	elseif rest == skillText then
+		return { name = name, skillLine = skillLine, revision = revision }
+	end
+	local level, maxLevel = readNumber(levelText, 4), readNumber(maxText, 4)
+	if not level or not maxLevel or maxLevel == 0 or level > maxLevel then
+		return nil
+	end
+	local profession = { name = name, skillLine = skillLine, revision = revision, level = level, maxLevel = maxLevel }
+	if #rest > #skillText + #levelText + #maxText + 2 then
+		profession.recipes = readRecipes(recipesText)
+		if not profession.recipes then
+			return nil
+		end
+	end
+	return profession
 end
 
 -- Reads a GUID passed on with an identity. Returns it, or nil when it is not a
@@ -290,7 +423,7 @@ local function readWhole(text, maxBytes)
 		return nil, rest
 	end
 	local kind = KIND_NAME[letter]
-	if kind == "digest" then
+	if kind == "digest" or kind == "professionDigest" then
 		local digest = rest:match("^:(%x+)$")
 		if not digest or #digest ~= Protocol.DIGEST_LENGTH or digest:find("%u") then
 			return nil, "malformed"
@@ -333,6 +466,30 @@ local function readWhole(text, maxBytes)
 			return nil, reason or "malformed"
 		end
 		return { kind = kind, identities = identities }
+	elseif kind == "professions" then
+		if rest:sub(1, 1) ~= ":" then
+			return nil, "malformed"
+		end
+		-- Each profession stands alone, as an identity does: one that does not
+		-- parse is dropped, the others kept; a GUID goes with the profession on
+		-- the line just before it.
+		local professions, last = {}, nil
+		for line in (rest:sub(2) .. "\n"):gmatch("([^\n]*)\n") do
+			local guid = line:match("^G:(.*)$")
+			if guid then
+				if last then
+					last.guid = readGuid(guid)
+				end
+				last = nil
+			else
+				last = readProfession(line)
+				professions[#professions + 1] = last
+			end
+		end
+		if not professions[1] then
+			return nil, "malformed"
+		end
+		return { kind = kind, professions = professions }
 	elseif kind == "news" then
 		if rest:sub(1, 1) ~= ":" then
 			return nil, "malformed"

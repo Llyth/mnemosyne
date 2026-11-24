@@ -29,9 +29,9 @@ function Report.keep(list, entry, max)
 	end
 end
 
--- A sync's identities and chunks, hundreds at a time, would push every other
+-- A sync's identities, professions and chunks, hundreds at a time, would push every other
 -- event out of the report.
-local BULK = { identities = true, chunk = true }
+local BULK = { identities = true, professions = true, chunk = true }
 
 -- Keeps an event for the report, kind being the kind of message it is about,
 -- if any: a sync's identities and chunks are left out, unless a send failed.

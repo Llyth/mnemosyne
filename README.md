@@ -169,9 +169,14 @@ spreads the same way, but more slowly than the nickname did.
 Mnemosyne also reads your registered characters' professions: each one's skill
 level, and the recipes you have learned once you open its window (Mnemosyne
 never opens it itself). **Share my professions**, on by default for all your
-characters, is meant to share them when you sync with another player; off, or
-for a character you don't register, other players forget them. Nothing shows or
-shares professions yet: that comes in a later version.
+characters, shares them when you sync with another player; off, or for a
+character you don't register, other players forget them. A guildmate gets the
+professions of your guild roster and of your own characters (only your own with
+**Pass on what I know** off); a friend outside your guild gets only your own
+characters'. You keep the professions of your guild roster's characters and your
+friends' only, dropped once a character has gone 30 days unseen on your roster
+or online as a friend's. Nothing shows professions yet: a Professions tab comes
+in a later version.
 
 Forgetting a character (`/mnemosyne forget`) removes it from your own memory
 and keeps what other players pass on about it out until you undo it, on all your

@@ -1,5 +1,5 @@
-local ns = require("spec.helpers.addon")("Protocol", "Memory", "Self", "Sync")
-local Memory, Protocol, Self, Sync = ns.Memory, ns.Protocol, ns.Self, ns.Sync
+local ns = require("spec.helpers.addon")("Protocol", "Memory", "Self", "Professions", "Sync")
+local Memory, Professions, Protocol, Self, Sync = ns.Memory, ns.Professions, ns.Protocol, ns.Self, ns.Sync
 
 describe("Sync", function()
 	local HOUR = 60 * 60
@@ -667,6 +667,99 @@ describe("Sync", function()
 			sync:request("Barb Dwyer", now)
 			sync:request("Cole Slaw", now)
 			assert.equal(1, sync:waitingCount())
+		end)
+	end)
+
+	describe("with professions", function()
+		local professions
+		local NONE = string.rep("0", Protocol.DIGEST_LENGTH)
+		local tailoring = { name = "Hugh Jass", skillLine = 197, revision = 900, level = 5, maxLevel = 75 }
+
+		before_each(function()
+			characters = Self.new({}, clock, {})
+			characters:register("Dee Zaster", "Dee")
+			characters:seeProfessions("Dee Zaster", { { skillLine = 171, level = 5, maxLevel = 75 } })
+			professions = Professions.new({}, clock, memory, characters, settings)
+			professions:seeLists({}, { "Barb Dwyer", "Hugh Jass" })
+			sync = Sync.new(saved, clock, memory, settings, characters, professions)
+		end)
+
+		it("sends the digest of its professions just before its digest, its own stamped first", function()
+			assert.equal(NONE, professions:digest("Barb Dwyer"))
+			assert.same({ "Barb Dwyer professionDigest", "Barb Dwyer digest" }, sent(sync:request("Barb Dwyer", now)))
+			assert.not_equal(NONE, professions:digest("Barb Dwyer"))
+		end)
+
+		it("passes on the professions the peer lacks after the identities, then the end of its part", function()
+			professions:hear("Cole Slaw", tailoring)
+			sync:receive("Barb Dwyer", { kind = "professionDigest", digest = NONE })
+			local outgoing = sync:receive("Barb Dwyer", { kind = "digest", digest = emptyDigest() })
+			assert.same({
+				"Barb Dwyer professionDigest",
+				"Barb Dwyer digest",
+				"Barb Dwyer identities",
+				"Barb Dwyer professions",
+				"Barb Dwyer done",
+			}, sent(outgoing))
+			local passed = decode(outgoing[4].text).professions
+			table.sort(passed, function(a, b)
+				return a.name < b.name
+			end)
+			assert.equal("Dee Zaster", passed[1].name)
+			assert.equal("Hugh Jass", passed[2].name)
+		end)
+
+		it("passes on only identities to a peer that sent no digest of professions", function()
+			professions:hear("Cole Slaw", tailoring)
+			local outgoing = sync:receive("Barb Dwyer", { kind = "digest", digest = emptyDigest() })
+			assert.same(
+				{ "Barb Dwyer professionDigest", "Barb Dwyer digest", "Barb Dwyer identities", "Barb Dwyer done" },
+				sent(outgoing)
+			)
+		end)
+
+		it("passes on professions when the peer's digest of professions comes after its digest", function()
+			professions:hear("Cole Slaw", tailoring)
+			sync:receive("Barb Dwyer", { kind = "digest", digest = emptyDigest() })
+			local outgoing = sync:receive("Barb Dwyer", { kind = "professionDigest", digest = NONE })
+			assert.same({ "Barb Dwyer professions" }, sent(outgoing))
+			assert.same({}, sent(sync:receive("Barb Dwyer", { kind = "professionDigest", digest = NONE })))
+		end)
+
+		it("takes professions that come after the peer's done, within 2 minutes", function()
+			local message = { kind = "professions", professions = { tailoring } }
+			sync:request("Barb Dwyer", now)
+			sync:receive("Barb Dwyer", { kind = "digest", digest = emptyDigest() })
+			sync:receive("Barb Dwyer", { kind = "done" })
+			sync:receive("Barb Dwyer", message)
+			assert.equal("Hugh Jass", professions:list()[2].name)
+			now = now + Sync.TIMEOUT
+			sync:tick()
+			sync:receive("Barb Dwyer", {
+				kind = "professions",
+				professions = { { name = "Hugh Jass", skillLine = 171, revision = 900, level = 1, maxLevel = 75 } },
+			})
+			assert.is_nil(professions:list()[3])
+		end)
+
+		it("forgets a digest of professions whose digest did not follow within 2 minutes", function()
+			professions:hear("Cole Slaw", tailoring)
+			sync:receive("Barb Dwyer", { kind = "professionDigest", digest = NONE })
+			now = now + Sync.TIMEOUT
+			sync:tick()
+			local outgoing = sync:receive("Barb Dwyer", { kind = "digest", digest = emptyDigest() })
+			assert.is_false(sent(outgoing)[4] == "Barb Dwyer professions")
+		end)
+
+		it("learns professions second-hand only inside a sync with the peer", function()
+			local message = { kind = "professions", professions = { tailoring } }
+			sync:receive("Barb Dwyer", message)
+			assert.is_nil(professions:list()[2])
+			sync:request("Barb Dwyer", now)
+			sync:receive("Barb Dwyer", { kind = "digest", digest = emptyDigest() })
+			sync:receive("Barb Dwyer", message)
+			assert.equal("Hugh Jass", professions:list()[2].name)
+			assert.equal("Barb Dwyer", professions:list()[2].source)
 		end)
 	end)
 end)

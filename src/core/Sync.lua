@@ -13,6 +13,14 @@
 -- next one starts again from the digest. Whispers can arrive out of order, so a
 -- peer's end of its part that comes before its digest still lets this side
 -- answer that digest if it comes within 2 minutes.
+--
+-- Professions (decision 0008) ride on the same sync: each side sends the digest
+-- of its professions just before its digest, and passes on what the other
+-- lacks after the identities, so a sync cut short has passed on the
+-- identities. A digest of professions that comes after the peer's digest
+-- (whispers come out of order) is answered when it comes, during the sync, and
+-- professions that come after the peer's done are still taken for 2 minutes. A
+-- peer that sends no digest of professions (an older one) gets only identities.
 local _, ns = ...
 
 local Memory, Protocol = ns.Memory, ns.Protocol
@@ -44,7 +52,8 @@ Sync.FRESH = Memory.VOUCHED_WINDOW - 60 * 60 -- seconds
 -- characters: the Self of this account's characters. What peers say about one
 -- of them is neither learned nor passed on (decision 0001), once its player has
 -- decided (registered, anonymous or unregistered).
-function Sync.new(saved, clock, memory, settings, characters)
+-- professions: the Professions to hash, pass on and learn into; none when left out.
+function Sync.new(saved, clock, memory, settings, characters, professions)
 	local now = clock()
 	for peer, syncedAt in pairs(saved) do
 		if now - syncedAt >= Sync.COOLDOWN then
@@ -57,6 +66,9 @@ function Sync.new(saved, clock, memory, settings, characters)
 		memory = memory,
 		settings = settings,
 		characters = characters,
+		professions = professions,
+		professionDigests = {}, -- peer -> { digest, at }, its digest of professions until answered
+		endedAt = {}, -- peer -> when a sync this side answered ended at its done: its professions still count
 		sessions = {}, -- peer -> { started, active, answered, digestAgain }
 		waiting = {}, -- { peer, heard, digest, digestHeard }, the most recently heard first
 		doneFirst = {}, -- peer -> when its done came before its digest, to answer the digest still
@@ -82,7 +94,20 @@ end
 
 local function start(self, peer, now, outgoing)
 	self.sessions[peer] = { started = now, active = now }
+	if self.professions then
+		-- This account's professions get their revisions as a sync starts, on either side.
+		self.professions:prepare()
+		send(outgoing, peer, { kind = "professionDigest", digest = self.professions:digest(peer) })
+	end
 	send(outgoing, peer, { kind = "digest", digest = self.memory:digest() })
+end
+
+-- Answers a peer's digest of professions, once a sync: the professions it lacks.
+local function answerProfessions(self, peer, digest, outgoing)
+	self.sessions[peer].professionsAnswered = true
+	for _, batch in ipairs(Protocol.batchProfessions(self.professions:answer(peer, digest))) do
+		send(outgoing, peer, { kind = "professions", professions = batch })
+	end
 end
 
 -- Answers a peer's digest: what the peer lacks, then the end of this side's
@@ -132,6 +157,11 @@ local function answer(self, peer, digest, now, outgoing)
 		for _, batch in ipairs(Protocol.batch(chosen)) do
 			send(outgoing, peer, { kind = "identities", identities = batch })
 		end
+	end
+	local heard = self.professionDigests[peer]
+	self.professionDigests[peer] = nil
+	if self.professions and heard and now - heard.at < Sync.TIMEOUT then
+		answerProfessions(self, peer, heard.digest, outgoing)
 	end
 	send(outgoing, peer, { kind = "done" })
 end
@@ -199,10 +229,11 @@ function Sync:request(peer, heard)
 	return outgoing, true
 end
 
--- Takes a sync message from a peer, read by Protocol: a digest, identities or
--- the end of the peer's part. Returns what to send, and the identities that
--- changed the memory (the news), marked disputed when they made one
--- disputed. Identities count only inside a sync with that
+-- Takes a sync message from a peer, read by Protocol: a digest (of identities
+-- or of professions), identities, professions or the end of the peer's part.
+-- Returns what to send, and the identities that changed the memory (the news;
+-- professions are never news), marked disputed when they made one
+-- disputed. Identities and professions count only inside a sync with that
 -- peer, after its digest, and are heard second-hand, with the peer as source;
 -- only one that changes the memory keeps the sync going. A second digest in a
 -- sync this side already answered (a peer that reloaded, or cut its sync
@@ -219,7 +250,29 @@ function Sync:receive(peer, message)
 	local now = self.clock()
 	local session = self.sessions[peer]
 	local outgoing = {}
-	if message.kind == "digest" then
+	if message.kind == "professionDigest" then
+		if not self.professions then
+			return outgoing
+		elseif session and session.answered then
+			-- Overtaken by the peer's digest: answered now, once.
+			if not session.professionsAnswered then
+				answerProfessions(self, peer, message.digest, outgoing)
+			end
+		else
+			-- Kept until the peer's digest comes: one per peer, let go after 2 minutes (tick).
+			self.professionDigests[peer] = { digest = message.digest, at = now }
+		end
+	elseif message.kind == "professions" then
+		local endedAt = self.endedAt[peer]
+		local open = (session and session.answered) or (endedAt and now - endedAt < Sync.TIMEOUT)
+		if self.professions and open then
+			for _, profession in ipairs(message.professions) do
+				if self.professions:hear(peer, profession) and session then
+					session.active = now
+				end
+			end
+		end
+	elseif message.kind == "digest" then
 		if not session then
 			local doneAt = self.doneFirst[peer]
 			self.doneFirst[peer] = nil
@@ -274,6 +327,9 @@ function Sync:receive(peer, message)
 	elseif message.kind == "done" then
 		if not session.answered then
 			self.doneFirst[peer] = now
+		else
+			-- Its professions may still come after its done (whispers come out of order).
+			self.endedAt[peer] = now
 		end
 		self.sessions[peer] = nil
 		self.synced[peer] = now
@@ -294,6 +350,16 @@ function Sync:tick()
 	for peer, doneAt in pairs(self.doneFirst) do
 		if now - doneAt >= Sync.TIMEOUT then
 			self.doneFirst[peer] = nil
+		end
+	end
+	for peer, heard in pairs(self.professionDigests) do
+		if now - heard.at >= Sync.TIMEOUT then
+			self.professionDigests[peer] = nil
+		end
+	end
+	for peer, endedAt in pairs(self.endedAt) do
+		if now - endedAt >= Sync.TIMEOUT then
+			self.endedAt[peer] = nil
 		end
 	end
 	return startWaiting(self, now)

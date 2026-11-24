@@ -2,8 +2,9 @@
 -- its own Memory, Self, Sync, News and Protocol reader, wired through an
 -- in-memory transport that carries wire text, chunks included, the way Client
 -- would.
-local ns = require("spec.helpers.addon")("Protocol", "Memory", "Self", "Sync", "News")
-local Memory, News, Protocol, Self, Sync = ns.Memory, ns.News, ns.Protocol, ns.Self, ns.Sync
+local ns = require("spec.helpers.addon")("Protocol", "Memory", "Self", "Professions", "Sync", "News")
+local Memory, News, Professions, Protocol, Self, Sync =
+	ns.Memory, ns.News, ns.Professions, ns.Protocol, ns.Self, ns.Sync
 
 describe("Several peers", function()
 	local HOUR, DAY = 60 * 60, 24 * 60 * 60
@@ -18,6 +19,8 @@ describe("Several peers", function()
 		peers = {}
 		inFlight = {}
 	end)
+
+	local SYNC_KINDS = { digest = true, identities = true, done = true, professionDigest = true, professions = true }
 
 	local function post(from, outgoing)
 		for _, out in ipairs(outgoing) do
@@ -34,7 +37,7 @@ describe("Several peers", function()
 			local wire = table.remove(inFlight, 1)
 			local peer = peers[wire.to]
 			local message = peer.reader:read(wire.from, wire.text)
-			if message and (message.kind == "digest" or message.kind == "identities" or message.kind == "done") then
+			if message and SYNC_KINDS[message.kind] then
 				local outgoing, learned = peer.sync:receive(wire.from, message)
 				post(wire.to, outgoing)
 				for _, identity in ipairs(learned or {}) do
@@ -50,12 +53,14 @@ describe("Several peers", function()
 
 	local function newPeer(name)
 		local memory = Memory.new({}, clock)
-		local characters = Self.new({}, clock)
+		local characters = Self.new({}, clock, {})
+		local professions = Professions.new({}, clock, memory, characters, { passOn = true })
 		local peer = {
 			name = name,
 			memory = memory,
 			characters = characters,
-			sync = Sync.new({}, clock, memory, { passOn = true }, characters),
+			professions = professions,
+			sync = Sync.new({}, clock, memory, { passOn = true }, characters, professions),
 			reader = Protocol.newReader(clock),
 			writer = Protocol.newWriter(),
 			delay = 0, -- what its randomness draws for each news delay
@@ -294,5 +299,114 @@ describe("Several peers", function()
 		d.memory:forget(a.name)
 		announce(a, d)
 		assert.is_true(d.memory:recall(a.name).firstHand)
+	end)
+
+	describe("sharing professions", function()
+		local ALCHEMY = 171
+		local mallory
+
+		-- Every peer given is on every one's guild roster.
+		local function guild(...)
+			local roster = {}
+			for _, peer in ipairs({ ... }) do
+				roster[#roster + 1] = peer.name
+			end
+			for _, peer in ipairs({ ... }) do
+				peer.professions:seeLists({}, roster)
+			end
+		end
+
+		local function shown(peer)
+			return peer.professions:list()[1]
+		end
+
+		before_each(function()
+			mallory = newPeer("Mallory Knox")
+			guild(a, b, c, d, mallory)
+			a.characters:seeProfessions(a.name, { { skillLine = ALCHEMY, level = 50, maxLevel = 75 } })
+			a.characters:seeRecipes(a.name, ALCHEMY, { 2329, 2330 }, { 2329 })
+		end)
+
+		it("lets C learn A's profession through B, second-hand, with its source", function()
+			sync(a, b)
+			assert.is_true(shown(b).firstHand)
+			sync(b, c)
+			local profession = shown(c)
+			assert.equal(a.name, profession.name)
+			assert.same({ 2329 }, profession.recipes)
+			assert.is_false(profession.firstHand)
+			assert.equal(b.name, profession.source)
+		end)
+
+		it("lets a first-hand profession override a forged copy", function()
+			mallory.professions:hear(
+				"Zed Ex",
+				{ name = a.name, skillLine = ALCHEMY, revision = now + 1000, level = 1, maxLevel = 75 }
+			)
+			sync(mallory, d)
+			assert.equal(1, shown(d).level)
+			sync(a, d)
+			assert.equal(50, shown(d).level)
+			local eve = newPeer("Eve Ill")
+			guild(a, b, c, d, mallory, eve)
+			eve.professions:hear(
+				"Zed Ex",
+				{ name = a.name, skillLine = ALCHEMY, revision = now + 2000, level = 2, maxLevel = 75 }
+			)
+			sync(eve, d)
+			assert.equal(50, shown(d).level)
+		end)
+
+		it("carries a dropped profession's removal to everyone who knew it", function()
+			sync(a, b)
+			sync(b, c)
+			now = now + 6 * HOUR
+			a.characters:seeProfessions(a.name, {}) -- dropped
+			sync(a, b)
+			sync(b, c)
+			assert.is_nil(shown(b))
+			assert.is_nil(shown(c))
+		end)
+
+		it("hides a profession peers dispute, until the character settles it", function()
+			sync(a, b)
+			local revision = shown(b).revision
+			mallory.professions:hear(
+				"Zed Ex",
+				{ name = a.name, skillLine = ALCHEMY, revision = revision, level = 1, maxLevel = 75 }
+			)
+			sync(b, d)
+			sync(mallory, d)
+			assert.is_true(shown(d).disputed)
+			sync(a, d)
+			assert.equal(50, shown(d).level)
+		end)
+
+		it("drops the professions of a character kept anonymous, and passes them on to no one", function()
+			sync(a, b)
+			now = now + 1
+			a.characters:keepAnonymous(a.name)
+			announce(a, c)
+			sync(b, c)
+			assert.is_nil(shown(c))
+		end)
+
+		it("takes at most 2,000 second-hand professions a day from one peer", function()
+			local names = { a, b, c, d, mallory }
+			for i = 1, Professions.MAX_CHANGES_PER_PEER + 100 do
+				names[#names + 1] = { name = "Fake Name" .. i, professions = { seeLists = function() end } }
+			end
+			guild(unpack(names))
+			for i = 1, Professions.MAX_CHANGES_PER_PEER + 100 do
+				local heard = { name = "Fake Name" .. i, skillLine = ALCHEMY, revision = 900, level = 1, maxLevel = 75 }
+				mallory.professions:hear("Zed Ex" .. i % 2, heard)
+			end
+			assert.equal(Professions.MAX_CHANGES_PER_PEER + 100, #mallory.professions:list())
+			sync(mallory, d)
+			assert.equal(Professions.MAX_CHANGES_PER_PEER, #d.professions:list())
+			now = now + DAY
+			sync(mallory, d)
+			assert.equal(Professions.MAX_CHANGES_PER_PEER + 100, #d.professions:list())
+		end)
 	end)
 end)
