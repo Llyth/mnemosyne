@@ -21,6 +21,11 @@
 -- (whispers come out of order) is answered when it comes, during the sync, and
 -- professions that come after the peer's done are still taken for 2 minutes. A
 -- peer that sends no digest of professions (an older one) gets only identities.
+-- A peer whose digest of professions this side never answered syncs once
+-- during the cooldown, on either side: peers that synced before they shared
+-- professions would otherwise wait 6 hours to pass them on. After that early
+-- sync, or once its digest of professions is answered, the cooldown holds, so
+-- an older peer gets one early sync only.
 local _, ns = ...
 
 local Memory, Protocol = ns.Memory, ns.Protocol
@@ -53,7 +58,10 @@ Sync.FRESH = Memory.VOUCHED_WINDOW - 60 * 60 -- seconds
 -- of them is neither learned nor passed on (decision 0001), once its player has
 -- decided (registered, anonymous or unregistered).
 -- professions: the Professions to hash, pass on and learn into; none when left out.
-function Sync.new(saved, clock, memory, settings, characters, professions)
+-- early: the peers that can no longer sync during the cooldown
+-- (MnemosyneDB.earlySyncs), peer -> "heard" (its digest of professions was
+-- answered) or "synced" (it had its early sync).
+function Sync.new(saved, clock, memory, settings, characters, professions, early)
 	local now = clock()
 	for peer, syncedAt in pairs(saved) do
 		if now - syncedAt >= Sync.COOLDOWN then
@@ -67,6 +75,7 @@ function Sync.new(saved, clock, memory, settings, characters, professions)
 		settings = settings,
 		characters = characters,
 		professions = professions,
+		early = early or {},
 		professionDigests = {}, -- peer -> { digest, at }, its digest of professions until answered
 		endedAt = {}, -- peer -> when a sync this side answered ended at its done: its professions still count
 		sessions = {}, -- peer -> { started, active, answered, digestAgain }
@@ -92,7 +101,16 @@ local function isCooling(self, peer, now)
 	return syncedAt ~= nil and now - syncedAt < Sync.COOLDOWN
 end
 
+-- Whether the cooldown keeps a sync with the peer from starting: a peer whose
+-- professions this side never heard skips it once.
+local function refuses(self, peer, now)
+	return isCooling(self, peer, now) and (not self.professions or self.early[peer] ~= nil)
+end
+
 local function start(self, peer, now, outgoing)
+	if isCooling(self, peer, now) then
+		self.early[peer] = "synced"
+	end
 	self.sessions[peer] = { started = now, active = now }
 	if self.professions then
 		-- This account's professions get their revisions as a sync starts, on either side.
@@ -105,6 +123,7 @@ end
 -- Answers a peer's digest of professions, once a sync: the professions it lacks.
 local function answerProfessions(self, peer, digest, outgoing)
 	self.sessions[peer].professionsAnswered = true
+	self.early[peer] = "heard"
 	for _, batch in ipairs(Protocol.batchProfessions(self.professions:answer(peer, digest))) do
 		send(outgoing, peer, { kind = "professions", professions = batch })
 	end
@@ -204,7 +223,7 @@ local function startWaiting(self, now)
 	while self.waiting[1] and running(self) < Sync.MAX_RUNNING do
 		local entry = table.remove(self.waiting, 1)
 		local peer = entry.peer
-		if not self.sessions[peer] and not isCooling(self, peer, now) then
+		if not self.sessions[peer] and not refuses(self, peer, now) then
 			start(self, peer, now, outgoing)
 			if entry.digest and now - entry.digestHeard < Sync.TIMEOUT then
 				answer(self, peer, entry.digest, now, outgoing)
@@ -218,7 +237,7 @@ end
 -- list). Returns what to send, and whether the sync started or waits.
 function Sync:request(peer, heard)
 	local now = self.clock()
-	if self.sessions[peer] or isCooling(self, peer, now) then
+	if self.sessions[peer] or refuses(self, peer, now) then
 		return {}, false
 	end
 	if running(self) >= Sync.MAX_RUNNING then
@@ -281,7 +300,7 @@ function Sync:receive(peer, message)
 				self.sessions[peer] = { started = now, active = now }
 				answer(self, peer, message.digest, now, outgoing)
 				self.sessions[peer] = nil
-			elseif isCooling(self, peer, now) then
+			elseif refuses(self, peer, now) then
 				send(outgoing, peer, { kind = "done" })
 			elseif running(self) >= Sync.MAX_RUNNING then
 				if not wait(self, peer, now, message.digest) then

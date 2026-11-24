@@ -449,10 +449,11 @@ function handlers.ADDON_LOADED(name)
 	ns.characters = ns.Self.new(db.characters, GetServerTime, db.settings)
 	db.asked = db.asked or {}
 	db.syncs = db.syncs or {}
+	db.earlySyncs = db.earlySyncs or {}
 	db.window = db.window or {} -- Mnemosyne's window: its position and last tab
 	db.professions = db.professions or {}
 	ns.professions = ns.Professions.new(db.professions, GetServerTime, ns.memory, ns.characters, db.settings)
-	ns.sync = ns.Sync.new(db.syncs, GetServerTime, ns.memory, db.settings, ns.characters, ns.professions)
+	ns.sync = ns.Sync.new(db.syncs, GetServerTime, ns.memory, db.settings, ns.characters, ns.professions, db.earlySyncs)
 	ns.news = ns.News.new(GetTime, math.random, ns.memory, ns.characters, db.settings)
 	outbox = ns.Outbox.new(GetTime, Client.canSend)
 	inbox = ns.Inbox.new({
