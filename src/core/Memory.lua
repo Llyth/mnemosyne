@@ -124,6 +124,25 @@ local function contains(self, wanted, name, nickname)
 		or (nickname and cachedFold(self, nickname):find(wanted, 1, true))
 end
 
+-- Whether a character (name, nickname) comes before a listed one ({ name,
+-- nickname }): by nickname, ignoring case and accents (as folded by foldOf),
+-- then by name; a character without a nickname (forgotten) after the rest.
+local function precedes(foldOf, name, nickname, other)
+	local mine, theirs = nickname and foldOf(nickname), other.nickname and foldOf(other.nickname)
+	if mine ~= theirs then
+		if not mine or not theirs then
+			return mine ~= nil
+		end
+		return mine < theirs
+	end
+	return name < other.name
+end
+
+-- The order Memory:list sorts in, for a table.sort of { name, nickname }.
+function Memory.byNickname(a, b)
+	return precedes(fold, a.name, a.nickname, b)
+end
+
 -- Whether a character's name or nickname contains the text, ignoring case and
 -- accents, as Memory:list matches.
 function Memory.matches(text, name, nickname)
@@ -450,19 +469,22 @@ function Memory:search(text)
 	return found
 end
 
--- Lists, for the settings panel, every identity with a nickname, disputed
+-- Lists, for the window's Identities tab, every identity with a nickname, disputed
 -- ones included (marked disputed) and stale ones left out (hidden, as recall
 -- hides them), and every forgotten character (marked
 -- forgotten, with its identity if heard first-hand since), whose name or
 -- nickname contains the text, ignoring case and accents. Returns a list of
 -- { name, nickname, firstHand, source, heard, disputed, forgotten }, copies,
--- sorted by name, and how many it found.
--- max: at most this many entries, the first by name (all when left out).
+-- sorted by nickname (Memory.byNickname), and how many it found.
+-- max: at most this many entries, the first by nickname (all when left out).
 -- keep(name, identity, forgotten): whether to list one, identity nil for a
 -- forgotten character not held; all when left out. Only those count.
 function Memory:list(text, max, keep)
 	local wanted = cachedFold(self, text)
 	local found, total = {}, 0
+	local function foldOf(value)
+		return cachedFold(self, value)
+	end
 	local function add(name, known)
 		local isForgotten = self.forgottenNames[name] ~= nil
 		if keep and not keep(name, known, isForgotten) then
@@ -470,7 +492,8 @@ function Memory:list(text, max, keep)
 		end
 		total = total + 1
 		local last = found[#found]
-		if max and #found >= max and not (last and name < last.name) then
+		local nickname = known and known.nickname
+		if max and #found >= max and not (last and precedes(foldOf, name, nickname, last)) then
 			return
 		end
 		local entry = { name = name, forgotten = isForgotten or nil }
@@ -485,7 +508,7 @@ function Memory:list(text, max, keep)
 		-- Kept sorted, and at most max long: a search of the whole memory sorts
 		-- only the rows it shows.
 		local at = #found + 1
-		while at > 1 and name < found[at - 1].name do
+		while at > 1 and precedes(foldOf, name, nickname, found[at - 1]) do
 			at = at - 1
 		end
 		table.insert(found, at, entry)
@@ -507,7 +530,7 @@ function Memory:list(text, max, keep)
 	end
 	if not max then
 		table.sort(found, function(a, b)
-			return a.name < b.name
+			return precedes(foldOf, a.name, a.nickname, b)
 		end)
 	end
 	return found, total

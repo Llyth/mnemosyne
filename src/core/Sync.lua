@@ -312,3 +312,8 @@ function Sync:recent()
 	end)
 	return recent
 end
+
+-- How many peers wait for their sync to start.
+function Sync:waitingCount()
+	return #self.waiting
+end

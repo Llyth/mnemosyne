@@ -660,5 +660,13 @@ describe("Sync", function()
 				{ peer = "Anna Conda", at = now - 2 * HOUR },
 			}, sync:recent())
 		end)
+
+		it("counts the peers waiting for their sync", function()
+			assert.equal(0, sync:waitingCount())
+			sync:request("Anna Conda", now)
+			sync:request("Barb Dwyer", now)
+			sync:request("Cole Slaw", now)
+			assert.equal(1, sync:waitingCount())
+		end)
 	end)
 end)

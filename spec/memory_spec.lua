@@ -628,7 +628,7 @@ describe("Memory, second-hand", function()
 		end)
 	end)
 
-	describe("listing for the settings panel", function()
+	describe("listing for the window", function()
 		local forgotten
 
 		before_each(function()
@@ -647,7 +647,7 @@ describe("Memory, second-hand", function()
 			return list
 		end
 
-		it("lists first-hand and second-hand identities with how they were heard, sorted by name", function()
+		it("lists first-hand and second-hand identities with how they were heard", function()
 			assert.same({
 				{ name = "Anna Conda", nickname = "Ann", firstHand = false, source = "Barb Dwyer", heard = 2000 },
 				{ name = "Hugh Jass", nickname = "Tony", firstHand = true, heard = 1000 },
@@ -699,11 +699,21 @@ describe("Memory, second-hand", function()
 			assert.same({}, names(memory:list("%a")))
 		end)
 
-		it("gives at most the rows asked for, the first by name, and how many it found", function()
+		it("sorts by nickname, ignoring case and accents, then by name, forgotten characters last", function()
+			memory:hear("Zed Zulu", { nickname = "Émile", revision = 900 })
+			memory:hear("Cole Slaw", { nickname = "bea", revision = 900 })
+			memory:hear("Yan Yak", { nickname = "Tony", revision = 900 })
+			memory:forget("Barb Dwyer")
+			local expected = { "Anna Conda", "Cole Slaw", "Zed Zulu", "Hugh Jass", "Yan Yak", "Barb Dwyer" }
+			assert.same(expected, names(memory:list("")))
+			assert.same(expected, names(memory:list("", 10)))
+		end)
+
+		it("gives at most the rows asked for, the first by nickname, and how many it found", function()
 			memory:hear("Cole Slaw", { nickname = "Coco", revision = 900 })
 			memory:forget("Barb Dwyer")
 			local found, total = memory:list("", 2)
-			assert.same({ "Anna Conda", "Barb Dwyer" }, names(found))
+			assert.same({ "Anna Conda", "Cole Slaw" }, names(found))
 			assert.equal(4, total)
 			found, total = memory:list("", 0)
 			assert.same({}, found)
@@ -716,7 +726,7 @@ describe("Memory, second-hand", function()
 			local found, total = memory:list("", 1, function(name, known, isForgotten)
 				return isForgotten or (known.source == nil and name ~= "Cole Slaw")
 			end)
-			assert.same({ "Barb Dwyer" }, names(found))
+			assert.same({ "Hugh Jass" }, names(found))
 			assert.equal(2, total)
 		end)
 	end)

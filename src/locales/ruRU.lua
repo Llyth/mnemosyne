@@ -126,7 +126,8 @@ L.FORGOTTEN_NONE =
 L.NEWER_VERSION = "Вышла новая версия Mnemosyne: обновите ее, "
 	.. "иначе часть сообщений от других игроков будет игнорироваться."
 -- The settings panel (Options, AddOns, Mnemosyne).
-L.HELP_PANEL = "/mnemosyne: открыть панель параметров"
+L.HELP_PANEL = "/mnemosyne: открыть окно Mnemosyne"
+L.HELP_SETTINGS = "/mnemosyne settings: открыть панель параметров"
 L.PANEL_CHARACTER = "Этот персонаж"
 L.PANEL_NICKNAME = "Прозвище"
 L.PANEL_REGISTER = "Зарегистрировать"
@@ -180,3 +181,7 @@ L.STATUS_PEERS = "Участников услышано за сеанс: %d"
 L.STATUS_SYNCS = "Синхронизация за последние 6 часов: %s"
 L.STATUS_SYNC = "%s (%s)" -- a peer and how long ago: "Anna Conda (5 минут назад)"
 L.STATUS_NO_SYNC = "Не было синхронизаций за последние 6 часов."
+-- Mnemosyne's window.
+L.WINDOW_WHISPER = "Шепот"
+L.WINDOW_LAST_SYNC = "Последняя синхронизация: %s, %s." -- a peer and how long ago
+L.WINDOW_WAITING = "В очереди: %d"

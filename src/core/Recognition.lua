@@ -1,5 +1,5 @@
 -- Recognition: what Mnemosyne shows where a character appears, and in the
--- settings panel's list of identities, decided here and drawn by the adapters
+-- window's list of identities, decided here and drawn by the adapters
 -- (decision 0004). Pure: it takes the memory, the
 -- settings, the locale table and the clock (the server time) as arguments.
 --
@@ -210,8 +210,8 @@ function Recognition:ago(time)
 	return L.AGO_NOW
 end
 
--- The settings panel's rows for the identities whose name or nickname contains
--- the text (Memory:list), sorted by name: { name, nickname, heard, ago,
+-- The window's rows for the identities whose name or nickname contains the
+-- text (Memory:list), sorted by nickname: { name, nickname, heard, ago,
 -- forgotten }, where heard says first-hand or from whom. This account's own
 -- characters come first, marked own (Self:list). A disputed identity
 -- shows as disputed, a forgotten character without an identity as forgotten;
@@ -250,4 +250,12 @@ function Recognition:rows(text, max)
 		}
 	end
 	return rows, total + found
+end
+
+-- The window's sync status, in words: the last sync (the first of
+-- Sync:recent), with whom and when, and how many peers wait for theirs.
+function Recognition:syncStatus(recent, waiting)
+	local L, last = self.L, recent[1]
+	local synced = last and L.WINDOW_LAST_SYNC:format(last.peer, self:ago(last.at)) or L.STATUS_NO_SYNC
+	return synced .. " " .. L.WINDOW_WAITING:format(waiting)
 end

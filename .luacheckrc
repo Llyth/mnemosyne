@@ -16,6 +16,7 @@ globals = {
 
 -- Read from the client. Add each one with the code that first uses it.
 read_globals = {
+	"BLIZZARD_STORE",
 	"BNET_CLIENT_WOW",
 	"BNGetNumFriends",
 	"BugGrabber",
@@ -30,6 +31,8 @@ read_globals = {
 	"Enum",
 	"EventRegistry",
 	"EventUtil",
+	"GAMEMENU_OPTIONS",
+	"GameMenuFrame",
 	"GameTooltip",
 	"GetBuildInfo",
 	"GetGuildRosterInfo",
@@ -40,6 +43,7 @@ read_globals = {
 	"GetServerTime",
 	"GetTime",
 	"GetUnitName",
+	"HideUIPanel",
 	"InCombatLockdown",
 	"IsInGroup",
 	"IsInGuild",
@@ -50,6 +54,8 @@ read_globals = {
 	"LE_PARTY_CATEGORY_HOME",
 	"LE_PARTY_CATEGORY_INSTANCE",
 	"NameUtil",
+	"PanelTemplates_SetNumTabs",
+	"PanelTemplates_SetTab",
 	"Settings",
 	"StaticPopup_Show",
 	"StaticPopup_StandardEditBoxOnEscapePressed",

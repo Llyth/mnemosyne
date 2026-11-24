@@ -98,8 +98,23 @@ the same in every language (`/mnemosyne register`, `/mnemosyne lookup`...).
 
 ## Using it
 
+Mnemosyne's window opens from the **Mnemosyne** button under the Escape menu,
+or with `/mnemosyne` alone (not released yet: in 1.0.0, `/mnemosyne` opens the
+settings panel and the list of identities is in it). You can drag the window
+anywhere; it opens again where you left it, on the tab you last used, and Escape
+closes it. Its **Identities** tab lists the characters you know, one row each,
+sorted by nickname, searched by name or nickname, ignoring case and accents.
+Each row shows the nickname, whether you heard it first-hand or from whom, and
+when; disputed ones are listed as disputed. Forget drops one (as
+`/mnemosyne forget` does), Undo takes the forgetting back, and Whisper opens a
+whisper to the character. Second-hand ones are listed only while **Show
+second-hand** is on, and the first 50 found show. Your own registered and
+anonymous characters come first, marked as yours. Under the list, the sync
+status: your last sync, with whom and when, and how many players wait for
+theirs.
+
 The settings panel is in Options, AddOns, Mnemosyne; the addon drawer next to
-the minimap and `/mnemosyne` alone open it too. It has:
+the minimap and `/mnemosyne settings` open it too. It has:
 
 - **This character**: its registration, the nickname to register or change,
   Unregister and Keep anonymous, working like the commands and the first-login
@@ -111,17 +126,11 @@ the minimap and `/mnemosyne` alone open it too. It has:
   once.
 - **Status**: what `/mnemosyne status` says, and a **Report a bug** button that
   opens the same window as `/mnemosyne report`.
-- **Identities**: the characters you know, searched by name or nickname,
-  ignoring case and accents, each with its nickname, whether you heard it
-  first-hand or from whom, and when; disputed ones are listed as disputed. Forget
-  drops one (as `/mnemosyne forget` does) and Undo takes the forgetting back.
-  Second-hand ones are listed only while **Show second-hand** is on, and the
-  first 50 found show. Your own registered and anonymous characters come first,
-  marked as yours.
 
 | Command | What it does |
 | --- | --- |
-| `/mnemosyne` | Open the settings panel |
+| `/mnemosyne` | Open Mnemosyne's window |
+| `/mnemosyne settings` | Open the settings panel |
 | `/mnemosyne register <nickname>` | Register the character you are playing |
 | `/mnemosyne unregister` | Withdraw its registration; peers forget it |
 | `/mnemosyne lookup <text>` | Find characters by name or by nickname, ignoring case and accents; a second-hand nickname shows with who passed it on |

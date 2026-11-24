@@ -116,7 +116,8 @@ L.FORGOTTEN_NONE =
 L.NEWER_VERSION =
 	"Mnemosyne의 새 버전이 있습니다. 업데이트하지 않으면 다른 플레이어가 보낸 일부 메시지가 계속 무시됩니다."
 -- The settings panel (Options, AddOns, Mnemosyne).
-L.HELP_PANEL = "/mnemosyne: 설정 창 열기"
+L.HELP_PANEL = "/mnemosyne: Mnemosyne 창 열기"
+L.HELP_SETTINGS = "/mnemosyne settings: 설정 창 열기"
 L.PANEL_CHARACTER = "이 캐릭터"
 L.PANEL_NICKNAME = "별명"
 L.PANEL_REGISTER = "등록"
@@ -167,3 +168,7 @@ L.STATUS_PEERS = "이번 세션에 수신된 피어: %d"
 L.STATUS_SYNCS = "최근 6시간 내 동기화: %s"
 L.STATUS_SYNC = "%s (%s)" -- a peer and how long ago: "Anna Conda (5분 전)"
 L.STATUS_NO_SYNC = "최근 6시간 내 동기화 없음."
+-- Mnemosyne's window.
+L.WINDOW_WHISPER = "귓속말"
+L.WINDOW_LAST_SYNC = "마지막 동기화: %s, %s." -- a peer and how long ago
+L.WINDOW_WAITING = "대기 중: %d"

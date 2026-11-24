@@ -46,5 +46,7 @@ src\interface\Chat.lua
 src\interface\Commands.lua
 src\interface\Prompt.lua
 src\interface\Panel.lua
+src\interface\Window.lua
+src\interface\Identities.lua
 src\client\Encounter.lua
 src\interface\ReportWindow.lua

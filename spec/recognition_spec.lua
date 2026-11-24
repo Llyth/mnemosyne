@@ -323,7 +323,7 @@ describe("Recognition", function()
 		assert.equal("2 |4hour:hours; ago", recognition:ago(1000))
 	end)
 
-	describe("in the settings panel's list", function()
+	describe("in the window's list", function()
 		before_each(function()
 			memory = Memory.new({}, clock, {})
 			recognition = Recognition.new(memory, settings, ns.L, clock)
@@ -332,7 +332,7 @@ describe("Recognition", function()
 			now = 1000 + 2 * 3600
 		end)
 
-		it("gives each identity's nickname, how it was heard and when, sorted by name", function()
+		it("gives each identity's nickname, how it was heard and when, sorted by nickname", function()
 			assert.same({
 				{ name = "Anna Conda", nickname = "Ann", heard = "from Barb Dwyer", ago = "2 |4hour:hours; ago" },
 				{ name = "Hugh Jass", nickname = "Tony", heard = "first-hand", ago = "2 |4hour:hours; ago" },
@@ -363,7 +363,7 @@ describe("Recognition", function()
 			settings.showSecondHand = false
 			memory:forget("Cole Slaw")
 			local rows = recognition:rows("", 50)
-			assert.same({ "Cole Slaw", "Hugh Jass" }, { rows[1].name, rows[2].name })
+			assert.same({ "Hugh Jass", "Cole Slaw" }, { rows[1].name, rows[2].name })
 			assert.equal(2, #rows)
 		end)
 
@@ -373,19 +373,33 @@ describe("Recognition", function()
 			assert.equal(2, total)
 		end)
 
-		it("gives the player's own characters first, registered or anonymous, once each", function()
+		it("gives the player's own characters first, by nickname, registered or anonymous, once each", function()
 			local characters = Self.new({}, clock)
 			characters:register("Zed Zulu", "Llyth")
 			characters:keepAnonymous("Yan Yak")
 			characters:register("Hugh Jass", "Tony") -- also in the memory, from a peer
 			recognition = Recognition.new(memory, settings, ns.L, clock, characters)
 			assert.same({
+				{ name = "Zed Zulu", nickname = "Llyth", heard = "yours", ago = "", own = true },
 				{ name = "Hugh Jass", nickname = "Tony", heard = "yours", ago = "", own = true },
 				{ name = "Yan Yak", nickname = "anonymous", heard = "yours", ago = "", own = true },
-				{ name = "Zed Zulu", nickname = "Llyth", heard = "yours", ago = "", own = true },
 				{ name = "Anna Conda", nickname = "Ann", heard = "from Barb Dwyer", ago = "2 |4hour:hours; ago" },
 			}, (recognition:rows("", 50)))
 			assert.same({ "Zed Zulu" }, { recognition:rows("llyth", 50)[1].name, recognition:rows("llyth", 50)[2] })
+		end)
+	end)
+
+	describe("in the window's sync status", function()
+		it("says the last sync, with whom and when, and how many peers wait", function()
+			now = 1000 + 5 * 60
+			assert.equal(
+				"Last sync: Anna Conda, 5 |4minute:minutes; ago. Waiting to sync: 2",
+				recognition:syncStatus({ { peer = "Anna Conda", at = 1000 }, { peer = "Cole Slaw", at = 900 } }, 2)
+			)
+		end)
+
+		it("says when no sync happened in the last 6 hours", function()
+			assert.equal("No sync in the last 6 hours. Waiting to sync: 0", recognition:syncStatus({}, 0))
 		end)
 	end)
 
