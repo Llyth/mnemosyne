@@ -114,6 +114,9 @@ ns.L = {
 	PANEL_PASS_ON_HELP = "Pass on every nickname you know when you sync with another player, and post to your "
 		.. "guild the new ones a sync brings. "
 		.. "Off, you share only your own registrations.",
+	PANEL_SHARE_PROFESSIONS = "Share my professions",
+	PANEL_SHARE_PROFESSIONS_HELP = "Share your registered characters' professions (skill levels and learned recipes) "
+		.. "with the players who have Mnemosyne in your guild and among your friends. Off, they forget them.",
 	PANEL_EVERYONE = "Talk with everyone",
 	PANEL_EVERYONE_HELP = "Off, Mnemosyne talks only with your friends (your friend list and your Battle.net "
 		.. "friends) and your guild. On, also with your groups and with anyone you hover or target.",

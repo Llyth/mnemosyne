@@ -1,7 +1,7 @@
 local Self = require("spec.helpers.addon")("Protocol", "Self").Self
 
 describe("Self", function()
-	local now, saved, characters
+	local now, saved, settings, characters
 
 	local function clock()
 		return now
@@ -10,7 +10,8 @@ describe("Self", function()
 	before_each(function()
 		now = 1000
 		saved = {}
-		characters = Self.new(saved, clock)
+		settings = {}
+		characters = Self.new(saved, clock, settings)
 	end)
 
 	it("knows no registration for a character never registered", function()
@@ -89,7 +90,7 @@ describe("Self", function()
 
 	it("keeps registrations in its saved table", function()
 		characters:register("Hugh Jass", "Tony")
-		assert.same({ nickname = "Tony", revision = 1000 }, Self.new(saved, clock):registration("Hugh Jass"))
+		assert.same({ nickname = "Tony", revision = 1000 }, Self.new(saved, clock, settings):registration("Hugh Jass"))
 	end)
 
 	describe("states", function()
@@ -149,7 +150,7 @@ describe("Self", function()
 
 		it("remembers an anonymous character in its saved table", function()
 			characters:keepAnonymous("Hugh Jass")
-			assert.equal("anonymous", Self.new(saved, clock):state("Hugh Jass"))
+			assert.equal("anonymous", Self.new(saved, clock, settings):state("Hugh Jass"))
 		end)
 
 		it("counts the characters in each state", function()
@@ -211,19 +212,19 @@ describe("Self", function()
 		it("does not prompt for an anonymous character", function()
 			characters:keepAnonymous("Hugh Jass")
 			assert.is_nil(characters:prompt("Hugh Jass"))
-			assert.is_nil(Self.new(saved, clock):prompt("Hugh Jass"))
+			assert.is_nil(Self.new(saved, clock, settings):prompt("Hugh Jass"))
 		end)
 
 		it("does not prompt for a character that unregistered, even at a later login", function()
 			characters:register("Hugh Jass", "Tony")
 			characters:unregister("Hugh Jass")
 			assert.is_nil(characters:prompt("Hugh Jass"))
-			assert.is_nil(Self.new(saved, clock):prompt("Hugh Jass"))
+			assert.is_nil(Self.new(saved, clock, settings):prompt("Hugh Jass"))
 		end)
 
 		it("prompts again at the next login when the player asked to be asked later", function()
 			characters:prompt("Hugh Jass")
-			assert.same({}, Self.new(saved, clock):prompt("Hugh Jass"))
+			assert.same({}, Self.new(saved, clock, settings):prompt("Hugh Jass"))
 		end)
 
 		it("pre-fills the nickname of the player's latest registered character", function()
@@ -249,6 +250,254 @@ describe("Self", function()
 			characters:prompt("Hugh Jass", { nickname = "Tony", revision = 900, firstHand = false, heard = 950 })
 			assert.is_nil(characters:registration("Hugh Jass"))
 			assert.equal("notAsked", characters:state("Hugh Jass"))
+		end)
+	end)
+	describe("professions", function()
+		local TAILORING, COOKING = 197, 185
+
+		before_each(function()
+			characters:register("Hugh Jass", "Tony")
+		end)
+
+		it("shares nothing about a profession before a sync stamps it", function()
+			characters:seeProfessions("Hugh Jass", { { skillLine = TAILORING, level = 50, maxLevel = 75 } })
+			assert.same({}, characters:professions("Hugh Jass"))
+		end)
+
+		it(
+			"gives each profession a revision at the server's time when a sync stamps it, sorted by skill line",
+			function()
+				characters:seeProfessions("Hugh Jass", {
+					{ skillLine = TAILORING, level = 50, maxLevel = 75 },
+					{ skillLine = COOKING, level = 1, maxLevel = 75 },
+				})
+				characters:stampProfessions("Hugh Jass")
+				assert.same({
+					{ skillLine = COOKING, level = 1, maxLevel = 75, revision = 1000 },
+					{ skillLine = TAILORING, level = 50, maxLevel = 75, revision = 1000 },
+				}, characters:professions("Hugh Jass"))
+			end
+		)
+
+		it("keeps the revision of a profession that has not changed since its last one", function()
+			characters:seeProfessions("Hugh Jass", { { skillLine = TAILORING, level = 50, maxLevel = 75 } })
+			characters:stampProfessions("Hugh Jass")
+			now = 2000
+			characters:seeProfessions("Hugh Jass", { { skillLine = TAILORING, level = 50, maxLevel = 75 } })
+			characters:stampProfessions("Hugh Jass")
+			assert.equal(1000, characters:professions("Hugh Jass")[1].revision)
+		end)
+
+		it("shares a skill level change only at the next stamp, with a later revision", function()
+			characters:seeProfessions("Hugh Jass", { { skillLine = TAILORING, level = 50, maxLevel = 75 } })
+			characters:stampProfessions("Hugh Jass")
+			characters:seeProfessions("Hugh Jass", { { skillLine = TAILORING, level = 60, maxLevel = 75 } })
+			assert.equal(50, characters:professions("Hugh Jass")[1].level)
+			characters:stampProfessions("Hugh Jass")
+			assert.same(
+				{ { skillLine = TAILORING, level = 60, maxLevel = 75, revision = 1001 } },
+				characters:professions("Hugh Jass")
+			)
+		end)
+
+		it("shares the learned recipes, sorted, once the profession's window was opened", function()
+			characters:seeProfessions("Hugh Jass", { { skillLine = TAILORING, level = 50, maxLevel = 75 } })
+			characters:seeRecipes("Hugh Jass", TAILORING, { 30, 10, 20 }, { 30, 10 })
+			characters:stampProfessions("Hugh Jass")
+			assert.same({ 10, 30 }, characters:professions("Hugh Jass")[1].recipes)
+		end)
+
+		it("ignores the recipes of a profession the character does not have", function()
+			characters:seeRecipes("Hugh Jass", TAILORING, { 10 }, { 10 })
+			characters:stampProfessions("Hugh Jass")
+			assert.same({}, characters:professions("Hugh Jass"))
+			assert.same({}, characters:recipeIDs("Hugh Jass"))
+		end)
+
+		it("gives the saved recipe IDs of each profession, to recheck which are learned", function()
+			characters:seeProfessions("Hugh Jass", {
+				{ skillLine = TAILORING, level = 50, maxLevel = 75 },
+				{ skillLine = COOKING, level = 1, maxLevel = 75 },
+			})
+			characters:seeRecipes("Hugh Jass", TAILORING, { 30, 10, 20 }, { 10 })
+			assert.same({ [TAILORING] = { 10, 20, 30 } }, characters:recipeIDs("Hugh Jass"))
+		end)
+
+		it("shares a recipe learned since the last stamp, with a later revision", function()
+			characters:seeProfessions("Hugh Jass", { { skillLine = TAILORING, level = 50, maxLevel = 75 } })
+			characters:seeRecipes("Hugh Jass", TAILORING, { 10, 20 }, { 10 })
+			characters:stampProfessions("Hugh Jass")
+			characters:seeRecipes("Hugh Jass", TAILORING, { 10, 20 }, { 20, 10 })
+			characters:stampProfessions("Hugh Jass")
+			assert.same(
+				{ { skillLine = TAILORING, level = 50, maxLevel = 75, recipes = { 10, 20 }, revision = 1001 } },
+				characters:professions("Hugh Jass")
+			)
+		end)
+
+		it("keeps the recipes when the skill level is read again", function()
+			characters:seeProfessions("Hugh Jass", { { skillLine = TAILORING, level = 50, maxLevel = 75 } })
+			characters:seeRecipes("Hugh Jass", TAILORING, { 10 }, { 10 })
+			characters:seeProfessions("Hugh Jass", { { skillLine = TAILORING, level = 51, maxLevel = 75 } })
+			characters:stampProfessions("Hugh Jass")
+			assert.same({ 10 }, characters:professions("Hugh Jass")[1].recipes)
+		end)
+
+		it("turns a dropped profession into a removal at the next stamp", function()
+			characters:seeProfessions("Hugh Jass", { { skillLine = TAILORING, level = 50, maxLevel = 75 } })
+			characters:seeRecipes("Hugh Jass", TAILORING, { 10 }, { 10 })
+			characters:stampProfessions("Hugh Jass")
+			characters:seeProfessions("Hugh Jass", {})
+			assert.same({}, characters:recipeIDs("Hugh Jass"))
+			now = 2000
+			characters:stampProfessions("Hugh Jass")
+			assert.same({ { skillLine = TAILORING, revision = 2000 } }, characters:professions("Hugh Jass"))
+		end)
+
+		it("forgets a profession dropped before any sync stamped it", function()
+			characters:seeProfessions("Hugh Jass", { { skillLine = TAILORING, level = 50, maxLevel = 75 } })
+			characters:seeProfessions("Hugh Jass", {})
+			characters:stampProfessions("Hugh Jass")
+			assert.same({}, characters:professions("Hugh Jass"))
+		end)
+
+		it("shares a profession learned again after its removal, with a later revision", function()
+			characters:seeProfessions("Hugh Jass", { { skillLine = TAILORING, level = 50, maxLevel = 75 } })
+			characters:stampProfessions("Hugh Jass")
+			characters:seeProfessions("Hugh Jass", {})
+			characters:stampProfessions("Hugh Jass")
+			characters:seeProfessions("Hugh Jass", { { skillLine = TAILORING, level = 1, maxLevel = 75 } })
+			characters:stampProfessions("Hugh Jass")
+			assert.same(
+				{ { skillLine = TAILORING, level = 1, maxLevel = 75, revision = 1002 } },
+				characters:professions("Hugh Jass")
+			)
+		end)
+
+		it("withdraws every profession of a character that unregisters, with a new revision at the stamp", function()
+			characters:seeProfessions("Hugh Jass", { { skillLine = TAILORING, level = 50, maxLevel = 75 } })
+			characters:stampProfessions("Hugh Jass")
+			characters:unregister("Hugh Jass")
+			assert.same({ { skillLine = TAILORING, revision = 1000 } }, characters:professions("Hugh Jass"))
+			characters:stampProfessions("Hugh Jass")
+			assert.same({ { skillLine = TAILORING, revision = 1001 } }, characters:professions("Hugh Jass"))
+		end)
+
+		it("withdraws every profession of a character kept anonymous", function()
+			characters:seeProfessions("Hugh Jass", { { skillLine = TAILORING, level = 50, maxLevel = 75 } })
+			characters:stampProfessions("Hugh Jass")
+			characters:keepAnonymous("Hugh Jass")
+			characters:stampProfessions("Hugh Jass")
+			assert.same({ { skillLine = TAILORING, revision = 1001 } }, characters:professions("Hugh Jass"))
+		end)
+
+		it(
+			"withdraws every profession when sharing professions is turned off, and shares them again when on",
+			function()
+				characters:seeProfessions("Hugh Jass", { { skillLine = TAILORING, level = 50, maxLevel = 75 } })
+				characters:stampProfessions("Hugh Jass")
+				settings.shareProfessions = false
+				characters:stampProfessions("Hugh Jass")
+				assert.same({ { skillLine = TAILORING, revision = 1001 } }, characters:professions("Hugh Jass"))
+				settings.shareProfessions = true
+				characters:stampProfessions("Hugh Jass")
+				assert.same(
+					{ { skillLine = TAILORING, level = 50, maxLevel = 75, revision = 1002 } },
+					characters:professions("Hugh Jass")
+				)
+			end
+		)
+
+		it("never shares the professions of a character not registered", function()
+			characters:seeProfessions("Anna Conda", { { skillLine = TAILORING, level = 50, maxLevel = 75 } })
+			characters:stampProfessions("Anna Conda")
+			assert.same({}, characters:professions("Anna Conda"))
+		end)
+
+		it("keeps a character whose professions were read but who was not asked yet not asked", function()
+			characters:seeProfessions("Anna Conda", { { skillLine = TAILORING, level = 50, maxLevel = 75 } })
+			assert.equal("notAsked", characters:state("Anna Conda"))
+			assert.is_nil(characters:registration("Anna Conda"))
+			assert.same({ nickname = "Tony" }, characters:prompt("Anna Conda"))
+		end)
+
+		it("keeps the professions when the registration changes", function()
+			characters:seeProfessions("Hugh Jass", { { skillLine = TAILORING, level = 50, maxLevel = 75 } })
+			characters:stampProfessions("Hugh Jass")
+			characters:register("Hugh Jass", "Antoine")
+			assert.equal(50, characters:professions("Hugh Jass")[1].level)
+		end)
+
+		it("gives copies, which changing leaves its professions as they are", function()
+			characters:seeProfessions("Hugh Jass", { { skillLine = TAILORING, level = 50, maxLevel = 75 } })
+			characters:seeRecipes("Hugh Jass", TAILORING, { 10 }, { 10 })
+			characters:stampProfessions("Hugh Jass")
+			characters:professions("Hugh Jass")[1].recipes[1] = 99
+			characters:recipeIDs("Hugh Jass")[TAILORING][1] = 99
+			assert.same({ 10 }, characters:professions("Hugh Jass")[1].recipes)
+			assert.same({ [TAILORING] = { 10 } }, characters:recipeIDs("Hugh Jass"))
+		end)
+
+		it("gives the professions as read now, unstamped, sorted by skill line, whatever is shared", function()
+			settings.shareProfessions = false
+			characters:seeProfessions("Hugh Jass", {
+				{ skillLine = TAILORING, level = 50, maxLevel = 75 },
+				{ skillLine = COOKING, level = 1, maxLevel = 75 },
+			})
+			characters:seeRecipes("Hugh Jass", TAILORING, { 30, 10, 20 }, { 30, 10 })
+			characters:stampProfessions("Hugh Jass")
+			characters:seeProfessions("Hugh Jass", {
+				{ skillLine = TAILORING, level = 60, maxLevel = 75 },
+				{ skillLine = COOKING, level = 1, maxLevel = 75 },
+			})
+			assert.same({
+				{ skillLine = COOKING, level = 1, maxLevel = 75 },
+				{ skillLine = TAILORING, level = 60, maxLevel = 75, recipes = { 10, 30 } },
+			}, characters:currentProfessions("Hugh Jass"))
+		end)
+
+		it("leaves a dropped profession out of the professions read now", function()
+			characters:seeProfessions("Hugh Jass", { { skillLine = TAILORING, level = 50, maxLevel = 75 } })
+			characters:stampProfessions("Hugh Jass")
+			characters:seeProfessions("Hugh Jass", {})
+			assert.same({}, characters:currentProfessions("Hugh Jass"))
+		end)
+
+		it("lists every character with a profession read, registered or not, sorted by name", function()
+			characters:seeProfessions("Hugh Jass", { { skillLine = TAILORING, level = 50, maxLevel = 75 } })
+			characters:seeProfessions("Dee Zaster", { { skillLine = COOKING, level = 1, maxLevel = 75 } })
+			characters:seeProfessions("Cole Slaw", {})
+			characters:register("Anna Conda", "Anna")
+			assert.same({ "Dee Zaster", "Hugh Jass" }, characters:withProfessions())
+		end)
+
+		it("says whether reading the professions or the recipes changed anything", function()
+			local tailoring = { { skillLine = TAILORING, level = 50, maxLevel = 75 } }
+			assert.is_true(characters:seeProfessions("Hugh Jass", tailoring))
+			assert.is_false(characters:seeProfessions("Hugh Jass", tailoring))
+			assert.is_true(
+				characters:seeProfessions("Hugh Jass", { { skillLine = TAILORING, level = 51, maxLevel = 75 } })
+			)
+			assert.is_true(characters:seeRecipes("Hugh Jass", TAILORING, { 10, 20 }, { 10 }))
+			assert.is_false(characters:seeRecipes("Hugh Jass", TAILORING, { 20, 10 }, { 10 }))
+			assert.is_true(characters:seeRecipes("Hugh Jass", TAILORING, { 10, 20 }, { 10, 20 }))
+			assert.is_false(characters:seeRecipes("Hugh Jass", COOKING, { 1 }, { 1 }))
+			assert.is_true(characters:seeProfessions("Hugh Jass", {}))
+		end)
+
+		it("keeps professions in its saved table", function()
+			characters:seeProfessions("Hugh Jass", { { skillLine = TAILORING, level = 50, maxLevel = 75 } })
+			characters:stampProfessions("Hugh Jass")
+			assert.equal(50, Self.new(saved, clock, settings):professions("Hugh Jass")[1].level)
+		end)
+
+		it("loads a saved character from before professions", function()
+			local old = { ["Hugh Jass"] = { nickname = "Tony", revision = 900 } }
+			local loaded = Self.new(old, clock, {})
+			assert.same({}, loaded:professions("Hugh Jass"))
+			loaded:seeProfessions("Hugh Jass", { { skillLine = TAILORING, level = 50, maxLevel = 75 } })
+			loaded:stampProfessions("Hugh Jass")
+			assert.equal(50, loaded:professions("Hugh Jass")[1].level)
 		end)
 	end)
 end)

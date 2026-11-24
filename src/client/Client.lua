@@ -279,11 +279,108 @@ local DEFAULTS = {
 	askStrangers = true, -- "Ask strangers"
 	everyone = false, -- "Talk with everyone": off, only friends and guildmates (decision 0007)
 	offerReport = true, -- offer the debug report after an error
+	shareProfessions = true, -- "Share my professions" (decision 0008)
 }
 Client.DEFAULTS = DEFAULTS
 
 local frame = CreateFrame("Frame")
 local handlers = {}
+
+-- This character's professions (decision 0008), read into Self as they change;
+-- peers get them only once a sync stamps them.
+
+-- Reads the skill level of each profession, secondary ones included, keyed by
+-- skill line ID (GetProfessionInfo's 7th value), never by the name. At login an
+-- empty read is skipped: the game may not have the professions yet, and an
+-- empty list would drop them all.
+local function readProfessions(atLogin)
+	local list = {}
+	local indexes = { GetProfessions() } -- holes where a slot is empty
+	for i = 1, table.maxn(indexes) do
+		if indexes[i] then
+			local _, _, level, maxLevel, _, _, skillLine = GetProfessionInfo(indexes[i])
+			if skillLine then
+				list[#list + 1] = { skillLine = skillLine, level = level, maxLevel = maxLevel }
+			end
+		end
+	end
+	if list[1] or not atLogin then
+		ns.characters:seeProfessions(playerName, list)
+	end
+end
+
+-- Rechecks which saved recipes are learned, with the windows closed.
+local function recheckRecipes()
+	for skillLine, recipeIDs in pairs(ns.characters:recipeIDs(playerName)) do
+		local learned = {}
+		for _, recipeID in ipairs(recipeIDs) do
+			if C_SpellBook.IsSpellKnown(recipeID) then
+				learned[#learned + 1] = recipeID
+			end
+		end
+		ns.characters:seeRecipes(playerName, skillLine, recipeIDs, learned)
+	end
+end
+
+-- Whether the open profession window is the player's own: not a linked
+-- profession, the guild view or an NPC's crafting. Each check is asked only
+-- where the client has it.
+local function isOwnWindow()
+	for _, check in ipairs({ "IsTradeSkillLinked", "IsTradeSkillGuild", "IsNPCCrafting" }) do
+		if C_TradeSkillUI[check] and C_TradeSkillUI[check]() then
+			return false
+		end
+	end
+	return true
+end
+
+-- Saves every recipe of the profession whose window the player opened, and the
+-- learned ones: the list is empty while no window is open. Mnemosyne never
+-- opens one itself. Read once per window open: the list update fires again
+-- and again while crafting, and NEW_RECIPE_LEARNED covers what changes after.
+-- Switching to another profession with the window open reads that one too.
+local recipesReadFor -- the profession read since the window opened
+local function readRecipes()
+	if not playerName or not isOwnWindow() then
+		return
+	end
+	local profession = C_TradeSkillUI.GetBaseProfessionInfo()
+	local recipeIDs = C_TradeSkillUI.GetAllRecipeIDs()
+	if
+		not (profession and profession.professionID and recipeIDs and recipeIDs[1])
+		or profession.professionID == recipesReadFor
+	then
+		return
+	end
+	recipesReadFor = profession.professionID
+	local learned = {}
+	for _, recipeID in ipairs(recipeIDs) do
+		local recipe = C_TradeSkillUI.GetRecipeInfo(recipeID)
+		if recipe and recipe.learned then
+			learned[#learned + 1] = recipeID
+		end
+	end
+	ns.characters:seeRecipes(playerName, profession.professionID, recipeIDs, learned)
+end
+
+function handlers.TRADE_SKILL_SHOW()
+	recipesReadFor = nil
+	readRecipes()
+end
+handlers.TRADE_SKILL_LIST_UPDATE = readRecipes
+
+-- Fires before login too: read only once the character is known.
+function handlers.SKILL_LINES_CHANGED()
+	if playerName then
+		readProfessions()
+	end
+end
+
+function handlers.NEW_RECIPE_LEARNED()
+	if playerName then
+		recheckRecipes()
+	end
+end
 
 function handlers.ADDON_LOADED(name)
 	if name ~= addonName then
@@ -301,13 +398,13 @@ function handlers.ADDON_LOADED(name)
 	db.debug = db.debug == true
 	db.forgotten = db.forgotten or {}
 	ns.memory = ns.Memory.new(db.memory, GetServerTime, db.forgotten)
-	ns.characters = ns.Self.new(db.characters, GetServerTime)
 	db.settings = db.settings or {}
 	for key, value in pairs(DEFAULTS) do
 		if db.settings[key] == nil then
 			db.settings[key] = value
 		end
 	end
+	ns.characters = ns.Self.new(db.characters, GetServerTime, db.settings)
 	db.asked = db.asked or {}
 	db.syncs = db.syncs or {}
 	db.window = db.window or {} -- Mnemosyne's window: its position and last tab
@@ -351,6 +448,8 @@ function handlers.PLAYER_LOGIN()
 	groupSize = GetNumGroupMembers()
 	inGuild = IsInGuild()
 	inbox:loggedIn()
+	readProfessions(true)
+	recheckRecipes()
 	C_Timer.NewTicker(SYNC_TICK, function()
 		sendSync(ns.sync:tick())
 	end)
