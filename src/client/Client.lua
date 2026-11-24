@@ -213,6 +213,7 @@ local scopeRead = false
 
 local function readScope()
 	local scope, isKnown = ns.scope, Client.isKnown
+	local friends, roster = {}, {}
 	scope:reset()
 	-- On Forever a friend added by character name is listed with the Battle.net
 	-- friends too: C_FriendList stays empty (docs/agents/wow-api.md).
@@ -221,6 +222,7 @@ local function readScope()
 			local account = C_BattleNet.GetFriendGameAccountInfo(i, j)
 			if account and account.clientProgram == BNET_CLIENT_WOW and isKnown(account.characterName) then
 				scope:add(account.characterName)
+				friends[#friends + 1] = account.characterName
 			end
 		end
 	end
@@ -228,8 +230,11 @@ local function readScope()
 		local name = GetGuildRosterInfo(i)
 		if isKnown(name) then
 			scope:add(name)
+			roster[#roster + 1] = name
 		end
 	end
+	-- Whose professions are kept, and which peers may keep the roster's.
+	ns.professions:seeLists(friends, roster)
 	scopeRead = true
 end
 
@@ -408,7 +413,9 @@ function handlers.ADDON_LOADED(name)
 	db.asked = db.asked or {}
 	db.syncs = db.syncs or {}
 	db.window = db.window or {} -- Mnemosyne's window: its position and last tab
-	ns.sync = ns.Sync.new(db.syncs, GetServerTime, ns.memory, db.settings, ns.characters)
+	db.professions = db.professions or {}
+	ns.professions = ns.Professions.new(db.professions, GetServerTime, ns.memory, ns.characters, db.settings)
+	ns.sync = ns.Sync.new(db.syncs, GetServerTime, ns.memory, db.settings, ns.characters, ns.professions)
 	ns.news = ns.News.new(GetTime, math.random, ns.memory, ns.characters, db.settings)
 	outbox = ns.Outbox.new(GetTime, Client.canSend)
 	inbox = ns.Inbox.new({
@@ -429,7 +436,7 @@ function handlers.ADDON_LOADED(name)
 		end,
 	})
 	ns.scope = ns.Scope.new(db.settings)
-	ns.recognition = ns.Recognition.new(ns.memory, db.settings, ns.L, GetServerTime, ns.characters)
+	ns.recognition = ns.Recognition.new(ns.memory, db.settings, ns.L, GetServerTime, ns.characters, ns.professions)
 	-- The debug report (src/core/Report.lua): its events, the caught errors, and
 	-- whether to offer it after an error.
 	db.events = db.events or {}

@@ -24,21 +24,30 @@ local GREY_CODE = "|cff808080" -- the same grey, in chat
 -- second-hand identities.
 -- L: the locale table. clock: returns the server time, in seconds.
 -- characters: this account's characters (Self), shown as they are registered.
-function Recognition.new(memory, settings, L, clock, characters)
-	return setmetatable(
-		{ memory = memory, settings = settings, L = L, clock = clock, characters = characters, fullNames = {} },
-		Recognition
-	)
+-- professions: the Professions, which see each GUID learned; none when left out.
+function Recognition.new(memory, settings, L, clock, characters, professions)
+	return setmetatable({
+		memory = memory,
+		settings = settings,
+		L = L,
+		clock = clock,
+		characters = characters,
+		professions = professions,
+		fullNames = {},
+	}, Recognition)
 end
 
 -- Learns that a GUID belongs to a full name, from a chat line or a group
--- member: the memory sees it (an identity whose name shows up with another
--- GUID goes stale), and the map keeps it for this session. Only a character
+-- member: the memory and the professions see it (an identity or profession
+-- whose name shows up with another GUID goes stale), and the map keeps it for this session. Only a character
 -- the memory knows is mapped, so the map stays small in busy channels; a
 -- missing GUID teaches nothing.
 function Recognition:learn(guid, fullName)
 	if guid and guid ~= "" then
 		self.memory:see(fullName, guid)
+		if self.professions then
+			self.professions:see(fullName, guid)
+		end
 		if self.memory:recall(fullName) then
 			self.fullNames[guid] = fullName
 		end

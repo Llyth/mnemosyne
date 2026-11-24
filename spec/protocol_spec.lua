@@ -711,3 +711,139 @@ describe("Protocol for news", function()
 		end
 	end)
 end)
+
+describe("Protocol for professions", function()
+	local function readWhole(text)
+		local reader = Protocol.newReader(function()
+			return 0
+		end)
+		local message, why
+		for _, chunk in ipairs(Protocol.newWriter():split(text)) do
+			message, why = reader:read("Anna Conda", chunk)
+		end
+		return message, why
+	end
+
+	local tailoring = {
+		name = "Hugh Jass",
+		skillLine = 197,
+		revision = 1731500000,
+		level = 75,
+		maxLevel = 150,
+		recipes = { 2385, 2386, 1263032 },
+	}
+
+	it("carries a digest of professions", function()
+		local digest = string.rep("0123456789abcdef", Protocol.DIGEST_LENGTH / 16)
+		local message = { kind = "professionDigest", digest = digest }
+		assert.same(message, readWhole(Protocol.write(message)))
+		assert.equal("2:H:", Protocol.write(message):sub(1, 4))
+	end)
+
+	it("carries professions, a removal and one never opened included, with a GUID", function()
+		local message = {
+			kind = "professions",
+			professions = {
+				tailoring,
+				{ name = "Anna Conda", skillLine = 171, revision = 7, level = 1, maxLevel = 75 },
+				{ name = "Cole Slaw", skillLine = 171, revision = 8, guid = "Player-1-0000ABCD" },
+				{ name = "Dee Zaster", skillLine = 171, revision = 9, level = 0, maxLevel = 75, recipes = {} },
+			},
+		}
+		assert.same(message, readWhole(Protocol.write(message)))
+	end)
+
+	it("writes recipe IDs sorted, as base-36 differences", function()
+		assert.equal("1731500000:Hugh Jass:197:75:150:1u9,1,r0py", Protocol.writeProfession(tailoring))
+	end)
+
+	it("batches professions in messages a peer reads whole", function()
+		local list = {}
+		local recipes = {}
+		for i = 1, 400 do
+			recipes[i] = 1000000 + i * 997
+		end
+		for i = 1, 20 do
+			list[i] =
+				{ name = "Name Number" .. i, skillLine = 171, revision = 9, level = 1, maxLevel = 9, recipes = recipes }
+		end
+		local batches = Protocol.batchProfessions(list)
+		local count = 0
+		for _, batch in ipairs(batches) do
+			local text = Protocol.write({ kind = "professions", professions = batch })
+			assert.is_true(#text <= Protocol.MAX_CHUNKED_BYTES)
+			count = count + #readWhole(text).professions
+		end
+		assert.equal(20, count)
+	end)
+
+	describe("drops what it cannot trust", function()
+		local function kept(line)
+			local message = readWhole("2:K:" .. line .. "\n1:Anna Conda:171")
+			return message and #message.professions == 2
+		end
+
+		it("keeps a well-formed line", function()
+			assert.is_true(kept("1:Hugh Jass:171:1:75:1,2"))
+		end)
+
+		it("drops a line that does not parse, and keeps the others", function()
+			for _, line in ipairs({
+				"",
+				"1:Hugh Jass",
+				"0:Hugh Jass:171",
+				"01:Hugh Jass:171",
+				"1:Hugh:171",
+				"1:Hugh Jass:0",
+				"1:Hugh Jass:1234567",
+				"1:Hugh Jass:171:1",
+				"1:Hugh Jass:171:76:75",
+				"1:Hugh Jass:171:1:0",
+				"1:Hugh Jass:171:01:75",
+				"1:Hugh Jass:171:1:10000",
+				"1:Hugh Jass:171:1:75:0",
+				"1:Hugh Jass:171:1:75:1,0",
+				"1:Hugh Jass:171:1:75:01",
+				"1:Hugh Jass:171:1:75:A",
+				"1:Hugh Jass:171:1:75:1,,2",
+				"1:Hugh Jass:171:1:75:1,",
+				"1:Hugh Jass:171:1:75:1234567",
+				"1:Hugh Jass:171:1:75:zzzzzz,zzzzzz",
+				"1:Hugh Jass:171:1:75:1:2",
+				"1:Hugh|cff Jass:171",
+				"1:Hugh\1 Jass:171",
+				"1:Hugh Jass:171\r",
+				"F",
+			}) do
+				assert.is_false(kept(line), line)
+			end
+		end)
+
+		it("drops a GUID that is not a character's, and keeps its profession", function()
+			local message = readWhole("2:K:1:Hugh Jass:171\nG:Creature-1-2")
+			assert.same({ { name = "Hugh Jass", skillLine = 171, revision = 1 } }, message.professions)
+		end)
+
+		it("drops more recipes than a profession can hold: 600, Tailoring's 471 and headroom", function()
+			local tokens = {}
+			for i = 1, 600 do
+				tokens[i] = "1"
+			end
+			assert.equal(
+				600,
+				#readWhole("2:K:1:Hugh Jass:171:1:75:" .. table.concat(tokens, ",")).professions[1].recipes
+			)
+			tokens[601] = "1"
+			assert.is_nil(readWhole("2:K:1:Hugh Jass:171:1:75:" .. table.concat(tokens, ",")))
+		end)
+
+		it("drops a message with no profession it can read, or longer than a chunked message", function()
+			assert.is_nil(readWhole("2:K"))
+			assert.is_nil(readWhole("2:K:"))
+			assert.is_nil(readWhole("2:K:G:Player-1-2"))
+			assert.is_nil(Protocol.read("2:H:" .. string.rep("0", Protocol.DIGEST_LENGTH - 1)))
+			local long = "2:K:" .. string.rep("1:Hugh Jass:171\n", 300)
+			assert.is_nil(readWhole(long))
+		end)
+	end)
+end)

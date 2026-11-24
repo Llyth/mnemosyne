@@ -602,6 +602,13 @@ function Memory:passOn(name)
 	end
 end
 
+-- Whether a character's identity is held as a removal (without a nickname),
+-- even disputed or stale: what the character withdrew stays withdrawn.
+function Memory:isWithdrawn(name)
+	local known = self.identities[name]
+	return known ~= nil and known.nickname == nil
+end
+
 -- Forgets a character (its full name in any case, accents or not): drops its
 -- identity and refuses its second-hand copies
 -- until unforgotten; first-hand ones still get through. With no identity

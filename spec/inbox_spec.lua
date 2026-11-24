@@ -128,6 +128,21 @@ describe("Inbox", function()
 		assert.same({ "Anna Conda channel", "Anna Conda channel" }, dropped)
 	end)
 
+	it("takes professions and their digest by whisper only, as other sync messages", function()
+		local digest = Protocol.write({ kind = "professionDigest", digest = string.rep("0", Protocol.DIGEST_LENGTH) })
+		local professions = Protocol.write({
+			kind = "professions",
+			professions = { { name = "Barb Dwyer", skillLine = 171, revision = 900 } },
+		})
+		for _, chunk in ipairs(Protocol.newWriter():split(digest)) do
+			inbox:receive("Anna Conda", "GUILD", chunk)
+		end
+		inbox:receive("Anna Conda", "GUILD", professions)
+		assert.same({ "Anna Conda channel", "Anna Conda channel" }, dropped)
+		inbox:receive("Anna Conda", "WHISPER", professions)
+		assert.same({ "Anna Conda channel", "Anna Conda channel" }, dropped)
+	end)
+
 	it("syncs with a group member who is a peer", function()
 		inbox:loggedIn()
 		now = now + Inbox.LOGIN_WINDOW

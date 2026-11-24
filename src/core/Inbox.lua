@@ -21,6 +21,8 @@ Inbox.LOGIN_WINDOW, Inbox.LOGIN_SYNCS = 60, 3 -- after login, sync with the firs
 
 -- The channels of the group: a message there from a peer is a group member's.
 local GROUP_CHANNELS = { PARTY = true, RAID = true, INSTANCE_CHAT = true }
+-- The kinds of a sync's messages, taken by whisper only.
+local SYNC_KINDS = { digest = true, identities = true, done = true, professionDigest = true, professions = true }
 
 -- deps, a table of:
 -- clock: returns the time, in seconds; serverClock: the server time.
@@ -139,7 +141,7 @@ function Inbox:receive(sender, channel, text)
 	log.received(sender, channel, log.isOn() and Protocol.write(message) or text, message.kind)
 	self.heardAt[sender] = self.serverClock()
 	local kind = message.kind
-	if kind == "digest" or kind == "identities" or kind == "done" then
+	if SYNC_KINDS[kind] then
 		if channel == "WHISPER" then
 			local outgoing, learned = self.sync:receive(sender, message)
 			queueSync(self, outgoing)
