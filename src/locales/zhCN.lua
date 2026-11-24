@@ -92,6 +92,10 @@ L.HELP_SYNC = "/mnemosyne sync：与当前能联系到的Mnemosyne玩家同步�
 L.SYNC_STARTED = "正在与%d名Mnemosyne玩家同步。"
 L.SYNC_NONE =
 	"当前没有可同步的Mnemosyne玩家：本次会话未收到任何Mnemosyne玩家的消息，或都已在过去6小时内同步过。"
+L.HELP_SYNC_RESET = "/mnemosyne sync reset：忘记与每位玩家上次同步的时间，"
+	.. "以便立即再次同步（对方也须这样做）"
+L.SYNC_RESET = "已清除你这边的同步冷却。"
+	.. "对方玩家也必须输入/mnemosyne sync reset，你们才能再次同步。"
 -- Forgetting.
 L.HELP_FORGET = "/mnemosyne forget <角色>：删除一个角色的昵称，并拒绝他人对它的转告"
 L.HELP_UNFORGET = "/mnemosyne unforget <角色>：撤销forget"

@@ -650,6 +650,31 @@ describe("Sync", function()
 		)
 	end)
 
+	it("syncs again at once with a peer after the cooldowns are reset", function()
+		syncWith("Barb Dwyer")
+		now = now + 5 * 60
+		assert.same(
+			{ "Barb Dwyer done" },
+			sent(sync:receive("Barb Dwyer", { kind = "digest", digest = emptyDigest() }))
+		)
+		sync:resetCooldowns()
+		assert.same({}, saved)
+		assert.same({}, sync:recent())
+		local _, accepted = sync:request("Barb Dwyer", now)
+		assert.is_true(accepted)
+		assert.same(
+			{ "Barb Dwyer identities", "Barb Dwyer done" },
+			sent(sync:receive("Barb Dwyer", { kind = "digest", digest = emptyDigest() }))
+		)
+	end)
+
+	it("leaves the early syncs alone when the cooldowns are reset", function()
+		local early = { ["Barb Dwyer"] = "synced" }
+		sync = Sync.new(saved, clock, memory, settings, characters, nil, early)
+		sync:resetCooldowns()
+		assert.same({ ["Barb Dwyer"] = "synced" }, early)
+	end)
+
 	describe("its recent syncs", function()
 		it("lists the peers synced in the last 6 hours, the most recent first", function()
 			saved["Anna Conda"] = now - 2 * HOUR
@@ -763,9 +788,53 @@ describe("Sync", function()
 			assert.equal("Barb Dwyer", professions:list()[2].source)
 		end)
 
+		-- A whole sync, the digests of professions answered, so the cooldown holds.
+		local function syncFully(peer)
+			sync:request(peer, now)
+			sync:receive(peer, { kind = "professionDigest", digest = NONE })
+			sync:receive(peer, { kind = "digest", digest = emptyDigest() })
+			sync:receive(peer, { kind = "done" })
+		end
+
+		it("syncs with a guildmate again after an hour, not before", function()
+			syncFully("Barb Dwyer")
+			now = now + HOUR - 1
+			assert.same({ {}, false }, { sync:request("Barb Dwyer", now) })
+			now = now + 1
+			assert.same({ "Barb Dwyer professionDigest", "Barb Dwyer digest" }, sent(sync:request("Barb Dwyer", now)))
+		end)
+
+		it("syncs with a friend outside the guild at most once every 6 hours", function()
+			professions:seeLists({ "Cole Slaw" }, { "Barb Dwyer", "Hugh Jass" })
+			syncFully("Cole Slaw")
+			now = now + 6 * HOUR - 1
+			assert.same({ {}, false }, { sync:request("Cole Slaw", now) })
+			now = now + 1
+			assert.same({ "Cole Slaw professionDigest", "Cole Slaw digest" }, sent(sync:request("Cole Slaw", now)))
+		end)
+
+		it("answers a guildmate's digest again after an hour, not before", function()
+			syncFully("Barb Dwyer")
+			now = now + HOUR - 1
+			sync:receive("Barb Dwyer", { kind = "professionDigest", digest = NONE })
+			assert.same(
+				{ "Barb Dwyer done" },
+				sent(sync:receive("Barb Dwyer", { kind = "digest", digest = emptyDigest() }))
+			)
+			now = now + 1
+			sync:receive("Barb Dwyer", { kind = "professionDigest", digest = NONE })
+			local outgoing = sync:receive("Barb Dwyer", { kind = "digest", digest = emptyDigest() })
+			assert.equal("Barb Dwyer digest", sent(outgoing)[2])
+		end)
+
+		it("lists a guildmate synced in the last 6 hours among its recent syncs", function()
+			saved["Barb Dwyer"] = now - 2 * HOUR
+			assert.same({ { peer = "Barb Dwyer", at = now - 2 * HOUR } }, sync:recent())
+		end)
+
 		describe("with a peer it synced with lately", function()
 			before_each(function()
-				saved["Barb Dwyer"] = now - HOUR -- synced before either side shared professions
+				saved["Barb Dwyer"] = now - HOUR / 2 -- synced before either side shared professions
 			end)
 
 			it("syncs once more early with a peer whose professions it never heard", function()
@@ -774,7 +843,7 @@ describe("Sync", function()
 				assert.same({ "Barb Dwyer professionDigest", "Barb Dwyer digest" }, sent(outgoing))
 				sync:receive("Barb Dwyer", { kind = "digest", digest = emptyDigest() })
 				sync:receive("Barb Dwyer", { kind = "done" })
-				now = now + HOUR
+				now = now + HOUR / 2
 				assert.same({ {}, false }, { sync:request("Barb Dwyer", now) })
 			end)
 
@@ -789,7 +858,7 @@ describe("Sync", function()
 					"Barb Dwyer done",
 				}, sent(outgoing))
 				sync:receive("Barb Dwyer", { kind = "done" })
-				now = now + HOUR
+				now = now + HOUR / 2
 				sync:receive("Barb Dwyer", { kind = "professionDigest", digest = NONE })
 				outgoing = sync:receive("Barb Dwyer", { kind = "digest", digest = emptyDigest() })
 				assert.same({ "Barb Dwyer done" }, sent(outgoing))
@@ -801,7 +870,7 @@ describe("Sync", function()
 				sync:receive("Barb Dwyer", { kind = "professionDigest", digest = NONE })
 				sync:receive("Barb Dwyer", { kind = "digest", digest = emptyDigest() })
 				sync:receive("Barb Dwyer", { kind = "done" })
-				now = now + HOUR
+				now = now + HOUR / 2
 				assert.same({ {}, false }, { sync:request("Barb Dwyer", now) })
 				local outgoing = sync:receive("Barb Dwyer", { kind = "digest", digest = emptyDigest() })
 				assert.same({ "Barb Dwyer done" }, sent(outgoing))
@@ -814,7 +883,7 @@ describe("Sync", function()
 					assert.equal("Barb Dwyer done", sent(outgoing)[#outgoing])
 					assert.is_true(#outgoing > 1)
 					sync:receive("Barb Dwyer", { kind = "done" })
-					now = now + HOUR
+					now = now + HOUR / 2
 					sync = Sync.new(saved, clock, memory, settings, characters, professions, early)
 					assert.same({ {}, false }, { sync:request("Barb Dwyer", now) })
 					outgoing = sync:receive("Barb Dwyer", { kind = "digest", digest = emptyDigest() })

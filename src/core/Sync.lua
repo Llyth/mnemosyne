@@ -6,8 +6,9 @@
 -- Each peer sends its digest, then, once it has the other's, the identities
 -- the other lacks or holds at an older revision, then the end of its part. A
 -- sync passes on at most what the other keeps in a day from one peer,
--- first-hand changes of the last day first. A
--- sync with a peer happens at most once every 6 hours; at most 2 run at once
+-- first-hand changes of the last day first. A sync with a peer happens at most
+-- once an hour with a guildmate (on this side's guild roster, as Professions
+-- holds it) and once every 6 hours with anyone else; at most 2 run at once
 -- and at most 10 wait, the most recently heard peers first. A sync whose peer
 -- passes on nothing new for 2 minutes, or that lasts 20 minutes, is cut; the
 -- next one starts again from the digest. Whispers can arrive out of order, so a
@@ -23,9 +24,9 @@
 -- peer that sends no digest of professions (an older one) gets only identities.
 -- A peer whose digest of professions this side never answered syncs once
 -- during the cooldown, on either side: peers that synced before they shared
--- professions would otherwise wait 6 hours to pass them on. After that early
--- sync, or once its digest of professions is answered, the cooldown holds, so
--- an older peer gets one early sync only.
+-- professions would otherwise wait out the cooldown to pass them on. After
+-- that early sync, or once its digest of professions is answered, the cooldown
+-- holds, so an older peer gets one early sync only.
 local _, ns = ...
 
 local Memory, Protocol = ns.Memory, ns.Protocol
@@ -34,7 +35,8 @@ local Sync = {}
 Sync.__index = Sync
 ns.Sync = Sync
 
-Sync.COOLDOWN = 6 * 60 * 60 -- seconds between two syncs with the same peer
+Sync.COOLDOWN_GUILD = 60 * 60 -- seconds between two syncs with the same guildmate
+Sync.COOLDOWN = 6 * 60 * 60 -- seconds between two syncs with the same peer outside the guild
 Sync.MAX_RUNNING = 2
 Sync.MAX_WAITING = 10
 Sync.TIMEOUT = 120 -- seconds without anything new from the peer before a sync is cut
@@ -49,7 +51,7 @@ Sync.MAX_DURATION = 20 * 60 -- seconds before a sync is cut, however much the pe
 Sync.FRESH = Memory.VOUCHED_WINDOW - 60 * 60 -- seconds
 
 -- saved: when each peer last synced (MnemosyneDB.syncs); entries older than
--- the cooldown are let go here.
+-- the longer cooldown are let go here.
 -- clock: returns the server time, in seconds.
 -- memory: the Memory to hash, pass on and learn into.
 -- settings: the saved settings; settings.passOn switches passing on what the
@@ -58,6 +60,8 @@ Sync.FRESH = Memory.VOUCHED_WINDOW - 60 * 60 -- seconds
 -- of them is neither learned nor passed on (decision 0001), once its player has
 -- decided (registered, anonymous or unregistered).
 -- professions: the Professions to hash, pass on and learn into; none when left out.
+-- Its guild roster tells guildmates, who sync more often; with none, every
+-- peer waits the longer cooldown.
 -- early: the peers that can no longer sync during the cooldown
 -- (MnemosyneDB.earlySyncs), peer -> "heard" (its digest of professions was
 -- answered) or "synced" (it had its early sync).
@@ -98,7 +102,8 @@ end
 
 local function isCooling(self, peer, now)
 	local syncedAt = self.synced[peer]
-	return syncedAt ~= nil and now - syncedAt < Sync.COOLDOWN
+	local guildmate = self.professions and self.professions.roster[peer]
+	return syncedAt ~= nil and now - syncedAt < (guildmate and Sync.COOLDOWN_GUILD or Sync.COOLDOWN)
 end
 
 -- Whether the cooldown keeps a sync with the peer from starting: a peer whose
@@ -384,11 +389,12 @@ function Sync:tick()
 	return startWaiting(self, now)
 end
 
--- The peers synced in the last 6 hours, as { peer, at }, the most recent first.
+-- The peers synced in the last 6 hours, guildmates included, as { peer, at },
+-- the most recent first.
 function Sync:recent()
 	local now, recent = self.clock(), {}
 	for peer, at in pairs(self.synced) do
-		if isCooling(self, peer, now) then
+		if now - at < Sync.COOLDOWN then
 			recent[#recent + 1] = { peer = peer, at = at }
 		end
 	end
@@ -396,6 +402,16 @@ function Sync:recent()
 		return a.at > b.at
 	end)
 	return recent
+end
+
+-- Forgets when each peer last synced, so a sync with any peer can start again
+-- at once from this side. A peer still in its own cooldown keeps refusing; the
+-- early syncs (decision 0008) stay as they are.
+function Sync:resetCooldowns()
+	-- Emptied in place: it is the saved table (MnemosyneDB.syncs).
+	for peer in pairs(self.synced) do
+		self.synced[peer] = nil
+	end
 end
 
 -- How many peers wait for their sync to start.

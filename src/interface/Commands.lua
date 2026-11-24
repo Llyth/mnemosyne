@@ -80,7 +80,12 @@ function commands.echo()
 	say(Client.toggleEcho() and L.ECHO_ON or L.ECHO_OFF)
 end
 
-function commands.sync()
+function commands.sync(text)
+	if text:lower() == "reset" then
+		ns.sync:resetCooldowns()
+		say(L.SYNC_RESET)
+		return
+	end
 	local count = Client.sync()
 	say(count > 0 and L.SYNC_STARTED:format(count) or L.SYNC_NONE)
 end

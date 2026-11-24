@@ -93,6 +93,10 @@ L.HELP_SYNC = "/mnemosyne sync: Euer Gedächtnis mit den Peers abgleichen, die I
 L.SYNC_STARTED = "Synchronisierung mit %d |4Peer:Peers;."
 L.SYNC_NONE = "Gerade kein Peer zum Synchronisieren: keiner in dieser Sitzung gehört, "
 	.. "oder alle in den letzten 6 Stunden synchronisiert."
+L.HELP_SYNC_RESET = "/mnemosyne sync reset: vergessen, wann Ihr zuletzt mit jedem Spieler synchronisiert habt, "
+	.. "um sofort erneut zu synchronisieren (der andere muss es auch tun)"
+L.SYNC_RESET = "Wartezeiten zwischen Synchronisierungen auf Eurer Seite gelöscht. Der andere Spieler muss "
+	.. "ebenfalls /mnemosyne sync reset eingeben, bevor Ihr erneut synchronisieren könnt."
 -- Forgetting.
 L.HELP_FORGET = "/mnemosyne forget <Charakter>: den Spitznamen eines Charakters löschen "
 	.. "und ablehnen, was andere über ihn weitergeben"

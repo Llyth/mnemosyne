@@ -102,6 +102,10 @@ L.HELP_SYNC = "/mnemosyne sync: 지금 연결할 수 있는 피어와 기억을 
 L.SYNC_STARTED = "피어 %d명과 동기화합니다."
 L.SYNC_NONE =
 	"지금 동기화할 피어가 없습니다. 이번 세션에 수신된 피어가 없거나, 모두 최근 6시간 안에 동기화했습니다."
+L.HELP_SYNC_RESET = "/mnemosyne sync reset: 각 플레이어와 마지막으로 동기화한 시간을 잊고 "
+	.. "바로 다시 동기화함 (상대도 해야 함)"
+L.SYNC_RESET = "내 쪽의 동기화 대기 시간을 초기화했습니다. 다시 동기화하려면 "
+	.. "상대 플레이어도 /mnemosyne sync reset을 입력해야 합니다."
 -- Forgetting.
 L.HELP_FORGET =
 	"/mnemosyne forget <캐릭터>: 캐릭터의 별명을 지우고 다른 플레이어가 전달하는 그 캐릭터 정보를 거부"
