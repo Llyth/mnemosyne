@@ -159,6 +159,15 @@ function Self:owns(name, guid)
 	return not character.taken
 end
 
+-- Whether a GUID is the one this account's character of a full name had when
+-- last played: the game showing it under the name says the name is that
+-- character's, where owns also answers by name. Never asked with a GUID a
+-- peer passed on.
+function Self:ownsGuid(name, guid)
+	local character = self.characters[name]
+	return guid ~= nil and character ~= nil and character.guid == guid
+end
+
 -- A character's state: "notAsked", "registered", "anonymous" or "unregistered".
 function Self:state(name)
 	local character = self.characters[name]

@@ -180,6 +180,18 @@ describe("Self", function()
 			assert.is_true(loaded:owns("Hugh Jass"))
 		end)
 
+		it("tells its characters by GUID alone, never by name, when asked whether a GUID is theirs", function()
+			characters:register("Hugh Jass", "Tony")
+			characters:keepAnonymous("Anna Conda")
+			characters:see("Hugh Jass", GUID)
+			assert.same({ true, false, false, false }, {
+				characters:ownsGuid("Hugh Jass", GUID),
+				characters:ownsGuid("Hugh Jass", OTHER),
+				characters:ownsGuid("Hugh Jass", nil),
+				characters:ownsGuid("Anna Conda", OTHER),
+			})
+		end)
+
 		it("never takes a name of a character never played since GUIDs were kept as taken", function()
 			characters:keepAnonymous("Anna Conda")
 			characters:seeName("Anna Conda", OTHER)

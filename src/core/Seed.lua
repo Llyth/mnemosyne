@@ -44,12 +44,12 @@ end
 
 -- Whether the character played, by its full name and its GUID, is new since
 -- the update, so it starts empty rather than from the seed (decision 0001):
--- the account's characters (MnemosyneDB.characters, Self's saved table) did
--- not know it before this login, or knew another GUID for its name (that
--- character was deleted or renamed since). A character of 1.4.x that never
--- registered nor read its professions is not known either, and starts empty
--- too. guid: nil when the game did not give it.
-function Seed.isNew(account, name, guid)
-	local known = account.characters and account.characters[name]
-	return known == nil or (guid ~= nil and known.guid ~= nil and known.guid ~= guid)
+-- the account's characters (Self, before it learns this login's) do not own
+-- the name under that GUID (Self:owns): they did not know it, knew another
+-- GUID for it (that character was deleted or renamed since), or saw another
+-- player's character take it. A character of 1.4.x that never registered nor
+-- read its professions is not known either, and starts empty too. guid: nil
+-- when the game did not give it.
+function Seed.isNew(characters, name, guid)
+	return not characters:owns(name, guid)
 end

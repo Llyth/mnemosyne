@@ -225,15 +225,9 @@ local function queue(self, name, known)
 	end
 end
 
--- Whether a GUID is the one Self knows for one of this account's characters,
--- for a full name: the game showing it there tells the name is that
--- character's now (decision 0003). Never by name alone, nor asked with a
--- GUID a peer passed on: a peer's word proves nothing.
-local function isOwnGuid(self, name, guid)
-	return guid ~= nil and self.characters ~= nil and self.characters:guid(name) == guid
-end
-
--- One of this account's characters is seen with its GUID (isOwnGuid). A
+-- One of this account's characters is seen with its GUID (Self:ownsGuid: the
+-- game showing it there tells the name is that character's now, decision
+-- 0003; never by name alone, nor asked with a GUID a peer passed on). A
 -- second-hand copy of it is stale no more: it never speaks first-hand to its
 -- own account, so stale it would refuse every later revision for good. A
 -- first-hand identity under its name is dropped: only another player's
@@ -317,7 +311,7 @@ function Memory.new(saved, clock, forgotten, characters)
 	end)
 	local seen = {}
 	for name, known in pairs(saved.identities) do
-		if isOwnGuid(self, name, known.guid) then
+		if characters and characters:ownsGuid(name, known.guid) then
 			seen[#seen + 1] = name
 		end
 	end
@@ -472,7 +466,7 @@ function Memory:hear(name, heard)
 		revision = heard.revision,
 		firstHand = true,
 		heard = self.clock(),
-		guid = known and not isOwnGuid(self, name, known.guid) and known.guid or nil,
+		guid = known and not (self.characters and self.characters:ownsGuid(name, known.guid)) and known.guid or nil,
 	})
 	return true
 end
@@ -487,7 +481,7 @@ end
 -- knows is told apart (ownSeen).
 function Memory:see(name, guid)
 	local known = self.identities[name]
-	if known and isOwnGuid(self, name, guid) then
+	if known and self.characters and self.characters:ownsGuid(name, guid) then
 		ownSeen(self, name, known, guid)
 	elseif known and known.guid ~= guid then
 		if known.guid then
