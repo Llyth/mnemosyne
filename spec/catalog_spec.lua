@@ -1,4 +1,4 @@
-local ns = require("spec.helpers.addon")("Protocol", "Memory", "Professions", "Catalog")
+local ns = require("spec.helpers.addon")("Protocol", "Digest", "Memory", "Professions", "Catalog")
 local Catalog = ns.Catalog
 
 local TAILORING, ALCHEMY, COOKING, FIRST_AID, MINING, HERBALISM = 197, 171, 185, 129, 186, 182

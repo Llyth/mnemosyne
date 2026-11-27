@@ -11,3 +11,5 @@ No library is embedded (Ace3, ChatThrottleLib, LibDeflate), against the habit of
 **Update, 2026-11-14.** The paced queue moved out of `Client` into a tenth pure module, `Outbox` (the jobs, the sync messages in turns, the allowance and the 1 KB a second), so busted tests it. `Client` hands it a port: whether the client is paused, how to build a job's message, and how to send one. The decision holds.
 
 **Update, 2026-11-14.** The routing of peers' messages moved out of `Client` too, into an eleventh pure module, `Inbox` (who is heard, on which channel each kind counts, the answer cooldown, the syncs after login and with group members). `Client` checks a message holds no secret value, then hands it over. The decision holds.
+
+**Update, 2026-11-27.** The digest scheme moved out of `Memory` and `Professions`, which each wrote it, into a pure module of its own, `Digest` (the hash, the bucket of a name, the sums, the written form and the buckets two digests differ in), which both use. What goes on the wire is unchanged. The decision holds.

@@ -1,4 +1,4 @@
-local ns = require("spec.helpers.addon")("Protocol", "Memory")
+local ns = require("spec.helpers.addon")("Protocol", "Digest", "Memory")
 local Memory, Protocol = ns.Memory, ns.Protocol
 
 describe("Memory", function()
@@ -568,6 +568,16 @@ describe("Memory, second-hand", function()
 				message = reader:read("Barb Dwyer", chunk)
 			end
 			assert.equal(digest, message.digest)
+		end)
+
+		it("gives the digest peers on 1.4.0 give for the same identities", function()
+			memory:hear("Élise Bérénice", { nickname = "Zoé", revision = 902 })
+			local buckets = { [9] = "e05f9036", [42] = "f2c045ad", [99] = "5743bd59" }
+			local expected = {}
+			for bucket = 1, Protocol.DIGEST_LENGTH / 8 do
+				expected[bucket] = buckets[bucket] or "00000000"
+			end
+			assert.equal(table.concat(expected), memory:digest())
 		end)
 
 		it("gives the same digest for the same identities, whoever heard them how", function()

@@ -19,6 +19,7 @@
 
 # The pure modules first (decision 0004), then the locales, then the adapters.
 src\core\Protocol.lua
+src\core\Digest.lua
 src\core\Memory.lua
 src\core\Self.lua
 src\core\Professions.lua

@@ -20,6 +20,7 @@
 -- peer, first-hand ones aside.
 local _, ns = ...
 
+local Digest = ns.Digest
 local Protocol = ns.Protocol
 
 local Professions = {}
@@ -27,8 +28,6 @@ Professions.__index = Professions
 ns.Professions = Professions
 
 local DAY = 24 * 60 * 60
-local HASH_MODULUS = 4294967296 -- 2^32: the hashes stay exact in a Lua number
-local BUCKETS = Protocol.DIGEST_LENGTH / 8 -- 8 hexadecimal digits a bucket
 
 Professions.MAX_CHANGES_PER_PEER = 2000
 -- The game's professions, by skill line ID: any other heard is dropped, so a
@@ -130,14 +129,6 @@ local function ownRecipes(self, skillLine, recipes)
 	return #kept < #recipes and kept or recipes, true
 end
 
-local function hash(text)
-	local value = 5381
-	for i = 1, #text do
-		value = (value * 33 + text:byte(i)) % HASH_MODULUS
-	end
-	return value
-end
-
 -- What a profession says, as one text: two copies say the same when it matches.
 local function content(name, skillLine, profession)
 	local recipes = profession.recipes and table.concat(profession.recipes, ",") or "-"
@@ -154,7 +145,7 @@ end
 local function hashOf(self, name, skillLine, profession)
 	local value = self.hashes[profession]
 	if not value then
-		value = hash(content(name, skillLine, profession))
+		value = Digest.hash(content(name, skillLine, profession))
 		self.hashes[profession] = value
 	end
 	return value
@@ -436,43 +427,31 @@ local function goesTo(self, peer, name, character, now)
 	return (self.roster[peer] and self.roster[name] and not (anyone and isRefused(self, name, true))) or false
 end
 
-local function bucketOf(name)
-	return hash(name) % BUCKETS + 1
-end
-
--- The sums of the digest for a peer, and the names in each bucket: every
--- profession that goes to it, disputed ones left out.
+-- The digest for a peer, and the names in each bucket: every profession that
+-- goes to it, disputed ones left out.
 local function sums(self, peer)
-	local now, totals, names = self.clock(), {}, {}
-	for bucket = 1, BUCKETS do
-		totals[bucket], names[bucket] = 0, {}
+	local now, digest, names = self.clock(), Digest.new(), {}
+	for bucket = 1, Digest.BUCKETS do
+		names[bucket] = {}
 	end
 	for name, character in pairs(self.held) do
 		if goesTo(self, peer, name, character, now) then
-			local bucket = bucketOf(name)
+			local bucket = Digest.bucket(name)
 			names[bucket][#names[bucket] + 1] = name
 			for skillLine, profession in pairs(character.skills) do
 				if not profession.disputed then
-					totals[bucket] = (totals[bucket] + hashOf(self, name, skillLine, profession)) % HASH_MODULUS
+					digest:add(name, hashOf(self, name, skillLine, profession))
 				end
 			end
 		end
 	end
-	return totals, names
-end
-
-local function writeDigest(totals)
-	local digits = {}
-	for bucket, total in ipairs(totals) do
-		digits[bucket] = string.format("%04x%04x", math.floor(total / 65536), total % 65536)
-	end
-	return table.concat(digits)
+	return digest, names
 end
 
 -- The digest of what goes to a peer, for a sync: each profession hashed with
 -- what it says, summed in the bucket of its character's name.
 function Professions:digest(peer)
-	return writeDigest((sums(self, peer)))
+	return (sums(self, peer)):write()
 end
 
 -- What to pass on to a peer, from its digest: the professions that go to it,
@@ -485,32 +464,28 @@ end
 -- without a level.
 function Professions:answer(peer, digest)
 	local now = self.clock()
-	local totals, names = sums(self, peer)
-	local mine = writeDigest(totals)
+	local mine, names = sums(self, peer)
 	local fresh, rest = {}, {}
-	for bucket = 1, BUCKETS do
-		local first, last = (bucket - 1) * 8 + 1, bucket * 8
-		if mine:sub(first, last) ~= digest:sub(first, last) then
-			for _, name in ipairs(names[bucket]) do
-				local character = self.held[name]
-				local passes = (character.own and not asAnyone(self, name)) or self.settings.passOn
-				for skillLine, profession in pairs(character.skills) do
-					if passes and not profession.disputed and not profession.stale then
-						local passed = {
-							name = name,
-							skillLine = skillLine,
-							revision = profession.revision,
-							level = profession.level,
-							maxLevel = profession.maxLevel,
-							recipes = profession.recipes,
-							guid = character.guid,
-						}
-						local age = now - profession.revision
-						if profession.firstHand and age >= 0 and age <= DAY then
-							fresh[#fresh + 1] = passed
-						else
-							rest[#rest + 1] = passed
-						end
+	for _, bucket in ipairs(Digest.differing(mine:write(), digest)) do
+		for _, name in ipairs(names[bucket]) do
+			local character = self.held[name]
+			local passes = (character.own and not asAnyone(self, name)) or self.settings.passOn
+			for skillLine, profession in pairs(character.skills) do
+				if passes and not profession.disputed and not profession.stale then
+					local passed = {
+						name = name,
+						skillLine = skillLine,
+						revision = profession.revision,
+						level = profession.level,
+						maxLevel = profession.maxLevel,
+						recipes = profession.recipes,
+						guid = character.guid,
+					}
+					local age = now - profession.revision
+					if profession.firstHand and age >= 0 and age <= DAY then
+						fresh[#fresh + 1] = passed
+					else
+						rest[#rest + 1] = passed
 					end
 				end
 			end
