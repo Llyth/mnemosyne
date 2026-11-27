@@ -1,5 +1,6 @@
 -- Identities: the window's first tab, the list of identities that was the
--- settings panel's. Part of the Interface adapter (decision 0004): it draws
+-- settings panel's, and the Guild & Communities window's Identities tab
+-- (CommunitiesTab.lua). Part of the Interface adapter (decision 0004): it draws
 -- what Recognition:rows gives (one row per character, by nickname), the
 -- version of Mnemosyne each last said it runs, the forget, undo and whisper
 -- actions, and Recognition:syncStatus in its footer.
@@ -14,6 +15,7 @@ local WIDTH = ns.Window.WIDTH
 local MAX_ROWS = 50 -- rows the list shows before it says how many more it found
 local ROW = 22
 local STATUS_EVERY = 5 -- seconds between two redraws of the sync status
+local BUTTONS = 180 -- right of the columns: Whisper, Forget and the scroll bar
 
 -- The list's columns: the row field each shows, its x and its width.
 local COLUMNS = {
@@ -24,101 +26,119 @@ local COLUMNS = {
 	{ "version", L.PANEL_COLUMN_VERSION, 465, 55 },
 }
 
-local tab = ns.Window.addTab("identities", L.PANEL_IDENTITIES)
-local refresh
+-- Builds the identities' view in content, viewWidth wide: Mnemosyne's window's
+-- Identities tab, and the Guild & Communities window's (CommunitiesTab.lua).
+-- Each view keeps its own search.
+local function newView(content, viewWidth)
+	local refresh
+	-- The columns shrink in a narrower view; Whisper and Forget keep their width.
+	local scale = (viewWidth - BUTTONS) / (WIDTH - BUTTONS)
+	local function x(column)
+		return math.floor(column[3] * scale)
+	end
+	local function width(column)
+		return math.floor(column[4] * scale)
+	end
 
-local search = CreateFrame("EditBox", nil, tab, "SearchBoxTemplate")
-search:SetSize(240, 20)
-search:SetPoint("TOPLEFT", 12, -4)
-search.Instructions:SetText(L.PANEL_SEARCH)
-search:HookScript("OnTextChanged", function()
-	refresh()
-end)
-for _, column in ipairs(COLUMNS) do
-	text(tab, "GameFontNormalSmall", column[3], 34, column[4]):SetText(column[2])
-end
+	local search = CreateFrame("EditBox", nil, content, "SearchBoxTemplate")
+	search:SetSize(240, 20)
+	search:SetPoint("TOPLEFT", 12, -4)
+	search.Instructions:SetText(L.PANEL_SEARCH)
+	search:HookScript("OnTextChanged", function()
+		refresh()
+	end)
+	for _, column in ipairs(COLUMNS) do
+		text(content, "GameFontNormalSmall", x(column), 34, width(column)):SetText(column[2])
+	end
 
--- The sync status, under the list, redrawn every few seconds while it shows.
-local footer = CreateFrame("Frame", nil, tab)
-footer:SetPoint("BOTTOMLEFT", 0, 0)
-footer:SetSize(WIDTH, 20)
-local status = text(footer, "GameFontHighlightSmall", 7, 4, WIDTH - 7)
-local function refreshStatus()
-	status:SetText(ns.recognition:syncStatus(ns.sync:recent(), ns.sync:waitingCount()))
-end
-local sinceStatus = 0
-footer:SetScript("OnUpdate", function(_, elapsed)
-	sinceStatus = sinceStatus + elapsed
-	if sinceStatus >= STATUS_EVERY then
-		sinceStatus = 0
+	-- The sync status, under the list, redrawn every few seconds while it shows.
+	local footer = CreateFrame("Frame", nil, content)
+	footer:SetPoint("BOTTOMLEFT", 0, 0)
+	footer:SetSize(viewWidth, 20)
+	local status = text(footer, "GameFontHighlightSmall", 7, 4, viewWidth - 7)
+	local function refreshStatus()
+		status:SetText(ns.recognition:syncStatus(ns.sync:recent(), ns.sync:waitingCount()))
+	end
+	local sinceStatus = 0
+	footer:SetScript("OnUpdate", function(_, elapsed)
+		sinceStatus = sinceStatus + elapsed
+		if sinceStatus >= STATUS_EVERY then
+			sinceStatus = 0
+			refreshStatus()
+		end
+	end)
+
+	local scroll = CreateFrame("ScrollFrame", nil, content, "UIPanelScrollFrameTemplate")
+	scroll:SetPoint("TOPLEFT", 0, -52)
+	scroll:SetPoint("BOTTOMRIGHT", -28, 24)
+	local list = CreateFrame("Frame", nil, scroll)
+	list:SetSize(viewWidth - 28, 1)
+	scroll:SetScrollChild(list)
+	local more = text(list, "GameFontDisableSmall", 7, 0, viewWidth - 35)
+
+	local rows = {}
+	local function rowFrame(i)
+		if not rows[i] then
+			local row = CreateFrame("Frame", nil, list)
+			row:SetSize(viewWidth - 28, ROW)
+			row:SetPoint("TOPLEFT", 0, -((i - 1) * ROW))
+			for _, column in ipairs(COLUMNS) do
+				row[column[1]] = text(row, "GameFontHighlightSmall", x(column), 5, width(column))
+				row[column[1]]:SetWordWrap(false)
+			end
+			row.button = button(row, "", -(viewWidth - 35), 0, 70, function(self)
+				local name = self:GetParent().name:GetText()
+				if self:GetParent().forgotten then
+					commands.unforget(name)
+				else
+					commands.forget(name)
+				end
+				refresh()
+			end)
+			fit(row.button, L.PANEL_FORGET, L.PANEL_UNDO)
+			row.whisper = button(row, L.WINDOW_WHISPER, 0, 0, 70, function(self)
+				ChatFrameUtil.SendTell(self:GetParent().name:GetText())
+			end)
+			row.whisper:ClearAllPoints()
+			row.whisper:SetPoint("RIGHT", row.button, "LEFT", -4, 0)
+			rows[i] = row
+		end
+		return rows[i]
+	end
+
+	-- The identities found for the search, and the sync status.
+	function refresh()
+		if not Client.playerName() then
+			return -- before login: nothing to show yet
+		end
+		local found, total = ns.recognition:rows(search:GetText(), MAX_ROWS)
+		for i, row in ipairs(found) do
+			-- The version of Mnemosyne it last said it runs: this copy's for your own.
+			row.version = row.own and Client.VERSION or MnemosyneDB.versions[row.name] or ""
+			local frame = rowFrame(i)
+			for _, column in ipairs(COLUMNS) do
+				frame[column[1]]:SetText(row[column[1]])
+			end
+			frame.forgotten = row.forgotten
+			frame.button:SetText(row.forgotten and L.PANEL_UNDO or L.PANEL_FORGET)
+			frame.button:SetShown(not row.own) -- your own characters are never forgotten
+			frame.whisper:SetShown(not row.own)
+			frame:Show()
+		end
+		for i = #found + 1, #rows do
+			rows[i]:Hide()
+		end
+		more:SetPoint("TOPLEFT", 7, -(#found * ROW + 4))
+		more:SetText(total > MAX_ROWS and L.LOOKUP_MORE:format(total - MAX_ROWS) or (total == 0 and L.PANEL_NONE or ""))
+		list:SetHeight(#found * ROW + 30)
 		refreshStatus()
 	end
-end)
-
-local scroll = CreateFrame("ScrollFrame", nil, tab, "UIPanelScrollFrameTemplate")
-scroll:SetPoint("TOPLEFT", 0, -52)
-scroll:SetPoint("BOTTOMRIGHT", -28, 24)
-local list = CreateFrame("Frame", nil, scroll)
-list:SetSize(WIDTH - 28, 1)
-scroll:SetScrollChild(list)
-local more = text(list, "GameFontDisableSmall", 7, 0, WIDTH - 35)
-
-local rows = {}
-local function rowFrame(i)
-	if not rows[i] then
-		local row = CreateFrame("Frame", nil, list)
-		row:SetSize(WIDTH - 28, ROW)
-		row:SetPoint("TOPLEFT", 0, -((i - 1) * ROW))
-		for _, column in ipairs(COLUMNS) do
-			row[column[1]] = text(row, "GameFontHighlightSmall", column[3], 5, column[4])
-			row[column[1]]:SetWordWrap(false)
-		end
-		row.button = button(row, "", -665, 0, 70, function(self)
-			local name = self:GetParent().name:GetText()
-			if self:GetParent().forgotten then
-				commands.unforget(name)
-			else
-				commands.forget(name)
-			end
-			refresh()
-		end)
-		fit(row.button, L.PANEL_FORGET, L.PANEL_UNDO)
-		row.whisper = button(row, L.WINDOW_WHISPER, 0, 0, 70, function(self)
-			ChatFrameUtil.SendTell(self:GetParent().name:GetText())
-		end)
-		row.whisper:ClearAllPoints()
-		row.whisper:SetPoint("RIGHT", row.button, "LEFT", -4, 0)
-		rows[i] = row
-	end
-	return rows[i]
+	content.refresh = refresh
+	content:SetScript("OnShow", refresh)
 end
 
--- The identities found for the search, and the sync status.
-function refresh()
-	if not Client.playerName() then
-		return -- before login: nothing to show yet
-	end
-	local found, total = ns.recognition:rows(search:GetText(), MAX_ROWS)
-	for i, row in ipairs(found) do
-		-- The version of Mnemosyne it last said it runs: this copy's for your own.
-		row.version = row.own and Client.VERSION or MnemosyneDB.versions[row.name] or ""
-		local frame = rowFrame(i)
-		for _, column in ipairs(COLUMNS) do
-			frame[column[1]]:SetText(row[column[1]])
-		end
-		frame.forgotten = row.forgotten
-		frame.button:SetText(row.forgotten and L.PANEL_UNDO or L.PANEL_FORGET)
-		frame.button:SetShown(not row.own) -- your own characters are never forgotten
-		frame.whisper:SetShown(not row.own)
-		frame:Show()
-	end
-	for i = #found + 1, #rows do
-		rows[i]:Hide()
-	end
-	more:SetPoint("TOPLEFT", 7, -(#found * ROW + 4))
-	more:SetText(total > MAX_ROWS and L.LOOKUP_MORE:format(total - MAX_ROWS) or (total == 0 and L.PANEL_NONE or ""))
-	list:SetHeight(#found * ROW + 30)
-	refreshStatus()
-end
-tab.refresh = refresh
-tab:SetScript("OnShow", refresh)
+local Identities = {}
+ns.Identities = Identities
+Identities.newView = newView
+
+newView(ns.Window.addTab("identities", L.PANEL_IDENTITIES), WIDTH)

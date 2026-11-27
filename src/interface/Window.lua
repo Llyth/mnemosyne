@@ -96,7 +96,7 @@ local views = {} -- frames outside the window that Window.refresh redraws too
 
 -- Adds a frame with a refresh function, outside the window, that
 -- Window.refresh redraws while it shows: the Guild & Communities window's
--- Professions tab.
+-- Identities and Professions tabs.
 function Window.addView(content)
 	views[#views + 1] = content
 end

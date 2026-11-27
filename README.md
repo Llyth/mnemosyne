@@ -117,7 +117,8 @@ the same in every language (`/mnemosyne register`, `/mnemosyne lookup`...).
 Mnemosyne's window opens from the **Mnemosyne** button under the Escape menu,
 or with `/mnemosyne` alone. You can drag the window
 anywhere; it opens again where you left it, on the tab you last used, and Escape
-closes it. Its **Identities** tab lists the characters this character knows, one row each,
+closes it. Its **Identities** tab (the Guild & Communities window has the same tab, under its guild
+tabs, above Professions) lists the characters this character knows, one row each,
 sorted by nickname, searched by name or nickname, ignoring case and accents.
 Each row shows the nickname, whether you heard it first-hand or from whom, and
 when, and the version of Mnemosyne the player runs (sent by versions after 1.4.0,
@@ -130,8 +131,8 @@ anonymous characters come first, marked as yours. Under the list, the sync
 status: this character's last sync, with whom and when, and how many players
 wait for theirs.
 
-Its **Professions** tab (`/mnemosyne professions` opens it, and the Guild & Communities window has the same tab, under its guild
-tabs) shows every profession of the game as a tile, primary ones first (the
+Its **Professions** tab (`/mnemosyne professions` opens it, and the Guild & Communities window has the same tab, under
+Identities) shows every profession of the game as a tile, primary ones first (the
 gathering ones on their own row, after the crafting ones), then secondary ones, each with how many distinct recipes and how many of the
 characters you know and your own have it (0 when none does). Click one for its page: its recipes, sorted by name with how
 many characters know each, and its characters, sorted by skill level. Each
