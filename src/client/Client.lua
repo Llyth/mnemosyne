@@ -114,6 +114,20 @@ function Client.isPaused()
 	return InCombatLockdown() or C_ChatInfo.InChatMessagingLockdown()
 end
 
+-- Whether the guild roster shows a character offline. A character off the
+-- roster, or with a secret name or status, counts as online: only the server
+-- can tell.
+local function isOffline(name)
+	local isKnown = Client.isKnown
+	for i = 1, GetNumGuildMembers() do
+		local member, _, _, _, _, _, _, _, isOnline = GetGuildRosterInfo(i)
+		if isKnown(member) and member == name then
+			return isKnown(isOnline) and not isOnline
+		end
+	end
+	return false
+end
+
 -- Sends a message, or loops it back from the echo peer, and logs it. Returns
 -- "sent", "retry" or "failed", as Outbox:flush needs.
 local function send(out)
@@ -121,6 +135,10 @@ local function send(out)
 	local result
 	if echoing and target == Client.ECHO then
 		result = Enum.SendAddonMessageResult.Success -- no such character: never sent
+	elseif chatType == "WHISPER" and isOffline(target) then
+		-- Never sent: the server would answer "No player named ... is currently
+		-- playing." in the chat, and still return Success.
+		result = Enum.SendAddonMessageResult.TargetOffline
 	else
 		result = C_ChatInfo.SendAddonMessage(Protocol.PREFIX, text, chatType, target)
 	end
