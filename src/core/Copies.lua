@@ -535,19 +535,32 @@ end
 
 -- Hashes up to count copies held whose hash is not known yet, so the
 -- first sync's digest does not hash them all at once. Returns whether some
--- are left.
+-- are left. Each call goes on from the character the last one stopped at
+-- (from the start if it was dropped since), and once it went through them
+-- all it does nothing more: a copy heard later is hashed when needed.
 function Copies:warm(count)
-	for name, character in pairs(self.held) do
+	if self.warmed then
+		return false
+	end
+	local name = self.warmingAt
+	local character = name and self.held[name]
+	if not character then
+		name, character = next(self.held)
+	end
+	while name do
 		for key, copy in pairs(character.skills) do
 			if not self.hashes[copy] then
 				if count == 0 then
+					self.warmingAt = name
 					return true
 				end
 				count = count - 1
 				hashOf(self, name, key, copy)
 			end
 		end
+		name, character = next(self.held, name)
 	end
+	self.warmed = true
 	return false
 end
 
