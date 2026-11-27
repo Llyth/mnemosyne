@@ -171,6 +171,10 @@ local function checkText(text, maxCharacters)
 	if type(text) ~= "string" or text == "" then
 		return false, "empty"
 	end
+	-- Printable ASCII but "|": one character a byte, none refused below.
+	if #text <= maxCharacters and text:find("^[ -{}-~]+$") then
+		return true
+	end
 	local count, i = 0, 1
 	while i <= #text do
 		local codePoint, size = readCharacter(text, i)

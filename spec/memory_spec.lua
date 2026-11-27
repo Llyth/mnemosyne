@@ -479,7 +479,11 @@ describe("Memory, second-hand", function()
 			local peer = "Barb Dwyer" .. math.ceil(revision / Memory.MAX_CHANGES_PER_PEER)
 			assert.is_true(hearFrom(peer, "Anna Conda", "Ann", revision))
 		end
-		assert.is_true(memory.queueEnd - memory.queueStart < 2000)
+		local queued = 0
+		for _ in pairs(memory.queued) do
+			queued = queued + 1
+		end
+		assert.equal(1, queued)
 	end)
 
 	it("still drops the identity heard first once its drop queue is compacted", function()
@@ -1202,7 +1206,7 @@ describe("Memory, copied", function()
 			assert.same({}, copied:search(""))
 			assert.same({}, copied:forgotten())
 			-- Nothing left counted toward the 20,000 second-hand ones, nor queued to drop.
-			assert.same({ 0, 0 }, { copied.secondHand, copied.queueEnd - copied.queueStart + 1 })
+			assert.same({ 0 }, { copied.secondHand, copied.oldest, next(copied.queued) })
 			assert.equal(Memory.new({}, clock):digest(), copied:digest())
 			for i = 1, Memory.MAX_CHANGES_PER_PEER do
 				assert.is_true(hearFrom(copied, "Mallory Knox", "Fake Name" .. i, "Mallory", 900))
