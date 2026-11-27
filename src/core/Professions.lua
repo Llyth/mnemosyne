@@ -92,6 +92,7 @@ function Professions.new(saved, clock, memory, characters, settings, scope, reci
 		recipeSkillLine = recipeSkillLine or function() end,
 		playerName = playerName or function() end,
 		changes = 0, -- how many changes were heard this session: the window redraws when it moves
+		heardSince = {}, -- name -> true once a profession of it was heard since the last look for recipes
 		hashes = setmetatable({}, { __mode = "k" }), -- profession -> its hash, computed once
 		-- profession -> true once its recipes were checked with the game placing recipes: prune checks it no more.
 		checked = setmetatable({}, { __mode = "k" }),
@@ -316,6 +317,7 @@ function Professions:hear(peer, heard)
 		elseif known and known.revision == heard.revision then
 			character.skills[skillLine] = { revision = known.revision, disputed = true, heard = now }
 			self.changes = self.changes + 1
+			self.heardSince[name] = true
 			return true
 		end
 	end
@@ -338,6 +340,7 @@ function Professions:hear(peer, heard)
 		heard = now,
 	}
 	self.changes = self.changes + 1
+	self.heardSince[name] = true
 	return true
 end
 
@@ -696,8 +699,13 @@ end
 -- The recipes others know of each of a character's professions (one of this
 -- account's) that it has not learned, by skill line, sorted: the game says
 -- which it has learned even with the profession's window closed, so a
--- character finds its recipes without opening it.
-function Professions:recipesToFind(name)
+-- character finds its recipes without opening it. Looks at the professions
+-- that show (list), read in place: neither copied nor sorted, only those of
+-- the character's skill lines. With sinceLast (after a sync), only peers'
+-- professions heard since the last look, besides this account's characters'.
+function Professions:recipesToFind(name, sinceLast)
+	local heardSince = self.heardSince
+	self.heardSince = {}
 	local wanted = {}
 	for _, profession in ipairs(self.characters:currentProfessions(name)) do
 		local skip = {}
@@ -707,14 +715,40 @@ function Professions:recipesToFind(name)
 		wanted[profession.skillLine] = skip
 	end
 	local found = {}
-	for _, profession in ipairs(self:list()) do
-		local skip = wanted[profession.skillLine]
-		for _, recipe in ipairs(skip and profession.recipes or {}) do
+	local function add(skillLine, recipes)
+		local skip = wanted[skillLine]
+		for _, recipe in ipairs(skip and recipes or {}) do
 			if not skip[recipe] then
 				skip[recipe] = true
-				local list = found[profession.skillLine] or {}
-				found[profession.skillLine] = list
+				local list = found[skillLine] or {}
+				found[skillLine] = list
 				list[#list + 1] = recipe
+			end
+		end
+	end
+	if not next(wanted) then
+		return found
+	end
+	local mine = {}
+	for _, other in ipairs(self.characters:withProfessions()) do
+		mine[other] = true
+		for _, profession in ipairs(self.characters:currentProfessions(other)) do
+			add(profession.skillLine, profession.recipes)
+		end
+	end
+	for heldName in pairs(sinceLast and heardSince or self.held) do
+		local character = self.held[heldName]
+		if character and not (character.own or mine[heldName]) then
+			for skillLine, profession in pairs(character.skills) do
+				if
+					wanted[skillLine]
+					and profession.recipes
+					and profession.level
+					and not (profession.disputed or profession.stale)
+					and not isRefused(self, heldName, profession.firstHand)
+				then
+					add(skillLine, profession.recipes)
+				end
 			end
 		end
 	end

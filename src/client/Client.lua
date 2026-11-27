@@ -478,10 +478,11 @@ end
 -- Looks with the windows closed for recipes peers know of this character's
 -- professions: one counts as learned when the game knows its spell and puts it
 -- in that profession (a recipe read by an older version under the wrong skill
--- line may have spread). Returns true when it changed what was read.
-local function findRecipes()
+-- line may have spread). With sinceLast, only in the professions peers'
+-- syncs brought since the last look. Returns true when it changed what was read.
+local function findRecipes(sinceLast)
 	local changed = false
-	for skillLine, recipeIDs in pairs(ns.professions:recipesToFind(playerName)) do
+	for skillLine, recipeIDs in pairs(ns.professions:recipesToFind(playerName, sinceLast)) do
 		local found = {}
 		for _, recipeID in ipairs(recipeIDs) do
 			if C_SpellBook.IsSpellKnown(recipeID) then
@@ -674,6 +675,35 @@ handlers.GUILD_ROSTER_UPDATE = listsChanged
 
 local redrawPending -- a redraw for professions a sync brought, due soon
 
+-- The look for this character's recipes (findRecipes) after a sync brought
+-- professions: once, 15 seconds after the last of them, so a sync's burst
+-- of messages (about one every 4 seconds) costs one look, in the professions
+-- heard since; never in combat, where it waits for the end.
+local FIND_RECIPES_AFTER = 15 -- seconds
+local findTimer -- the look due, restarted at each change
+local findAfterCombat = false -- whether the look waits for combat to end
+
+local function findRecipesSoon()
+	if findTimer then
+		findTimer:Cancel()
+	end
+	findTimer = C_Timer.NewTimer(FIND_RECIPES_AFTER, function()
+		findTimer = nil
+		if InCombatLockdown() then
+			findAfterCombat = true
+		else
+			redraw(findRecipes(true))
+		end
+	end)
+end
+
+function handlers.PLAYER_REGEN_ENABLED()
+	if findAfterCombat then
+		findAfterCombat = false
+		redraw(findRecipes(true))
+	end
+end
+
 -- A message from a peer goes to Inbox once known to hold no secret value
 -- (comparing one raises an error).
 function handlers.CHAT_MSG_ADDON(prefix, text, channel, sender)
@@ -687,13 +717,14 @@ function handlers.CHAT_MSG_ADDON(prefix, text, channel, sender)
 	end
 	local changes = ns.professions.changes
 	inbox:receive(sender, channel, text)
+	if ns.professions.changes ~= changes then
+		findRecipesSoon()
+	end
 	if ns.professions.changes ~= changes and not redrawPending then
-		-- A sync brought professions: one look for this character's recipes
-		-- and one redraw for a burst of messages.
+		-- A sync brought professions: one redraw for a burst of messages.
 		redrawPending = true
 		C_Timer.After(0.5, function()
 			redrawPending = false
-			findRecipes()
 			if ns.Window then
 				ns.Window.refresh()
 			end
