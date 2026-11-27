@@ -1201,6 +1201,8 @@ describe("Memory, copied", function()
 			copied:empty()
 			assert.same({}, copied:search(""))
 			assert.same({}, copied:forgotten())
+			-- Nothing left counted toward the 20,000 second-hand ones, nor queued to drop.
+			assert.same({ 0, 0 }, { copied.secondHand, copied.queueEnd - copied.queueStart + 1 })
 			assert.equal(Memory.new({}, clock):digest(), copied:digest())
 			for i = 1, Memory.MAX_CHANGES_PER_PEER do
 				assert.is_true(hearFrom(copied, "Mallory Knox", "Fake Name" .. i, "Mallory", 900))
