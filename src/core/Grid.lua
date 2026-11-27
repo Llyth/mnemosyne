@@ -81,9 +81,10 @@ local function rank(milestone, cell)
 	if not milestone.gems then
 		return 1, 0
 	end
-	local lacking, mask, bit = 0, 0, 1
-	for _, held in ipairs(Grid.gems(cell)) do
-		if not held then
+	-- The bits read here, not through Grid.gems: a table per comparison, in a sort.
+	local gems, lacking, mask, bit = cell.gems or 0, 0, 0, 1
+	for _ = 1, 3 do
+		if math.floor(gems / bit) % 2 == 0 then
 			lacking, mask = lacking + 1, mask + bit
 		end
 		bit = bit * 2
