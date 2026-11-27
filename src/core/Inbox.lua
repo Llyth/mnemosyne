@@ -36,6 +36,8 @@ local SYNC_KINDS = { digest = true, identities = true, done = true, professionDi
 -- versions: the saved versions of Mnemosyne peers run, by name.
 -- version(): this account's version of Mnemosyne (Protocol.releaseVersion),
 -- nil in a copy the packager did not build.
+-- paused(): whether nothing would go out now (combat or lockdown): a sync
+-- asked for waits (Sync:request); never paused when left out.
 function Inbox.new(deps)
 	return setmetatable({
 		clock = deps.clock,
@@ -53,6 +55,9 @@ function Inbox.new(deps)
 		onNewer = deps.onNewer,
 		versions = deps.versions,
 		version = deps.version,
+		paused = deps.paused or function()
+			return false
+		end,
 		toldVersion = {}, -- peer -> true once whispered this account's version, for the session
 		answeredAt = {}, -- sender -> clock() of the last answer, for the session
 		heardAt = {}, -- peer -> serverClock() when last heard, for the session
@@ -80,7 +85,7 @@ function Inbox:requestSync(peer)
 	if not self.canSend() then
 		return false
 	end
-	local outgoing, accepted = self.sync:request(peer, self.heardAt[peer] or self.serverClock())
+	local outgoing, accepted = self.sync:request(peer, self.heardAt[peer] or self.serverClock(), self.paused())
 	queueSync(self, outgoing)
 	return accepted
 end

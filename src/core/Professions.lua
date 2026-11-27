@@ -388,17 +388,20 @@ end
 -- (isRefused). Drops from the peers' professions held the recipes the game
 -- places in another profession or cannot place, each copy once this session
 -- after the game placed a recipe; while it has placed none, one copy a prune,
--- to find whether it does now.
-function Professions:prune()
+-- to find whether it does now. only (name -> character held), when given:
+-- those characters only, as a sync starts (prepare).
+function Professions:prune(only)
 	local now = self.clock()
-	self.prunedAt = now
 	local probed = false
-	for name, seenAt in pairs(self.seen) do
-		if now - seenAt >= Professions.KEPT_FOR then
-			self.seen[name] = nil
+	if not only then
+		self.prunedAt = now
+		for name, seenAt in pairs(self.seen) do
+			if now - seenAt >= Professions.KEPT_FOR then
+				self.seen[name] = nil
+			end
 		end
 	end
-	for name, character in pairs(self.held) do
+	for name, character in pairs(only or self.held) do
 		if character.own and asAnyone(self, name) then
 			-- Kept or dropped as a peer would (asAnyone), until prepare reads it
 			-- again: a registered character's professions as a peer that synced
@@ -462,9 +465,10 @@ end
 -- one (asAnyone); an anonymous or unregistered one's, only while it plays. A
 -- name another player's character has taken (Self:owns) is left to it, what
 -- was held as this account's under it stale, as see leaves it. Then drops
--- what is no longer kept.
+-- what is no longer kept of this account's characters; the others' as the
+-- lists are read (seeLists), at most every 10 minutes.
 function Professions:prepare()
-	local names = {}
+	local names, account = {}, {}
 	for _, character in ipairs(self.characters:list("")) do
 		names[character.name] = true
 	end
@@ -472,6 +476,14 @@ function Professions:prepare()
 	if played and self.characters:registration(played) then
 		-- Unregistered: its removals still go while it syncs itself (goesTo).
 		names[played] = true
+	end
+	for name in pairs(names) do
+		account[name] = true
+	end
+	for name, character in pairs(self.held) do
+		if character.own then
+			account[name] = true -- unregistered or anonymous since, as anyone's from now (prune)
+		end
 	end
 	local now = self.clock()
 	for name in pairs(names) do
@@ -520,7 +532,10 @@ function Professions:prepare()
 			end
 		end
 	end
-	self:prune()
+	for name in pairs(account) do
+		account[name] = self.held[name]
+	end
+	self:prune(account)
 end
 
 -- Whether a character's professions go to a peer, or come from it: this

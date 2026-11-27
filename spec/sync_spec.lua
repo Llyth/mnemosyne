@@ -621,6 +621,23 @@ describe("Sync", function()
 		assert.same({ "Anna Conda digest" }, sent(sync:request("Anna Conda", now)))
 	end)
 
+	it("lets a sync asked for in combat or lockdown wait, and starts it once that ends", function()
+		local outgoing, accepted = sync:request("Anna Conda", now, true)
+		assert.same({}, outgoing)
+		assert.is_true(accepted)
+		assert.same({}, sync:tick(true))
+		assert.same({ "Anna Conda digest" }, sent(sync:tick()))
+	end)
+
+	it("still cuts a sync in combat or lockdown, starting none in its place", function()
+		sync:request("Anna Conda", now)
+		sync:request("Barb Dwyer", now)
+		sync:request("Cole Slaw", now)
+		now = now + Sync.TIMEOUT
+		assert.same({}, sync:tick(true))
+		assert.same({ "Cole Slaw digest" }, sent(sync:tick()))
+	end)
+
 	it("keeps a sync going while the peer keeps sending", function()
 		sync:request("Barb Dwyer", now)
 		sync:receive("Barb Dwyer", { kind = "digest", digest = emptyDigest() })

@@ -2,14 +2,14 @@ local ns = require("spec.helpers.addon")("Protocol", "Digest", "Memory", "Sync",
 local Protocol, Inbox = ns.Protocol, ns.Inbox
 
 describe("Inbox", function()
-	local now, inbox, memory, guildNews, outbox, dropped, newer, inScope, versions, ownVersion
+	local now, inbox, memory, guildNews, outbox, dropped, newer, inScope, versions, ownVersion, sync, paused
 
 	local function clock()
 		return now
 	end
 
 	before_each(function()
-		now, dropped, newer, versions, ownVersion = 1000, {}, 0, {}, "1.4.0"
+		now, dropped, newer, versions, ownVersion, paused = 1000, {}, 0, {}, "1.4.0", false
 		inScope = function(name)
 			return name ~= "Mallory Knox"
 		end
@@ -21,11 +21,12 @@ describe("Inbox", function()
 		guildNews = ns.News.new(clock, function()
 			return 0
 		end, memory, settings)
+		sync = ns.Sync.new({}, clock, memory, settings)
 		inbox = Inbox.new({
 			clock = clock,
 			serverClock = clock,
 			memory = memory,
-			sync = ns.Sync.new({}, clock, memory, settings),
+			sync = sync,
 			news = guildNews,
 			reader = Protocol.newReader(clock),
 			outbox = outbox,
@@ -54,6 +55,9 @@ describe("Inbox", function()
 			versions = versions,
 			version = function()
 				return ownVersion
+			end,
+			paused = function()
+				return paused
 			end,
 		})
 	end)
@@ -219,6 +223,13 @@ describe("Inbox", function()
 		now = now + Inbox.LOGIN_WINDOW
 		inbox:receive("Anna Conda", "PARTY", announce)
 		assert.same({ "Anna Conda" }, targets())
+	end)
+
+	it("lets a group member's sync wait in combat or lockdown", function()
+		paused = true
+		inbox:receive("Anna Conda", "PARTY", announce)
+		assert.same({}, targets())
+		assert.equal(1, sync:waitingCount())
 	end)
 
 	it("syncs after login with the first 3 peers answering within a minute", function()
