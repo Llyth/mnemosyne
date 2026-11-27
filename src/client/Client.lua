@@ -276,8 +276,9 @@ local function readScope()
 		end
 	end
 	ns.scope:see(friends, roster, online)
-	-- Whose professions are kept.
+	-- Whose professions and progress are kept.
 	ns.professions:seeLists()
+	ns.progress:seeLists()
 	-- A guild's roster read empty had not come from the server yet: read again at the next change.
 	scopeRead = roster[1] ~= nil or not IsInGuild()
 end
@@ -359,11 +360,11 @@ local handlers = {}
 -- This character's professions (decision 0008), read into Self as they change;
 -- peers get them only once a sync stamps them.
 
--- Redraws the professions' views that show once this character's professions
--- changed: they show them as read now.
-local function redraw(changed)
+-- Redraws the professions' views (or those of key, "progress") that show once
+-- this character's professions (or progress) changed: they show them as read now.
+local function redraw(changed, key)
 	if changed and ns.Window then
-		ns.Window.refresh("professions")
+		ns.Window.refresh(key or "professions")
 	end
 end
 
@@ -513,6 +514,111 @@ local function findRecipes(sinceLast)
 	return changed
 end
 
+-- This character's progress (decision 0009): the milestones' items it holds in
+-- its bags, keyring and bank, and its quests, read into Self as they change;
+-- peers get it only once a sync stamps it. Only the items Milestones tracks
+-- are looked for (TRACKED).
+local TRACKED = {}
+for _, itemID in ipairs(ns.Milestones.ITEMS) do
+	TRACKED[itemID] = true
+end
+
+-- Adds to held the tracked items in the containers from first to last.
+-- Returns held, and whether the containers held any item at all.
+local function readContainers(held, first, last)
+	local any = false
+	for bag = first, last do
+		for slot = 1, C_Container.GetContainerNumSlots(bag) do
+			local itemID = C_Container.GetContainerItemID(bag, slot)
+			any = any or itemID ~= nil
+			if TRACKED[itemID] then
+				held[itemID] = true
+			end
+		end
+	end
+	return held, any
+end
+
+-- The bank is read only while it is open; the tracked items it held are
+-- remembered (MnemosyneCharacterDB.progressBank) as last seen. A read that
+-- finds no item at all is not the bank yet (or any more; its slots may still
+-- answer with their items gone): what was seen is kept, so a key kept in the
+-- bank never loses its tick to an early or late read. An empty bank keeps
+-- what it held last, until it holds something again.
+local bankOpen = false
+local function readBank()
+	local held, any = readContainers({}, Enum.BagIndex.CharacterBankTab_1, Enum.BagIndex.CharacterBankTab_9)
+	if any then
+		MnemosyneCharacterDB.progressBank = held
+	end
+end
+
+-- Reads each milestone's cell (Milestones.cells) from the bags, the keyring
+-- (bag -1 on Forever), the bank as last seen and the quests. At login a read
+-- with no milestone at all is skipped, as for the professions: the bags may
+-- not be there yet; one more read follows a few seconds later, so a key gone
+-- since the last session (sold on another computer) loses its tick.
+local LOGIN_READ_AGAIN = 5 -- seconds
+local readProgressSoon
+local function readProgress(atLogin)
+	if bankOpen then
+		readBank()
+	end
+	local held = readContainers({}, Enum.BagIndex.Keyring, Enum.BagIndex.Keyring)
+	readContainers(held, Enum.BagIndex.Backpack, NUM_BAG_SLOTS)
+	for itemID in pairs(MnemosyneCharacterDB.progressBank) do
+		held[itemID] = true
+	end
+	local completed, inLog = {}, {}
+	for _, questID in ipairs(ns.Milestones.QUESTS) do
+		completed[questID] = C_QuestLog.IsQuestFlaggedCompleted(questID)
+		inLog[questID] = C_QuestLog.IsOnQuest(questID)
+	end
+	local cells = ns.Milestones.cells(held, completed, inLog)
+	if next(cells) or not atLogin then
+		redraw(ns.characters:seeProgress(playerName, cells), "progress")
+	else
+		C_Timer.After(LOGIN_READ_AGAIN, readProgressSoon)
+	end
+end
+
+-- One read for every change of a frame (a loot fires several), never in
+-- combat, where it waits for the end.
+local progressDue, progressAfterCombat = false, false
+function readProgressSoon()
+	if not playerName or progressDue or progressAfterCombat then
+		return
+	end
+	progressDue = true
+	C_Timer.After(0, function()
+		progressDue = false
+		if InCombatLockdown() then
+			progressAfterCombat = true
+		else
+			readProgress()
+		end
+	end)
+end
+
+handlers.BAG_UPDATE_DELAYED = readProgressSoon
+handlers.QUEST_ACCEPTED = readProgressSoon
+handlers.QUEST_TURNED_IN = readProgressSoon
+handlers.QUEST_REMOVED = readProgressSoon
+
+function handlers.BANKFRAME_OPENED()
+	bankOpen = true
+	readProgressSoon()
+end
+
+-- The bank is read a last time as it closes, if it still can be (readBank).
+function handlers.BANKFRAME_CLOSED()
+	if bankOpen and not InCombatLockdown() then
+		readBank()
+	end
+	bankOpen = false
+	readProgressSoon()
+end
+
 -- Fires before login too: read only once the character is known.
 function handlers.SKILL_LINES_CHANGED()
 	if playerName then
@@ -547,6 +653,8 @@ function handlers.ADDON_LOADED(name)
 	mine.memory = mine.memory or {}
 	mine.forgotten = mine.forgotten or {}
 	mine.professions = mine.professions or {}
+	mine.progress = mine.progress or {}
+	mine.progressBank = mine.progressBank or {} -- the tracked items the bank held, as last seen
 	mine.asked = mine.asked or {}
 	db.characters = db.characters or {}
 	db.debug = db.debug == true
@@ -579,13 +687,22 @@ function handlers.ADDON_LOADED(name)
 		recipeSkillLine,
 		Client.playerName
 	)
+	ns.progress = ns.Progress.new(
+		mine.progress,
+		GetServerTime,
+		ns.memory,
+		ns.characters,
+		db.settings,
+		ns.scope,
+		Client.playerName
+	)
 	ns.sync = ns.Sync.new(
 		db.characterSyncs,
 		GetServerTime,
 		ns.memory,
 		db.settings,
 		ns.professions,
-		nil, -- progress: not read from the game yet
+		ns.progress,
 		db.characterEarlySyncs,
 		Client.playerName,
 		ns.scope,
@@ -615,17 +732,18 @@ function handlers.ADDON_LOADED(name)
 		end,
 		paused = Client.isPaused,
 	})
-	ns.recognition = ns.Recognition.new(ns.memory, db.settings, ns.L, GetServerTime, ns.characters, ns.professions)
+	ns.recognition =
+		ns.Recognition.new(ns.memory, db.settings, ns.L, GetServerTime, ns.characters, ns.professions, ns.progress)
 	-- The debug report (src/core/Report.lua): its events, the caught errors, and
 	-- whether to offer it after an error.
 	db.events = db.events or {}
 	db.errors = db.errors or {}
 	C_ChatInfo.RegisterAddonMessagePrefix(Protocol.PREFIX)
-	-- The professions' hashes, a few each frame out of combat, so the first
-	-- sync's digest does not compute them all in one frame.
+	-- The professions' hashes, then the progress', a few each frame out of
+	-- combat, so the first sync's digest does not compute them all in one frame.
 	local warming
 	warming = C_Timer.NewTicker(0, function()
-		if not InCombatLockdown() and not ns.professions:warm(WARM_COUNT) then
+		if not InCombatLockdown() and not (ns.professions:warm(WARM_COUNT) or ns.progress:warm(WARM_COUNT)) then
 			warming:Cancel()
 		end
 	end)
@@ -652,6 +770,11 @@ function handlers.PLAYER_LOGIN()
 	inGuild = IsInGuild()
 	inbox:loggedIn()
 	readProfessions(true)
+	if InCombatLockdown() then
+		progressAfterCombat = true
+	else
+		readProgress(true)
+	end
 	recheckRecipes()
 	redraw(findRecipes())
 	C_Timer.NewTicker(SYNC_TICK, function()
@@ -706,6 +829,7 @@ handlers.GUILD_ROSTER_UPDATE = listsChanged
 
 local REDRAW_EVERY = 2 -- seconds: at most one redraw this often while a sync brings professions
 local redrawPending -- a redraw for professions a sync brought, due soon
+local redrawDue = { professions = false, progress = false } -- what a sync brought since the last redraw
 
 -- The look for this character's recipes (findRecipes) after a sync brought
 -- professions: once, 15 seconds after the last of them, so a sync's burst
@@ -737,6 +861,10 @@ function handlers.PLAYER_REGEN_ENABLED()
 	if scopeAfterCombat then
 		scopeAfterCombat = false
 		readScope()
+	end
+	if progressAfterCombat then
+		progressAfterCombat = false
+		readProgress()
 	end
 end
 
@@ -798,18 +926,22 @@ function handlers.CHAT_MSG_ADDON(prefix, text, channel, sender)
 end
 
 function receive(text, channel, sender)
-	local changes = ns.professions.changes
+	local changes, progressChanges = ns.professions.changes, ns.progress.changes
 	inbox:receive(sender, channel, text)
 	if ns.professions.changes ~= changes then
 		findRecipesSoon()
 	end
-	if ns.professions.changes ~= changes and not redrawPending then
-		-- A sync brought professions: one redraw of the professions' views for
-		-- what came in the next 2 seconds.
+	-- A sync brought professions or progress: one redraw of the views of what
+	-- came in the next 2 seconds, each only if some came.
+	redrawDue.professions = redrawDue.professions or ns.professions.changes ~= changes
+	redrawDue.progress = redrawDue.progress or ns.progress.changes ~= progressChanges
+	if (redrawDue.professions or redrawDue.progress) and not redrawPending then
 		redrawPending = true
 		C_Timer.After(REDRAW_EVERY, function()
 			redrawPending = false
-			redraw(true)
+			redraw(redrawDue.professions)
+			redraw(redrawDue.progress, "progress")
+			redrawDue.professions, redrawDue.progress = false, false
 		end)
 	end
 end

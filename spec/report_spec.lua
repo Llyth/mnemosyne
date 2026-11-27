@@ -44,9 +44,11 @@ describe("Report", function()
 			assert.equal(2, #events)
 		end)
 
-		it("leaves out a sync's identities and chunks, unless a send fails", function()
+		it("leaves out a sync's identities, professions, progress and chunks, unless a send fails", function()
 			local events = {}
 			Report.record(events, { what = "received" }, "identities")
+			Report.record(events, { what = "received" }, "professions")
+			Report.record(events, { what = "received" }, "progress")
 			Report.record(events, { what = "sent" }, "chunk")
 			assert.equal(0, #events)
 			Report.record(events, { what = "sent" }, "chunk", true)

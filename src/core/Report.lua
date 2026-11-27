@@ -31,10 +31,10 @@ end
 
 -- A sync's identities, professions and chunks, hundreds at a time, would push every other
 -- event out of the report.
-local BULK = { identities = true, professions = true, chunk = true }
+local BULK = { identities = true, professions = true, progress = true, chunk = true }
 
 -- Keeps an event for the report, kind being the kind of message it is about,
--- if any: a sync's identities and chunks are left out, unless a send failed.
+-- if any: a sync's identities, professions, progress and chunks are left out, unless a send failed.
 function Report.record(events, event, kind, failed)
 	if failed or not BULK[kind] then
 		Report.keep(events, event, Report.MAX_EVENTS)
