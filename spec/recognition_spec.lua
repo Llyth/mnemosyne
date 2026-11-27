@@ -421,6 +421,9 @@ describe("Recognition", function()
 
 		before_each(function()
 			characters = Self.new({}, clock)
+			-- The memory tells this account's characters apart too (Self:owns).
+			memory = Memory.new({}, clock, {}, characters)
+			memory:hear("Hugh Jass", { nickname = "Tony", revision = 900 })
 			recognition = Recognition.new(memory, settings, ns.L, clock, characters)
 		end)
 
@@ -458,6 +461,42 @@ describe("Recognition", function()
 				assert.equal("Zed Zulu (Bob)", recognition:chatName("Zed Zulu", "Zed Zulu", OTHER))
 				assert.equal("Bob", recognition:tooltip("Zed Zulu", OTHER).nickname)
 			end)
+
+			it("lists, finds and counts the other character's first-hand identity once seen with its GUID", function()
+				memory:hear("Zed Zulu", { nickname = "Bob", revision = 2000 })
+				recognition:learn(OTHER, "Zed Zulu")
+				assert.same(
+					{ "Zed Zulu", "Bob" },
+					{ recognition:search("Bob")[1].name, recognition:search("Bob")[1].nickname }
+				)
+				assert.equal(2, recognition:count())
+				local rows, total = recognition:rows("Bob", 50)
+				assert.same({ "Zed Zulu", "Bob", nil }, { rows[1].name, rows[1].nickname, rows[1].own })
+				assert.equal(1, total)
+			end)
+
+			it(
+				"shows the other character's first-hand nickname once it speaks, whatever GUID a peer passed on for yours",
+				function()
+					memory:hear("Zed Zulu", { nickname = "Llyth", revision = 900, source = "Cole Slaw", guid = GUID })
+					memory:hear("Zed Zulu", { nickname = "Bob", revision = 2000 })
+					recognition:learn(OTHER, "Zed Zulu")
+					assert.equal("Zed Zulu (Bob)", recognition:chatName("Zed Zulu", "Zed Zulu", OTHER))
+					assert.equal("Bob", recognition:chatTooltip("player:Zed Zulu:1:GUILD:").nickname)
+				end
+			)
+
+			it(
+				"shows the other character's first-hand nickname once it speaks, after yours spoke with its GUID",
+				function()
+					memory:hear("Zed Zulu", { nickname = "Llyth", revision = 900, source = "Cole Slaw" })
+					recognition:learn(GUID, "Zed Zulu") -- your character, in chat before its name was taken
+					memory:hear("Zed Zulu", { nickname = "Bob", revision = 2000 })
+					recognition:learn(OTHER, "Zed Zulu")
+					assert.equal("Zed Zulu (Bob)", recognition:chatName("Zed Zulu", "Zed Zulu", OTHER))
+					assert.equal("Bob", recognition:chatTooltip("player:Zed Zulu:1:GUILD:").nickname)
+				end
+			)
 
 			it("shows nothing of its registration on the other character, a stranger", function()
 				assert.is_nil(recognition:recall("Zed Zulu", OTHER))

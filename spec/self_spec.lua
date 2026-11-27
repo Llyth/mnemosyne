@@ -133,6 +133,29 @@ describe("Self", function()
 		assert.same({ nickname = "Tony", revision = 1000 }, characters:registration("Hugh Jass"))
 	end)
 
+	describe("whether a name is one of its characters", function()
+		local GUID, OTHER = "Player-1-00000001", "Player-1-00000002"
+
+		it("tells its characters by name while the GUID seen is theirs or either is unknown", function()
+			characters:register("Hugh Jass", "Tony")
+			characters:keepAnonymous("Anna Conda") -- never played since GUIDs were kept: none
+			characters:see("Hugh Jass", GUID)
+			assert.same({ true, true, true, true }, {
+				characters:owns("Hugh Jass"),
+				characters:owns("Hugh Jass", GUID),
+				characters:owns("Anna Conda"),
+				characters:owns("Anna Conda", OTHER),
+			})
+			assert.is_false(characters:owns("Cole Slaw"))
+		end)
+
+		it("tells another player's character on a name one of its characters had by its other GUID", function()
+			characters:register("Hugh Jass", "Tony")
+			characters:see("Hugh Jass", GUID)
+			assert.is_false(characters:owns("Hugh Jass", OTHER))
+		end)
+	end)
+
 	describe("states", function()
 		it("has not asked about a character never registered", function()
 			assert.equal("notAsked", characters:state("Hugh Jass"))

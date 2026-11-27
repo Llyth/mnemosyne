@@ -54,26 +54,33 @@ function Recognition:learn(guid, fullName)
 	end
 end
 
+-- Whether a character is one of this account's whose player decided
+-- (registered, anonymous or unregistered), given the GUID seen for its name
+-- (the one shown, else the one a first-hand identity holds): not once another
+-- player's character has taken the name (Self:owns, decision 0003). The memory
+-- holds what peers say about one as anyone's (decision 0001), never shown as
+-- someone else's.
+local function isOwn(self, name, guid)
+	local characters = self.characters
+	if not (characters and characters:registration(name)) then
+		return false
+	end
+	return characters:owns(name, guid or (self.memory:knows(name) and self.memory:guid(name)) or nil)
+end
+
 -- Recalls the identity of a character shown by name, and by GUID when it is
 -- known. A full name shown ("First Last") is trusted; a first name alone
 -- finds the full name learned for the GUID. Nil when its player's nickname is
 -- not known, or known only second-hand while second-hand identities are off.
 -- One of this account's characters shows its own registration, whatever peers
--- say, unless another player's character has taken its full name (decision
--- 0003): the GUID seen for the name (the one shown, else the one a first-hand
--- identity holds) is not the one it had when last played. Then the name is the
--- other character's, a stranger until it speaks first-hand. With either GUID
--- unknown, the registration shows.
+-- say, unless another player's character has taken its full name (isOwn).
+-- Then the name is the other character's, a stranger until it speaks
+-- first-hand. With either GUID unknown, the registration shows.
 function Recognition:recall(name, guid)
 	if not name:find(" ", 1, true) and guid then
 		name = self.fullNames[guid] or name
 	end
-	local own = self.characters and self.characters:registration(name)
-	local mine = own and self.characters:guid(name)
-	local seen = guid or (self.memory:knows(name) and self.memory:guid(name))
-	if mine and seen and seen ~= mine then
-		own = nil
-	end
+	local own = isOwn(self, name, guid) and self.characters:registration(name)
 	if own then
 		-- Heard when it registered: its revision is the server time of the change.
 		return own.nickname and { name = name, nickname = own.nickname, revision = own.revision, heard = own.revision }
@@ -99,13 +106,6 @@ function Recognition:tooltip(name, guid)
 		return nil
 	end
 	return self:recall(name, guid)
-end
-
--- Whether a character is one of this account's whose player decided
--- (registered, anonymous or unregistered). The memory holds what peers say
--- about it as anyone's (decision 0001), never shown as someone else's.
-local function isOwn(self, name)
-	return self.characters ~= nil and self.characters:registration(name) ~= nil
 end
 
 -- Finds the identities whose character name or nickname contains the text

@@ -8,7 +8,8 @@
 -- first-hand one always wins; among second-hand copies the later revision
 -- wins; the same revision with other content is disputed and hidden; a
 -- removal (no level) is a revision too. It goes stale when its full name
--- shows up with another GUID, hidden until the character shares first-hand.
+-- shows up with another GUID, hidden until the character shares first-hand;
+-- never this account's characters', which take their GUID from Self.
 -- Kept only for this account's characters, and for characters seen on a guild
 -- roster or online as a friend's in the last 30 days; others are dropped
 -- quietly. Second-hand ones are refused and dropped while the character is
@@ -153,9 +154,29 @@ local function hashOf(self, name, skillLine, profession)
 	return value
 end
 
-local function isOwn(self, name)
+-- Whether a character is one of this account's, given the GUID it told of
+-- itself (nil when none, or when a peer passed it on: no proof): not once
+-- another player's character has taken its name (Self:owns).
+local function isOwn(self, name, guid)
 	local character = self.held[name]
-	return (character and character.own) or self.characters:registration(name) ~= nil
+	return ((character and character.own) or self.characters:registration(name) ~= nil)
+		and self.characters:owns(name, guid)
+end
+
+-- Whether another player's character has taken the name of one of this
+-- account's: it told its professions itself (first-hand) under a GUID that is
+-- not this account's character's.
+local function isTaken(self, name)
+	local character = self.held[name]
+	if not character or character.own then
+		return false
+	end
+	for _, profession in pairs(character.skills) do
+		if profession.firstHand then
+			return not isOwn(self, name, character.guid)
+		end
+	end
+	return false
 end
 
 -- Whether one of this account's characters' professions go and come as any
@@ -214,15 +235,18 @@ end
 
 -- Hears a profession from a peer, as Protocol reads it: { name, skillLine,
 -- revision, level, maxLevel, recipes, guid }, a removal without a level.
--- First-hand when the peer is the character itself. Returns true when it
--- changed what is held.
+-- First-hand when the peer is the character itself: under a GUID other than
+-- the one of this account's character of that name, the name is another
+-- player's character's, and what was held as this account's goes. Returns
+-- true when it changed what is held.
 function Professions:hear(peer, heard)
 	local now, name, skillLine = self.clock(), heard.name, heard.skillLine
 	local firstHand = name == peer
+	local guid = firstHand and heard.guid or nil -- a peer's word on another character's GUID tells nothing
 	if
 		not Professions.SKILL_LINES[skillLine]
 		or heard.revision > now + DAY
-		or (isOwn(self, name) and not asAnyone(self, name))
+		or (isOwn(self, name, guid) and not asAnyone(self, name))
 		or not keeps(self, name, now)
 		or isRefused(self, name, firstHand)
 	then
@@ -238,6 +262,9 @@ function Professions:hear(peer, heard)
 		guid = heard.guid,
 	}
 	local character = self.held[name]
+	if character and character.own and not isOwn(self, name, guid) then
+		character = nil -- the name is another player's character's now
+	end
 	local known = character and character.skills[skillLine]
 	local same = known
 		and not known.disputed
@@ -263,8 +290,11 @@ function Professions:hear(peer, heard)
 		character = { skills = {} }
 		self.held[name] = character
 	end
-	-- The GUID held stays, whatever the peer says (as Memory keeps it).
-	character.guid = character.guid or heard.guid
+	-- The GUID held stays, whatever the peer says (as Memory keeps it); this
+	-- account's characters take none from a peer.
+	if not self.characters:owns(name, guid) then
+		character.guid = character.guid or heard.guid
+	end
 	character.skills[skillLine] = {
 		revision = heard.revision,
 		level = heard.level,
@@ -280,10 +310,11 @@ end
 
 -- Sees a character's GUID (a chat line, a group member): a character held
 -- without one takes it; one held with another goes stale, every profession of
--- it hidden until the character shares first-hand.
+-- it hidden until the character shares first-hand. This account's characters
+-- are left to Self, which knows their GUIDs (prepare).
 function Professions:see(name, guid)
 	local character = self.held[name]
-	if character and character.guid ~= guid then
+	if character and not character.own and character.guid ~= guid then
 		if character.guid then
 			for _, profession in pairs(character.skills) do
 				profession.stale = true
@@ -347,11 +378,12 @@ end
 -- Reads this account's characters' professions, as a sync starts: stamps each
 -- character's (a new revision for what changed since its last one, and a
 -- removal of each of the game's skill lines a registered one lacks, so peers
--- drop a copy forged for it), then keeps them first-hand, and only them: a
--- profession peers passed on before the character was this account's never
--- goes as its own. While the character played is not registered, only its
--- own: the others' wait for a registered one (asAnyone). Then drops what is no
--- longer kept.
+-- drop a copy forged for it), then keeps them first-hand, with the GUID Self
+-- holds, never stale, and only them: a profession peers passed on before the
+-- character was this account's never goes as its own. While the character
+-- played is not registered, only its own: the others' wait for a registered
+-- one (asAnyone). A name another player's character has taken (isTaken) is
+-- left to it. Then drops what is no longer kept.
 function Professions:prepare()
 	local names = {}
 	for _, character in ipairs(self.characters:list("")) do
@@ -365,14 +397,14 @@ function Professions:prepare()
 	end
 	local now = self.clock()
 	for name in pairs(names) do
-		if asAnyone(self, name) then
+		if asAnyone(self, name) or isTaken(self, name) then
 			names[name] = nil
 		end
 	end
 	for name in pairs(names) do
 		self.characters:stampProfessions(name, Professions.SKILL_LINES)
 		local character = self.held[name] or { skills = {} }
-		character.own = true
+		character.own, character.guid = true, self.characters:guid(name)
 		self.held[name] = character
 		local read = {}
 		for _, profession in ipairs(self.characters:professions(name)) do
@@ -380,6 +412,7 @@ function Professions:prepare()
 			local known = character.skills[profession.skillLine]
 			if
 				not known
+				or known.stale -- from an earlier version, which took a peer's GUID for it
 				or hashOf(self, name, profession.skillLine, known)
 					~= hashOf(self, name, profession.skillLine, profession)
 			then

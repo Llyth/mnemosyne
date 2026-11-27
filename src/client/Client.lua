@@ -502,7 +502,6 @@ function handlers.ADDON_LOADED(name)
 	db.characters = db.characters or {}
 	db.debug = db.debug == true
 	db.forgotten = db.forgotten or {}
-	ns.memory = ns.Memory.new(db.memory, GetServerTime, db.forgotten)
 	db.settings = db.settings or {}
 	for key, value in pairs(DEFAULTS) do
 		if db.settings[key] == nil then
@@ -510,6 +509,7 @@ function handlers.ADDON_LOADED(name)
 		end
 	end
 	ns.characters = ns.Self.new(db.characters, GetServerTime, db.settings)
+	ns.memory = ns.Memory.new(db.memory, GetServerTime, db.forgotten, ns.characters)
 	db.asked = db.asked or {}
 	-- Each character's syncs and early syncs (Sync), under keys of their own: 1.4.0
 	-- reads syncs and earlySyncs as times and marks by peer, so emptying those keeps a
