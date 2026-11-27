@@ -7,6 +7,7 @@ exclude_files = { ".lua/", ".release/", ".venv/", ".claude/" }
 
 -- Written by the addon: its saved variables and slash command globals.
 globals = {
+	"MnemosyneCharacterDB",
 	"MnemosyneDB",
 	"Mnemosyne_OnAddonCompartmentClick",
 	"SLASH_MNEMOSYNE1",

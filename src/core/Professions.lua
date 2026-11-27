@@ -1,4 +1,4 @@
--- Professions: every profession this account holds, first-hand and
+-- Professions: every profession the character played holds, first-hand and
 -- second-hand, keyed by the character's full name and the profession's skill
 -- line ID (decision 0008). Pure: it takes its saved table, the clock (the
 -- server time), the memory, this account's characters and the settings as
@@ -52,7 +52,8 @@ Professions.SKILL_LINES = {
 Professions.KEPT_FOR = 30 * DAY -- after a character was last seen on a roster or as a friend's
 Professions.MAX_SYNC_BYTES = 100000 -- of professions a sync passes on
 
--- saved: the table Professions keeps its professions in (MnemosyneDB.professions).
+-- saved: the table Professions keeps its professions in
+-- (MnemosyneCharacterDB.professions).
 -- clock: returns the server time, in seconds.
 -- memory: the Memory, for forgotten characters and identities held as removals.
 -- characters: this account's characters (Self): their professions are read

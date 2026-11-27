@@ -26,8 +26,9 @@ describe("the .toc", function()
 		assert.equal("@project-version@", fields.Version)
 	end)
 
-	it("saves one account-wide table", function()
+	it("saves one account-wide table and one per character", function()
 		assert.equal("MnemosyneDB", fields.SavedVariables)
+		assert.equal("MnemosyneCharacterDB", fields.SavedVariablesPerCharacter)
 	end)
 
 	it("lists only files that exist", function()

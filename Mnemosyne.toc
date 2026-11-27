@@ -13,6 +13,7 @@
 ## Author: Llyth
 ## Version: @project-version@
 ## SavedVariables: MnemosyneDB
+## SavedVariablesPerCharacter: MnemosyneCharacterDB
 ## IconTexture: Interface\Icons\INV_Misc_Book_09
 ## Category: Social
 ## AddonCompartmentFunc: Mnemosyne_OnAddonCompartmentClick

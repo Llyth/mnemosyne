@@ -61,7 +61,7 @@ Sync.FRESH = Memory.VOUCHED_WINDOW - 60 * 60 -- seconds
 -- longer cooldown are let go here, and those saved before each character kept
 -- its own (a time by peer), which then cool nothing: at most one more sync.
 -- clock: returns the server time, in seconds.
--- memory: the Memory to hash, pass on and learn into. What peers say about
+-- memory: the character played's Memory to hash, pass on and learn into. What peers say about
 -- this account's own characters is learned and passed on as anyone's
 -- (decision 0001): a memory that lacked them would name them, bucket by bucket,
 -- to a peer comparing digests.
