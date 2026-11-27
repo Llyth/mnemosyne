@@ -132,6 +132,9 @@ L.PANEL_PASS_ON_HELP = "与其他玩家同步时，转告你知道的所有昵�
 L.PANEL_SHARE_PROFESSIONS = "分享我的专业"
 L.PANEL_SHARE_PROFESSIONS_HELP =
 	"把你已登记角色的专业（技能等级和已学会的配方）分享给你的公会和好友中安装了Mnemosyne的玩家。关闭时，他们会遗忘这些信息。"
+L.PANEL_SHARE_PROGRESS = "分享我的进度"
+L.PANEL_SHARE_PROGRESS_HELP =
+	"把你已登记角色的进度（副本资格、入口钥匙和召唤物品）分享给你的公会和好友中安装了Mnemosyne的玩家。关闭时，他们会遗忘这些信息。"
 L.PANEL_EVERYONE = "与所有人通信"
 L.PANEL_EVERYONE_HELP = "关闭时，Mnemosyne只与你的好友（你的好友名单和战网好友）以及你的公会通信。"
 	.. "开启时，还会与你的队伍以及你鼠标指向或选为目标的任何人通信。"
