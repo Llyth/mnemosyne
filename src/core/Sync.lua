@@ -12,7 +12,8 @@
 -- (one whose answer is still sent after the peer's done counts)
 -- and at most 10 wait, the most recently heard peers first. A sync whose peer
 -- passes on nothing new for 2 minutes, or that lasts 20 minutes, is cut; the
--- next one starts again from the digest. Whispers can arrive out of order, so a
+-- next one starts again from the digest, and after a cut at 20 minutes, not
+-- before 6 hours, even with a friend or guildmate. Whispers can arrive out of order, so a
 -- peer's end of its part that comes before its digest still lets this side
 -- answer that digest if it comes within 2 minutes.
 --
@@ -151,6 +152,7 @@ function Sync.new(saved, clock, memory, settings, professions, progress, early, 
 		endedAt = {},
 		sessions = {}, -- peer -> { started, active, answered, digestAgain, copiesAnswered, producing, pulled }
 		answering = {}, -- peer -> the session ended whose answer is still made, holding its place
+		overran = {}, -- character -> peer -> true once a sync with it was cut at 20 minutes, for the session
 		waiting = {}, -- { peer, heard, digest, digestHeard }, the most recently heard first
 		doneFirst = {}, -- peer -> when its done came before its digest, to answer the digest still
 	}, Sync)
@@ -246,7 +248,8 @@ end
 
 local function isCooling(self, peer, now)
 	local syncedAt = played(self, self.saved)[peer]
-	local listed = self.scope and self.scope:isListed(peer)
+	-- One whose sync ran into the 20-minute cut waits as anyone else: 15 minutes would let it hold a place for good.
+	local listed = self.scope and self.scope:isListed(peer) and not played(self, self.overran)[peer]
 	return syncedAt ~= nil and now - syncedAt < (listed and Sync.COOLDOWN_LISTED or Sync.COOLDOWN)
 end
 
@@ -591,6 +594,13 @@ function Sync:receive(peer, message)
 	return whole(self, outgoing)
 end
 
+-- A sync cut at 20 minutes while the peer still passed on something new: its
+-- cooldown starts now, the longer one even with a friend or guildmate.
+local function overrun(self, peer, now)
+	played(self, self.overran)[peer] = true
+	played(self, self.saved)[peer] = now
+end
+
 -- Cuts the syncs whose peer went quiet or that last too long, and starts
 -- waiting ones, but not while paused (combat or lockdown: what they send
 -- would wait, and starting one costs). Returns what to send. Client calls it
@@ -598,13 +608,22 @@ end
 function Sync:tick(paused)
 	local now = self.clock()
 	for peer, session in pairs(self.sessions) do
-		if now - session.active >= Sync.TIMEOUT or now - session.started >= Sync.MAX_DURATION then
+		if now - session.active >= Sync.TIMEOUT then
+			finish(self, peer, now, true)
+		elseif now - session.started >= Sync.MAX_DURATION then
+			overrun(self, peer, now)
 			finish(self, peer, now, true)
 		end
 	end
-	-- An answer the queue stopped asking for (the peer went offline, the queue was full) is over.
+	-- An answer the queue stopped asking for (the peer went offline, the queue was full) is over;
+	-- one still going out at 20 minutes is cut as an overrun, or a peer
+	-- sending an empty digest at each cooldown would keep a place for good.
 	for peer, session in pairs(self.answering) do
-		if now - session.pulled >= Sync.TIMEOUT or now - session.started >= Sync.MAX_DURATION then
+		if now - session.pulled >= Sync.TIMEOUT then
+			session.cut = true
+			self.answering[peer] = nil
+		elseif now - session.started >= Sync.MAX_DURATION then
+			overrun(self, peer, now)
 			session.cut = true
 			self.answering[peer] = nil
 		end
