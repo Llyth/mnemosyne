@@ -14,13 +14,16 @@ No library is embedded (Ace3, ChatThrottleLib, LibDeflate), against the habit of
 
 **Update, 2026-11-27.** The digest scheme moved out of `Memory` and `Professions`, which each wrote it, into a pure module of its own, `Digest` (the hash, the bucket of a name, the sums, the written form and the buckets two digests differ in), which both use. What goes on the wire is unchanged. The decision holds.
 
-**Update, 2026-11-27.** The pure modules in `src/core/` are now fifteen, each tested by busted through its own interface:
+**Update, 2026-11-27.** The pure modules in `src/core/` are now nineteen, each tested by busted through its own interface:
 
 - `Protocol`: the wire format, chunking, and validating what peers send.
-- `Digest`: the digest a sync compares, for identities and professions alike.
+- `Digest`: the digest a sync compares, for identities, professions and progress alike.
 - `Memory`: identities, first-hand wins, revisions, disputes, staleness, the cap and the daily limits.
-- `Self`: your characters' registrations and their professions as read from the game.
+- `Self`: your characters' registrations and their professions and progress as read from the game.
+- `Copies`: the rules every per-character category (professions, progress) spreads by: first-hand wins, disputes, removals, staleness, who is kept, the daily limit, the digest (decisions 0008 and 0009).
 - `Professions`: every profession held, first-hand and second-hand (decision 0008).
+- `Milestones`: the milestones Progress tracks, and the cell each shows for a character from what it holds and its quests (decision 0009).
+- `Progress`: every milestone held, first-hand and second-hand (decision 0009).
 - `Seed`: the account's 1.4.x memory each character copies once, kept 30 days (decision 0001).
 - `Sync`: the digest exchange, its cooldowns and its early syncs (decision 0002).
 - `News`: the guild news a sync's changes post, and those heard.
@@ -31,5 +34,6 @@ No library is embedded (Ace3, ChatThrottleLib, LibDeflate), against the habit of
 - `Outbox`: the paced queue of addon messages.
 - `Inbox`: where every peer's message comes in, and what it leads to.
 - `Catalog`: what the Professions tab shows.
+- `Grid`: what the Progress tab shows.
 
-The adapters stay two: `Client` with `Encounter`, and `Interface` with `Chat`, `Commands`, `Prompt`, `Panel`, `Window`, `Identities`, `ProfessionsTab`, `CommunitiesTab` and `ReportWindow`; `Debug` serves both. The decision holds.
+The adapters stay two: `Client` with `Encounter`, and `Interface` with `Chat`, `Commands`, `Prompt`, `Panel`, `Window`, `Identities`, `ProfessionsTab`, `ProgressTab`, `CommunitiesTab` and `ReportWindow`; `Debug` serves both. The decision holds.
