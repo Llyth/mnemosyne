@@ -93,7 +93,9 @@ local function newView(content, viewWidth)
 				else
 					commands.forget(name)
 				end
-				refresh()
+				-- Every view that shows: Mnemosyne's window and the Guild &
+				-- Communities window can both list the character.
+				ns.Window.refresh()
 			end)
 			fit(row.button, L.PANEL_FORGET, L.PANEL_UNDO)
 			row.whisper = button(row, L.WINDOW_WHISPER, 0, 0, 70, function(self)
