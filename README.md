@@ -37,8 +37,11 @@ seconds after you enter the world, never in combat, during a loading screen or
 in an instance. You can register it with your nickname, keep it anonymous, or
 ask to be asked again at your next login on it. The nickname is filled in from
 your other registered characters, or else from what other players say about this
-one, and nothing is registered until you click Register. Only a character's own
-player can register it, and an anonymous character is never linked to your
+one, and nothing is registered until you click Register. A nickname cannot hold
+invisible characters, except that the invisible mark a phone adds to some emoji
+(as in ❤️) is dropped for you. If an older version registered a nickname with
+other invisible characters, Mnemosyne asks again on that character. Only a
+character's own player can register it, and an anonymous character is never linked to your
 other characters. Trial accounts are not asked: they cannot send addon
 messages.
 

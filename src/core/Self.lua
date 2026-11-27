@@ -3,8 +3,9 @@
 -- (decision 0004).
 --
 -- A character is in one of four states: "notAsked" (Mnemosyne has not asked
--- about it yet), "registered" (with a nickname), "anonymous" (its player chose
--- not to register it) or "unregistered" (its player withdrew its registration).
+-- about it yet, or must ask again: Self.new), "registered" (with a nickname),
+-- "anonymous" (its player chose not to register it) or "unregistered" (its
+-- player withdrew its registration).
 -- Each change gets a revision: the server time, or the previous revision plus
 -- one if that is later, so it always moves forward (decision 0001).
 --
@@ -16,14 +17,6 @@ local _, ns = ...
 local Self = {}
 Self.__index = Self
 ns.Self = Self
-
--- saved: the table Self keeps the registrations in (MnemosyneDB.characters).
--- clock: returns the server time, in seconds.
--- settings: the saved settings (MnemosyneDB.settings): professions are shared
--- unless shareProfessions is false.
-function Self.new(saved, clock, settings)
-	return setmetatable({ characters = saved, clock = clock, settings = settings }, Self)
-end
 
 -- The next revision after previous (nil for none): the server time, or previous
 -- plus one if that is later.
@@ -41,14 +34,46 @@ local function change(self, name, nickname, anonymous)
 	character.anonymous = anonymous
 end
 
--- Registers a character with its player's nickname, or changes it. The
--- nickname is stored without spaces around it and with each run of spaces
--- inside it made one. Returns true, or false and why the nickname breaks the
--- rules (Protocol.checkNickname).
-function Self:register(name, nickname)
-	if type(nickname) == "string" then
-		nickname = nickname:gsub(" +", " "):match("^ ?(.-) ?$")
+-- A nickname as the player typed it, tidied: without the emoji variation
+-- selectors (U+FE0E, U+FE0F: a phone types "❤️" for the heart), which show
+-- nothing and the rules refuse, without spaces around it, and with each run of
+-- spaces inside it made one.
+local function tidy(nickname)
+	if type(nickname) ~= "string" then
+		return nickname
 	end
+	return (nickname:gsub("\239\184[\142\143]", ""):gsub(" +", " "):match("^ ?(.-) ?$"))
+end
+
+-- saved: the table Self keeps the registrations in (MnemosyneDB.characters).
+-- clock: returns the server time, in seconds.
+-- settings: the saved settings (MnemosyneDB.settings): professions are shared
+-- unless shareProfessions is false.
+--
+-- A saved nickname the rules now refuse (an older version took it) would stop
+-- reaching updated peers, silently: it is tidied as a typed one is, with a new
+-- revision so peers hear it, or else the character goes back to not asked, so
+-- its player sees the registration prompt again.
+function Self.new(saved, clock, settings)
+	local self = setmetatable({ characters = saved, clock = clock, settings = settings }, Self)
+	for name, character in pairs(saved) do
+		if character.nickname and not ns.Protocol.checkNickname(character.nickname) then
+			local nickname = tidy(character.nickname)
+			if ns.Protocol.checkNickname(nickname) then
+				change(self, name, nickname)
+			else
+				character.nickname, character.revision = nil, nil
+			end
+		end
+	end
+	return self
+end
+
+-- Registers a character with its player's nickname, or changes it. The
+-- nickname is stored tidied (tidy). Returns true, or false and why the
+-- nickname breaks the rules (Protocol.checkNickname).
+function Self:register(name, nickname)
+	nickname = tidy(nickname)
 	local ok, reason = ns.Protocol.checkNickname(nickname)
 	if not ok then
 		return false, reason
