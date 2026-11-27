@@ -73,7 +73,7 @@ When, by the game server's clock, a character's player last registered it, chang
 _Avoid_: version, timestamp
 
 **Disputed**:
-An identity heard second-hand with the same revision but different nicknames. Not shown until the character settles it first-hand.
+An identity heard second-hand with the same revision but different nicknames. A nickname and a removal at the same revision dispute too, and the identity is then held as a removal, whichever came first. Not shown until the character settles it first-hand.
 _Avoid_: conflict, invalid
 
 **Stale**:
