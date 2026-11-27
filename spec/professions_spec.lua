@@ -70,7 +70,8 @@ describe("Professions", function()
 		characters = newCharacters()
 		settings = { passOn = true }
 		recipeLines = { [2329] = ALCHEMY, [2330] = ALCHEMY, [7421] = ENCHANTING }
-		played = "Bea Bop" -- the character logged on, which syncs
+		played = "Bea Bop" -- the character logged on, which syncs: registered, without professions
+		characters.registered[played] = "Bea"
 		professions = Professions.new(saved, clock, memory, characters, settings, recipeSkillLine, function()
 			return played
 		end)
@@ -489,7 +490,8 @@ describe("Professions", function()
 				{ skillLine = TAILORING, revision = 950 },
 			}
 			professions:prepare()
-			assert.same({ "Dee Zaster" }, characters.stamped)
+			table.sort(characters.stamped)
+			assert.same({ "Bea Bop", "Dee Zaster" }, characters.stamped)
 			assert.same(
 				{ "Dee Zaster 171", "Dee Zaster 197" },
 				names(professions:answer("Anna Conda", other():digest("Barb Dwyer")))
@@ -648,6 +650,73 @@ describe("Professions", function()
 			theirs:hear("Anna Conda", alchemy())
 			assert.same({}, mine:answer("Cole Slaw", theirs:digest("Anna Conda")))
 			assert.same({}, theirs:answer("Anna Conda", other():digest("Cole Slaw")))
+		end)
+
+		-- An anonymous character's sync that passed on what only its account holds
+		-- of the account's other characters would link it to them (decision 0001).
+		describe("while a character that is not registered plays", function()
+			local ROSTER = { "Hugh Jass", "Anna Conda", "Cole Slaw", "Dee Zaster" }
+
+			before_each(function()
+				-- Dee Zaster, registered, shared alchemy while it played, off the roster.
+				characters.registered["Dee Zaster"] = "Dee"
+				characters.owned["Dee Zaster"] = { { skillLine = ALCHEMY, level = 5, maxLevel = 75, revision = 900 } }
+				played = "Dee Zaster"
+				professions:prepare()
+				played = "Bea Bop"
+				characters.registered[played], characters.anonymous[played] = nil, true
+				characters.stamped = {}
+			end)
+
+			it(
+				"passes on the account's other characters' professions as anyone's: only the roster's, to a guildmate",
+				function()
+					assert.same({}, professions:answer("Anna Conda", other():digest("Barb Dwyer")))
+					assert.equal(other():digest("Barb Dwyer"), professions:digest("Anna Conda"))
+					professions:seeLists({}, ROSTER)
+					assert.same({}, professions:answer("Bo Nanza", other():digest("Bo Nanza")))
+					assert.same(
+						{ "Dee Zaster 171" },
+						names(professions:answer("Anna Conda", other(ROSTER):digest("Barb Dwyer")))
+					)
+				end
+			)
+
+			it("passes on the account's other characters' professions only while passing on is on", function()
+				professions:seeLists({}, ROSTER)
+				settings.passOn = false
+				assert.same({}, professions:answer("Anna Conda", other(ROSTER):digest("Barb Dwyer")))
+			end)
+
+			it("leaves out of its digest the account's character whose identity it holds as a removal", function()
+				professions:seeLists({}, ROSTER)
+				memory:hear("Dee Zaster", { revision = 2000, source = "Cole Slaw" })
+				assert.equal(other(ROSTER):digest("Barb Dwyer"), professions:digest("Anna Conda"))
+			end)
+
+			it("takes peers' copies of the account's other characters' professions as anyone's", function()
+				professions:seeLists({}, ROSTER)
+				local tailoring =
+					{ name = "Dee Zaster", skillLine = TAILORING, level = 1, maxLevel = 75, revision = 900 }
+				assert.is_true(professions:hear("Anna Conda", tailoring))
+				-- As a peer that heard Dee Zaster's alchemy from it: first-hand wins.
+				assert.is_false(professions:hear("Anna Conda", {
+					name = "Dee Zaster",
+					skillLine = ALCHEMY,
+					level = 9,
+					maxLevel = 75,
+					revision = 950,
+				}))
+			end)
+
+			it("never gives the account's other characters' professions a new revision", function()
+				professions:seeLists({}, ROSTER)
+				characters.owned["Dee Zaster"] = { { skillLine = ALCHEMY, level = 6, maxLevel = 75, revision = 1000 } }
+				professions:prepare()
+				assert.same({ "Bea Bop" }, characters.stamped)
+				local passed = professions:answer("Anna Conda", other(ROSTER):digest("Barb Dwyer"))
+				assert.same({ 900, 5 }, { passed[1].revision, passed[1].level })
+			end)
 		end)
 
 		it("never passes on a disputed or stale profession", function()

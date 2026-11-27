@@ -58,7 +58,8 @@ Professions.MAX_SYNC_BYTES = 100000 -- of professions a sync passes on
 -- characters: this account's characters (Self): their professions are read
 -- from it, and never adopted from peers.
 -- settings: the saved settings; settings.passOn switches passing on what was
--- heard from others (this account's characters' professions always go).
+-- heard from others (this account's characters' professions always go, but
+-- for those that go as anyone's, asAnyone).
 -- recipeSkillLine: returns the skill line the game places a recipe ID in, or
 -- nil when it cannot; peers' recipes placed in another profession, or that it
 -- cannot place, are dropped.
@@ -164,6 +165,20 @@ local function isOwn(self, name)
 	return (character and character.own) or self.characters:registration(name) ~= nil
 end
 
+-- Whether one of this account's characters' professions go and come as any
+-- other player's: while the character played is not registered (anonymous,
+-- unregistered or not asked yet), for every other one. Passed on, stamped or
+-- refused as this account's then, they would link the character played to
+-- them (decision 0001); the character played still shares its own first-hand.
+local function asAnyone(self, name)
+	local played = self.playerName()
+	if played == nil or name == played then
+		return false
+	end
+	local registration = self.characters:registration(played)
+	return not (registration and registration.nickname)
+end
+
 -- Whether a character was seen on a roster or as a friend's in the last 30 days.
 local function seenLately(self, name, now)
 	local seen = self.seen[name]
@@ -214,7 +229,7 @@ function Professions:hear(peer, heard)
 	if
 		not Professions.SKILL_LINES[skillLine]
 		or heard.revision > now + DAY
-		or isOwn(self, name)
+		or (isOwn(self, name) and not asAnyone(self, name))
 		or not keeps(self, name, now)
 		or isRefused(self, name, firstHand)
 	then
@@ -347,7 +362,9 @@ end
 -- removal of each of the game's skill lines a registered one lacks, so peers
 -- drop a copy forged for it), then keeps them first-hand, and only them: a
 -- profession peers passed on before the character was this account's never
--- goes as its own. Then drops what is no longer kept.
+-- goes as its own. While the character played is not registered, only its
+-- own: the others' wait for a registered one (asAnyone). Then drops what is no
+-- longer kept.
 function Professions:prepare()
 	local names = {}
 	for _, character in ipairs(self.characters:list("")) do
@@ -360,6 +377,11 @@ function Professions:prepare()
 		end
 	end
 	local now = self.clock()
+	for name in pairs(names) do
+		if asAnyone(self, name) then
+			names[name] = nil
+		end
+	end
 	for name in pairs(names) do
 		self.characters:stampProfessions(name, Professions.SKILL_LINES)
 		local character = self.held[name] or { skills = {} }
@@ -401,14 +423,17 @@ end
 -- or unregistered characters, all removals, go only while that character is
 -- the one played: the peer hears them first-hand, from the character itself,
 -- which links nothing. Sent while another character of the account syncs,
--- they would link it to the account (decision 0001).
+-- they would link it to the account (decision 0001). While the character
+-- played is not registered, the account's others go as anyone's (asAnyone),
+-- left out as a peer leaves them out once their identity is held as a removal.
 local function goesTo(self, peer, name, character, now)
-	if character.own then
+	local anyone = asAnyone(self, name)
+	if character.own and not anyone then
 		local registration = self.characters:registration(name)
 		local registered = registration ~= nil and registration.nickname ~= nil
 		return (registered or name == self.playerName()) and seenLately(self, peer, now)
 	end
-	return (self.roster[peer] and self.roster[name]) or false
+	return (self.roster[peer] and self.roster[name] and not (anyone and isRefused(self, name, true))) or false
 end
 
 local function bucketOf(name)
@@ -452,7 +477,8 @@ end
 
 -- What to pass on to a peer, from its digest: the professions that go to it,
 -- in buckets whose digest differs, never a disputed or stale one, and only
--- this account's characters' while passing on is off; at most
+-- this account's characters' while passing on is off (not those that go as
+-- anyone's, asAnyone); at most
 -- 100 KB, the first-hand ones changed in the past day first, the latest
 -- first, then the rest from a point that moves with the clock. Each is
 -- { name, skillLine, revision, level, maxLevel, recipes, guid }, a removal
@@ -467,7 +493,7 @@ function Professions:answer(peer, digest)
 		if mine:sub(first, last) ~= digest:sub(first, last) then
 			for _, name in ipairs(names[bucket]) do
 				local character = self.held[name]
-				local passes = character.own or self.settings.passOn
+				local passes = (character.own and not asAnyone(self, name)) or self.settings.passOn
 				for skillLine, profession in pairs(character.skills) do
 					if passes and not profession.disputed and not profession.stale then
 						local passed = {
