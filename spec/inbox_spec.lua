@@ -2,14 +2,14 @@ local ns = require("spec.helpers.addon")("Protocol", "Memory", "Self", "Sync", "
 local Protocol, Inbox = ns.Protocol, ns.Inbox
 
 describe("Inbox", function()
-	local now, inbox, memory, outbox, dropped, newer, inScope, versions
+	local now, inbox, memory, outbox, dropped, newer, inScope, versions, ownVersion
 
 	local function clock()
 		return now
 	end
 
 	before_each(function()
-		now, dropped, newer, versions = 1000, {}, 0, {}
+		now, dropped, newer, versions, ownVersion = 1000, {}, 0, {}, "1.4.0"
 		inScope = function(name)
 			return name ~= "Mallory Knox"
 		end
@@ -52,6 +52,9 @@ describe("Inbox", function()
 				newer = newer + 1
 			end,
 			versions = versions,
+			version = function()
+				return ownVersion
+			end,
 		})
 	end)
 
@@ -122,6 +125,13 @@ describe("Inbox", function()
 
 		it("never whispers back a version that came by whisper, so two peers never loop", function()
 			inbox:receive("Anna Conda", "WHISPER", version)
+			assert.equal("1.4.0", versions["Anna Conda"])
+			assert.same({}, targets())
+		end)
+
+		it("never whispers back when it has no version, in a copy the packager did not build", function()
+			ownVersion = nil
+			inbox:receive("Anna Conda", "GUILD", version)
 			assert.equal("1.4.0", versions["Anna Conda"])
 			assert.same({}, targets())
 		end)

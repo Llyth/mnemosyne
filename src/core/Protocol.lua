@@ -10,10 +10,11 @@
 --   2:R:<revision>:<nickname>   answer to an ask
 --   2:U:<revision>              removal: the character unregistered
 --   2:N:<revision>              anonymous: the character is kept anonymous
---   2:V:<version>               the version of Mnemosyne the sender runs
---                               (1.4.0 and later), sent with each
---                               announcement; one heard on the guild's or the
---                               group's channel is whispered back once
+--   2:V:<version>               the version of Mnemosyne the sender runs,
+--                               "1.4.1", sent with each announcement; one heard
+--                               on the guild's or the group's channel is
+--                               whispered back once (1.4.0 sends only that,
+--                               with its tag's v: "v1.4.0")
 --
 -- A sync (decision 0002) adds, by whisper:
 --
@@ -111,11 +112,16 @@ local KIND_LETTER = {
 }
 local MAX_VERSION_BYTES = 20
 
--- Whether text is a version of Mnemosyne that can go out: a release's tag,
--- digits and dots then letters, digits, dots and hyphens ("1.4.0-beta.1"), not
--- the packager's placeholder of a copy it did not build.
-function Protocol.isVersion(text)
-	return type(text) == "string" and #text <= MAX_VERSION_BYTES and text:match("^%d+%.%d+%.%d+[%w%.%-]*$") ~= nil
+-- The version of Mnemosyne in a release's tag, "v1.4.0" (as the packager
+-- writes it in the .toc, and a 1.4.0 peer sends it) or "1.4.0": digits and dots
+-- then letters, digits, dots and hyphens ("1.4.0-beta.1"), without the v.
+-- Returns it, or nil for the packager's placeholder of a copy it did not build
+-- or anything else.
+function Protocol.releaseVersion(text)
+	local version = type(text) == "string" and text:match("^v?(.*)$")
+	if version and #version <= MAX_VERSION_BYTES and version:match("^%d+%.%d+%.%d+[%w%.%-]*$") then
+		return version
+	end
 end
 
 local KIND_NAME = {}
@@ -520,8 +526,8 @@ local function readWhole(text, maxBytes)
 		identity.guid = guid and readGuid(guid)
 		return { kind = kind, identity = identity }
 	elseif kind == "version" then
-		local version = rest:match("^:(.*)$")
-		if not Protocol.isVersion(version) then
+		local version = Protocol.releaseVersion(rest:match("^:(.*)$"))
+		if not version then
 			return nil, "malformed"
 		end
 		return { kind = kind, version = version }
