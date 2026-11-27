@@ -49,6 +49,13 @@ describe("Self", function()
 		assert.is_nil(characters:registration("Hugh Jass"))
 	end)
 
+	it("refuses no nickname at all, as empty", function()
+		local ok, reason = characters:register("Hugh Jass", nil)
+		assert.is_false(ok)
+		assert.equal("empty", reason)
+		assert.is_nil(characters:registration("Hugh Jass"))
+	end)
+
 	it("counts a nickname's length after trimming it", function()
 		assert.is_true(characters:register("Hugh Jass", "  " .. string.rep("a", 32) .. "  "))
 	end)

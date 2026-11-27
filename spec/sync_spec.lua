@@ -470,6 +470,13 @@ describe("Sync", function()
 		assert.same({ ["Cole Slaw"] = now - 6 * HOUR + 1 }, saved[played])
 	end)
 
+	it("lets go at load a character's syncs once none of the last 6 hours is left", function()
+		syncWith("Barb Dwyer")
+		now = now + 6 * HOUR
+		Sync.new(saved, clock, memory, settings)
+		assert.same({}, saved)
+	end)
+
 	-- A cooldown shared by the account's characters would have one refuse a
 	-- peer that another synced with: a peer comparing them would link them.
 	it("keeps each character's cooldown its own: another of the account's syncs at once", function()

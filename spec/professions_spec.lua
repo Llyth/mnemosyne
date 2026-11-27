@@ -827,6 +827,12 @@ describe("Professions", function()
 			assert.same({}, professions:answer("Anna Conda", other():digest("Barb Dwyer")))
 		end)
 
+		it("leaves a disputed profession out of its digest, as a peer that never heard it", function()
+			professions:hear("Anna Conda", alchemy(900))
+			professions:hear("Cole Slaw", alchemy(900, { 1 }))
+			assert.equal(other():digest("Barb Dwyer"), professions:digest("Anna Conda"))
+		end)
+
 		it("passes on at most 100 KB, first-hand changes of the past day first", function()
 			local roster = { "Anna Conda" }
 			local recipes = {}

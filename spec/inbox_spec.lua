@@ -123,6 +123,13 @@ describe("Inbox", function()
 			assert.same({ "Anna Conda", "Barb Dwyer" }, targets())
 		end)
 
+		it("whispers its own back to a peer once a session, even after the first whisper went", function()
+			inbox:receive("Anna Conda", "GUILD", version)
+			assert.same({ "Anna Conda" }, targets())
+			inbox:receive("Anna Conda", "GUILD", version)
+			assert.same({}, targets())
+		end)
+
 		it("never whispers back a version that came by whisper, so two peers never loop", function()
 			inbox:receive("Anna Conda", "WHISPER", version)
 			assert.equal("1.4.0", versions["Anna Conda"])

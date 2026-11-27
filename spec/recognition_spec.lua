@@ -198,6 +198,12 @@ describe("Recognition", function()
 		end)
 	end)
 
+	it("leaves disputed identities out of the count", function()
+		memory:hear("Anna Conda", { nickname = "Ann", revision = 900, source = "Barb Dwyer" })
+		memory:hear("Anna Conda", { nickname = "Annie", revision = 900, source = "Cole Slaw" })
+		assert.equal(1, recognition:count())
+	end)
+
 	describe("in the Communities window", function()
 		local function line(name, shown, text)
 			return ("[|HplayerCommunity:%s:7:1:1700000000:2|h%s|h]: %s"):format(name, shown, text)
