@@ -230,7 +230,10 @@ characters'. While you play a character you haven't registered, your other
 characters' professions go only as anyone's would: to a guildmate, only those
 of characters on your guild roster, and only with **Pass on what I know** on;
 their changes, and turning **Share my professions** off, reach other players at
-the next sync of one of your registered characters. A player whose professions you never received gets one sync even
+the next sync of one of your registered characters. Your characters you keep
+anonymous or unregister go that way whichever character you play, and only the
+character itself, when you play it, tells other players to forget its
+professions. A player whose professions you never received gets one sync even
 within an hour (a guildmate) or 6 hours of the last one, so professions don't wait for the next. Each of your characters keeps the professions of its guild roster's characters and its
 friends' only, dropped once a character has gone 30 days unseen on your roster
 or online as a friend's. The **Professions** tab of Mnemosyne's window shows

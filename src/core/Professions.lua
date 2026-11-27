@@ -205,16 +205,22 @@ end
 
 -- Whether one of this account's characters' professions go and come as any
 -- other player's: while the character played is not registered (anonymous,
--- unregistered or not asked yet), for every other one. Passed on, stamped or
--- refused as this account's then, they would link the character played to
--- them (decision 0001); the character played still shares its own first-hand.
+-- unregistered or not asked yet), for every other one; and, whichever
+-- character plays, for every other one that is anonymous or unregistered.
+-- Passed on, stamped, kept or refused as this account's then, they would link
+-- the character played to them (decision 0001), or to each other; the
+-- character played still shares its own first-hand.
 local function asAnyone(self, name)
 	local played = self.playerName()
 	if played == nil or name == played then
 		return false
 	end
 	local registration = self.characters:registration(played)
-	return not (registration and registration.nickname)
+	if not (registration and registration.nickname) then
+		return true
+	end
+	registration = self.characters:registration(name)
+	return registration ~= nil and registration.nickname == nil
 end
 
 -- Whether a character was seen on a roster or as a friend's in the last 30 days.
@@ -384,6 +390,17 @@ function Professions:prune()
 		end
 	end
 	for name, character in pairs(self.held) do
+		if character.own and asAnyone(self, name) then
+			-- Kept or dropped as a peer would (asAnyone), until prepare reads it
+			-- again: a registered character's professions as a peer that synced
+			-- with it holds them; an anonymous or unregistered one's removals go,
+			-- as a peer drops them with its identity's removal.
+			character.own = nil
+			local registration = self.characters:registration(name)
+			if not (registration and registration.nickname) then
+				character.skills = {}
+			end
+		end
 		if not character.own then
 			if not keeps(self, name, now) then
 				self.held[name] = nil
@@ -429,19 +446,19 @@ end
 -- holds, never stale, and only them: a profession peers passed on before the
 -- character was this account's never goes as its own. While the character
 -- played is not registered, only its own: the others' wait for a registered
--- one (asAnyone). A name another player's character has taken (Self:owns) is
--- left to it, what was held as this account's under it stale, as see leaves
--- it. Then drops what is no longer kept.
+-- one (asAnyone); an anonymous or unregistered one's, only while it plays. A
+-- name another player's character has taken (Self:owns) is left to it, what
+-- was held as this account's under it stale, as see leaves it. Then drops
+-- what is no longer kept.
 function Professions:prepare()
 	local names = {}
 	for _, character in ipairs(self.characters:list("")) do
 		names[character.name] = true
 	end
-	for name, character in pairs(self.held) do
-		if character.own then
-			-- Unregistered since: its removals still go while it syncs itself (goesTo).
-			names[name] = true
-		end
+	local played = self.playerName()
+	if played and self.characters:registration(played) then
+		-- Unregistered: its removals still go while it syncs itself (goesTo).
+		names[played] = true
 	end
 	local now = self.clock()
 	for name in pairs(names) do
