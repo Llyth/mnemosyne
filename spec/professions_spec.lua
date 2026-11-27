@@ -134,6 +134,16 @@ describe("Professions", function()
 		assert.is_true(shown("Hugh Jass")[1].firstHand)
 	end)
 
+	it("ignores a profession its character shares again at an older or the same revision", function()
+		professions:hear("Hugh Jass", alchemy(900))
+		local heard = now
+		now = now + 60
+		assert.is_false(professions:hear("Hugh Jass", alchemy(800, { 1 })))
+		assert.is_false(professions:hear("Hugh Jass", alchemy(900)))
+		assert.same({ 2329, 2330 }, shown("Hugh Jass")[1].recipes)
+		assert.equal(heard, shown("Hugh Jass")[1].heard)
+	end)
+
 	it("lets a first-hand profession replace a second-hand copy", function()
 		professions:hear("Anna Conda", alchemy(5000))
 		assert.is_true(professions:hear("Hugh Jass", alchemy(900, { 3 })))
@@ -600,6 +610,15 @@ describe("Professions", function()
 		recipeLines = { [2329] = ALCHEMY, [7421] = ENCHANTING }
 		professions:prune()
 		assert.same({ 2329 }, shown("Hugh Jass")[1].recipes)
+	end)
+
+	it("lets go at load the counts of a peer's changes older than a day", function()
+		professions:hear("Anna Conda", alchemy())
+		now = now + DAY
+		professions:hear("Cole Slaw", alchemy(950))
+		Professions.new(saved, clock, memory, characters, settings)
+		assert.is_nil(saved.newFrom["Anna Conda"])
+		assert.is_not_nil(saved.newFrom["Cole Slaw"])
 	end)
 
 	it("loads what it saved", function()
