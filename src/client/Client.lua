@@ -706,8 +706,47 @@ function handlers.PLAYER_REGEN_ENABLED()
 	end
 end
 
+-- Whispers heard in combat or lockdown (syncs, mostly) wait to be read until
+-- it ends, a few at each look: nothing could be sent meanwhile, and reading
+-- a sync costs. At most 1,000 wait; one more is dropped, as a lost chunk.
+local PARK_MAX = 1000
+local REPLAY_EVERY, REPLAY_COUNT = 0.25, 10 -- seconds, whispers read at each look
+local parked, parkedFirst, parkedLast = {}, 1, 0
+local replayTicker
+local receive -- the whisper's way to Inbox, defined below
+
+local function replay()
+	if Client.isPaused() then
+		return
+	end
+	for _ = 1, REPLAY_COUNT do
+		local message = parked[parkedFirst]
+		if not message then
+			break
+		end
+		parked[parkedFirst], parkedFirst = nil, parkedFirst + 1
+		receive(message[1], message[2], message[3])
+	end
+	if parkedFirst > parkedLast then
+		parkedFirst, parkedLast = 1, 0
+		replayTicker:Cancel()
+		replayTicker = nil
+	end
+end
+
+local function park(text, channel, sender)
+	if parkedLast - parkedFirst + 1 >= PARK_MAX then
+		Debug.dropped(sender, "paused", text)
+		return
+	end
+	parkedLast = parkedLast + 1
+	parked[parkedLast] = { text, channel, sender }
+	replayTicker = replayTicker or C_Timer.NewTicker(REPLAY_EVERY, replay)
+end
+
 -- A message from a peer goes to Inbox once known to hold no secret value
--- (comparing one raises an error).
+-- (comparing one raises an error); a whisper waits while paused, or while
+-- others wait (park).
 function handlers.CHAT_MSG_ADDON(prefix, text, channel, sender)
 	local isKnown = Client.isKnown
 	if not isKnown(prefix) or prefix ~= Protocol.PREFIX then
@@ -717,6 +756,14 @@ function handlers.CHAT_MSG_ADDON(prefix, text, channel, sender)
 		Debug.dropped(nil, "secret", "?")
 		return
 	end
+	if channel == "WHISPER" and (replayTicker or Client.isPaused()) then
+		park(text, channel, sender)
+		return
+	end
+	receive(text, channel, sender)
+end
+
+function receive(text, channel, sender)
 	local changes = ns.professions.changes
 	inbox:receive(sender, channel, text)
 	if ns.professions.changes ~= changes then
