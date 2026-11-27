@@ -60,14 +60,14 @@ describe("Several peers", function()
 			memory = memory,
 			characters = characters,
 			professions = professions,
-			sync = Sync.new({}, clock, memory, { passOn = true }, characters, professions),
+			sync = Sync.new({}, clock, memory, { passOn = true }, professions),
 			reader = Protocol.newReader(clock),
 			writer = Protocol.newWriter(),
 			delay = 0, -- what its randomness draws for each news delay
 		}
 		peer.news = News.new(clock, function()
 			return peer.delay
-		end, memory, characters, { passOn = true })
+		end, memory, { passOn = true })
 		peers[name] = peer
 		return peer
 	end
@@ -278,7 +278,7 @@ describe("Several peers", function()
 		local e = newPeer("Ella Vator")
 		e.characters:register(e.name, "Ella")
 		announce(e, c)
-		b.sync = Sync.new({}, clock, b.memory, { passOn = false }, b.characters)
+		b.sync = Sync.new({}, clock, b.memory, { passOn = false })
 		sync(b, c)
 		assert.is_nil(c.memory:recall(a.name))
 		assert.equal("Ella", b.memory:recall(e.name).nickname)
@@ -410,20 +410,12 @@ describe("Several peers", function()
 		it("lets two peers that synced before sharing professions sync once more early to share them", function()
 			for _, peer in ipairs({ a, b }) do
 				peer.saved, peer.early = {}, {}
-				peer.sync = Sync.new(peer.saved, clock, peer.memory, { passOn = true }, peer.characters) -- before the update
+				peer.sync = Sync.new(peer.saved, clock, peer.memory, { passOn = true }) -- before the update
 			end
 			sync(a, b)
 			now = now + HOUR
 			for _, peer in ipairs({ a, b }) do
-				peer.sync = Sync.new(
-					peer.saved,
-					clock,
-					peer.memory,
-					{ passOn = true },
-					peer.characters,
-					peer.professions,
-					peer.early
-				)
+				peer.sync = Sync.new(peer.saved, clock, peer.memory, { passOn = true }, peer.professions, peer.early)
 			end
 			sync(a, b)
 			assert.equal(50, shown(b).level)

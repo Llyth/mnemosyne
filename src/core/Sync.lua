@@ -56,19 +56,19 @@ Sync.FRESH = Memory.VOUCHED_WINDOW - 60 * 60 -- seconds
 -- saved: when each peer last synced (MnemosyneDB.syncs); entries older than
 -- the longer cooldown are let go here.
 -- clock: returns the server time, in seconds.
--- memory: the Memory to hash, pass on and learn into.
+-- memory: the Memory to hash, pass on and learn into. What peers say about
+-- this account's own characters is learned and passed on as anyone's
+-- (decision 0001): a memory that lacked them would name them, bucket by bucket,
+-- to a peer comparing digests.
 -- settings: the saved settings; settings.passOn switches passing on what the
 -- memory holds.
--- characters: the Self of this account's characters. What peers say about one
--- of them is neither learned nor passed on (decision 0001), once its player has
--- decided (registered, anonymous or unregistered).
 -- professions: the Professions to hash, pass on and learn into; none when left out.
 -- Its guild roster tells guildmates, who sync more often; with none, every
 -- peer waits the longer cooldown.
 -- early: the peers that can no longer sync during the cooldown
 -- (MnemosyneDB.earlySyncs), peer -> "heard" (its digest of professions was
 -- answered) or "synced" (it had its early sync).
-function Sync.new(saved, clock, memory, settings, characters, professions, early)
+function Sync.new(saved, clock, memory, settings, professions, early)
 	local now = clock()
 	for peer, syncedAt in pairs(saved) do
 		if now - syncedAt >= Sync.COOLDOWN then
@@ -80,7 +80,6 @@ function Sync.new(saved, clock, memory, settings, characters, professions, early
 		clock = clock,
 		memory = memory,
 		settings = settings,
-		characters = characters,
 		professions = professions,
 		early = early or {},
 		professionDigests = {}, -- peer -> { digest, at }, its digest of professions until answered
@@ -150,7 +149,7 @@ local function answer(self, peer, digest, now, outgoing)
 		-- Hashed now, not at start: the memory may have changed while the peer's digest came.
 		for _, name in ipairs(self.memory:missing(digest)) do
 			-- A first-hand name is the server's, never checked: one too long would break a batch.
-			if #name <= Protocol.MAX_NAME_BYTES and not self.characters:registration(name) then
+			if #name <= Protocol.MAX_NAME_BYTES then
 				local identity = self.memory:knows(name) and self.memory:passOn(name)
 				-- Not one ahead of the clock: no real change is, and the peer would not take it as vouched.
 				if identity and identity.revision <= now and now - identity.revision <= Sync.FRESH then
@@ -342,16 +341,13 @@ function Sync:receive(peer, message)
 	elseif message.kind == "identities" and session.answered then
 		local learned = {}
 		for _, identity in ipairs(message.identities) do
-			local changed, how
-			if not self.characters:registration(identity.name) then
-				changed, how = self.memory:hear(identity.name, {
-					nickname = identity.nickname,
-					revision = identity.revision,
-					source = peer,
-					guid = identity.guid,
-					vouched = identity.vouched,
-				})
-			end
+			local changed, how = self.memory:hear(identity.name, {
+				nickname = identity.nickname,
+				revision = identity.revision,
+				source = peer,
+				guid = identity.guid,
+				vouched = identity.vouched,
+			})
 			if changed then
 				-- Only what is new: a peer re-sending what this side knows would hold a place forever.
 				session.active = now

@@ -41,8 +41,10 @@ one, and nothing is registered until you click Register. A nickname cannot hold
 invisible characters, except that the invisible mark a phone adds to some emoji
 (as in ❤️) is dropped for you. If an older version registered a nickname with
 other invisible characters, Mnemosyne asks again on that character. Only a
-character's own player can register it, and an anonymous character is never linked to your
-other characters. Trial accounts are not asked: they cannot send addon
+character's own player can register it, and Mnemosyne never links an anonymous
+character to your other characters in what it shows or shares (see
+[Privacy](#privacy) for what a player who records syncs could still guess).
+Trial accounts are not asked: they cannot send addon
 messages.
 
 There is no server. Copies of Mnemosyne talk to each other in the background
@@ -182,11 +184,19 @@ character an ask, invisible in chat, at most once a day per character: only a
 friend or a guildmate, unless **Talk with everyone** is on. Turn **Ask
 strangers** off in the settings panel to stop it.
 
-Syncs and guild posts pass along every nickname you know, second-hand. Two
+Syncs and guild posts pass along every nickname you know, second-hand, what
+other players say about your own characters included, so what you hold and
+pass on doesn't single them out; Mnemosyne still shows your own registrations
+for them. Two
 switches of the settings panel, both on by default, change that: **Pass on what
 I know**, off to share only your own registrations, and **Show second-hand**, off
 to see only what characters said about themselves. When a player with a newer Mnemosyne talks
 to yours, it tells you once a session that a newer version exists.
+
+Your characters share one memory, though: two of them that sync with the same
+player within a short time send that player the same summary of it, which a
+player who records every sync could use to guess they're yours, an anonymous
+one included.
 
 When you register a character, its nickname spreads to every player who has
 Mnemosyne, through other players too. Characters you don't register are never

@@ -49,7 +49,7 @@ describe("News", function()
 		memory = Memory.new({}, clock)
 		characters = Self.new({}, clock)
 		settings = { passOn = true }
-		news = News.new(clock, random, memory, characters, settings)
+		news = News.new(clock, random, memory, settings)
 	end)
 
 	it("posts an identity a sync brought once, after a random delay of 0 to 30 seconds", function()
@@ -158,10 +158,10 @@ describe("News", function()
 		assert.is_false(news:receive("Mallory Knox", { name = "Fake Namez", nickname = "Mallory", revision = 900 }))
 	end)
 
-	it("never learns what guildmates say about the player's own characters", function()
+	it("learns what guildmates say about the player's own characters, as anyone's", function()
 		characters:register("Anna Conda", "Ann")
-		assert.is_false(news:receive("Mallory Knox", { name = "Anna Conda", nickname = "Mallory", revision = 2000 }))
-		assert.is_nil(memory:recall("Anna Conda"))
+		assert.is_true(news:receive("Mallory Knox", { name = "Anna Conda", nickname = "Ann", revision = 2000 }))
+		assert.equal("Ann", memory:recall("Anna Conda").nickname)
 	end)
 
 	it("posts nothing while the player switched off passing on what they know", function()

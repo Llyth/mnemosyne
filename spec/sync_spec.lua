@@ -16,7 +16,7 @@ describe("Sync", function()
 		memory:hear("Hugh Jass", { nickname = "Tony", revision = 900 })
 		settings = { passOn = true }
 		characters = Self.new({}, clock)
-		sync = Sync.new(saved, clock, memory, settings, characters)
+		sync = Sync.new(saved, clock, memory, settings)
 	end)
 
 	-- Reads what Sync sends the way the peer gets it, chunks put together.
@@ -386,17 +386,37 @@ describe("Sync", function()
 		assert.is_nil(memory:recall("Anna Conda"))
 	end)
 
-	it("never passes on nor learns what peers say about the player's own characters", function()
+	-- A memory without the player's own characters would leave, in each bucket
+	-- of its digest, exactly their hashes missing from a peer's: subtracting
+	-- them would link an anonymous character to the player's others.
+	it("learns what peers say about the player's own characters, as anyone's, so its digest matches theirs", function()
 		characters:register("Anna Conda", "Ann")
 		characters:keepAnonymous("Cole Slaw")
-		memory:hear("Anna Conda", { nickname = "Ann", revision = 800, source = "Dee Lighted" })
-		local outgoing = sync:receive("Barb Dwyer", { kind = "digest", digest = emptyDigest() })
-		assert.same({ { name = "Hugh Jass", nickname = "Tony", revision = 900 } }, decode(outgoing[2].text).identities)
+		local peer = Memory.new({}, clock)
+		peer:hear("Hugh Jass", { nickname = "Tony", revision = 900 })
+		peer:hear("Anna Conda", { nickname = "Ann", revision = characters:registration("Anna Conda").revision })
+		peer:hear("Cole Slaw", { revision = characters:registration("Cole Slaw").revision })
+		sync:receive("Barb Dwyer", { kind = "digest", digest = peer:digest() })
 		sync:receive("Barb Dwyer", {
 			kind = "identities",
-			identities = { { name = "Cole Slaw", nickname = "Cole", revision = 901 } },
+			identities = {
+				{ name = "Anna Conda", nickname = "Ann", revision = characters:registration("Anna Conda").revision },
+				{ name = "Cole Slaw", revision = characters:registration("Cole Slaw").revision },
+			},
 		})
-		assert.is_nil(memory:recall("Cole Slaw"))
+		assert.equal(peer:digest(), memory:digest())
+	end)
+
+	it("passes on what peers said about the player's own characters, as anyone's", function()
+		characters:register("Anna Conda", "Ann")
+		memory:hear("Anna Conda", { nickname = "Ann", revision = 800, source = "Dee Lighted" })
+		local outgoing = sync:receive("Barb Dwyer", { kind = "digest", digest = emptyDigest() })
+		local names = {}
+		for _, identity in ipairs(decode(outgoing[2].text).identities) do
+			names[#names + 1] = identity.name
+		end
+		table.sort(names)
+		assert.same({ "Anna Conda", "Hugh Jass" }, names)
 	end)
 
 	it("drops identities from a peer it is not syncing with", function()
@@ -419,7 +439,7 @@ describe("Sync", function()
 
 	it("remembers when it synced with a peer across a reload", function()
 		syncWith("Barb Dwyer")
-		sync = Sync.new(saved, clock, memory, settings, characters)
+		sync = Sync.new(saved, clock, memory, settings)
 		assert.same({}, sync:request("Barb Dwyer", now))
 	end)
 
@@ -428,7 +448,7 @@ describe("Sync", function()
 		now = now + 1
 		syncWith("Cole Slaw")
 		now = now + 6 * HOUR - 1
-		Sync.new(saved, clock, memory, settings, characters)
+		Sync.new(saved, clock, memory, settings)
 		assert.is_nil(saved["Barb Dwyer"])
 		assert.equal(now - 6 * HOUR + 1, saved["Cole Slaw"])
 	end)
@@ -555,7 +575,7 @@ describe("Sync", function()
 				reader = Protocol.newReader(clock),
 				writer = Protocol.newWriter(),
 			}
-			peer.sync = Sync.new({}, clock, peer.memory, { passOn = true }, Self.new({}, clock))
+			peer.sync = Sync.new({}, clock, peer.memory, { passOn = true })
 			return peer
 		end
 
@@ -600,7 +620,7 @@ describe("Sync", function()
 				local anna, barb = newPeer("Anna Conda"), newPeer("Barb Dwyer")
 				barb.memory:hear("Bo Nanza", { nickname = "Bo", revision = 900 })
 				deliver(anna, barb, (anna.sync:request(barb.name, now)))
-				anna.sync = Sync.new({}, clock, anna.memory, { passOn = true }, Self.new({}, clock))
+				anna.sync = Sync.new({}, clock, anna.memory, { passOn = true })
 				converse(anna, barb, (anna.sync:request(barb.name, now)))
 				assert.is_nil(anna.memory:recall("Bo Nanza"))
 				now = now + Sync.COOLDOWN
@@ -623,7 +643,7 @@ describe("Sync", function()
 				return outgoing
 			end
 			local answer = deliver(anna, barb, (anna.sync:request(barb.name, now)))
-			anna.sync = Sync.new({}, clock, anna.memory, { passOn = true }, Self.new({}, clock))
+			anna.sync = Sync.new({}, clock, anna.memory, { passOn = true })
 			converse(barb, anna, answer)
 			assert.equal("Bo", anna.memory:recall("Bo Nanza").nickname)
 			assert.equal(1, answers)
@@ -680,7 +700,7 @@ describe("Sync", function()
 
 	it("leaves the early syncs alone when the cooldowns are reset", function()
 		local early = { ["Barb Dwyer"] = "synced" }
-		sync = Sync.new(saved, clock, memory, settings, characters, nil, early)
+		sync = Sync.new(saved, clock, memory, settings, nil, early)
 		sync:resetCooldowns()
 		assert.same({ ["Barb Dwyer"] = "synced" }, early)
 	end)
@@ -717,7 +737,7 @@ describe("Sync", function()
 			professions = Professions.new({}, clock, memory, characters, settings)
 			professions:seeLists({}, { "Barb Dwyer", "Hugh Jass" })
 			early = {}
-			sync = Sync.new(saved, clock, memory, settings, characters, professions, early)
+			sync = Sync.new(saved, clock, memory, settings, professions, early)
 		end)
 
 		it("sends the digest of its professions just before its digest, its own stamped first", function()
@@ -981,7 +1001,7 @@ describe("Sync", function()
 					assert.is_true(#outgoing > 1)
 					sync:receive("Barb Dwyer", { kind = "done" })
 					now = now + HOUR / 2
-					sync = Sync.new(saved, clock, memory, settings, characters, professions, early)
+					sync = Sync.new(saved, clock, memory, settings, professions, early)
 					assert.same({ {}, false }, { sync:request("Barb Dwyer", now) })
 					outgoing = sync:receive("Barb Dwyer", { kind = "digest", digest = emptyDigest() })
 					assert.same({ "Barb Dwyer done" }, sent(outgoing))

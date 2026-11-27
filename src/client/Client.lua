@@ -537,8 +537,8 @@ function handlers.ADDON_LOADED(name)
 		recipeSkillLine,
 		Client.playerName
 	)
-	ns.sync = ns.Sync.new(db.syncs, GetServerTime, ns.memory, db.settings, ns.characters, ns.professions, db.earlySyncs)
-	ns.news = ns.News.new(GetTime, math.random, ns.memory, ns.characters, db.settings)
+	ns.sync = ns.Sync.new(db.syncs, GetServerTime, ns.memory, db.settings, ns.professions, db.earlySyncs)
+	ns.news = ns.News.new(GetTime, math.random, ns.memory, db.settings)
 	outbox = ns.Outbox.new(GetTime, Client.canSend)
 	inbox = ns.Inbox.new({
 		clock = GetTime,
