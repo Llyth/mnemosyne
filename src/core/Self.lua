@@ -11,7 +11,8 @@
 --
 -- It also keeps each character's professions, keyed by skill line ID, as read
 -- from the game, and what peers may see of each: a copy given a revision only
--- when a sync stamps it (decision 0008).
+-- when a sync stamps it (decision 0008); and so its progress, keyed by
+-- milestone ID (decision 0009).
 local _, ns = ...
 
 local Self = {}
@@ -48,7 +49,7 @@ end
 -- saved: the table Self keeps the registrations in (MnemosyneDB.characters).
 -- clock: returns the server time, in seconds.
 -- settings: the saved settings (MnemosyneDB.settings): professions are shared
--- unless shareProfessions is false.
+-- unless shareProfessions is false, progress unless shareProgress is false.
 --
 -- A saved nickname the rules now refuse (an older version took it) would stop
 -- reaching updated peers, silently: it is tidied as a typed one is, with a new
@@ -535,5 +536,128 @@ function Self:professions(name)
 	table.sort(found, function(a, b)
 		return a.skillLine < b.skillLine
 	end)
+	return found
+end
+
+-- A character's progress as read, by milestone ID: { state, item, quest, gems
+-- (the cell, Milestones), shared (what peers may see: the cell and its
+-- revision, or { revision } for a removal) }. A milestone the character no
+-- longer has keeps only shared. create makes the table, for a writer.
+local function progressOf(self, name, create)
+	local character = self.characters[name]
+	if create then
+		character = character or {}
+		self.characters[name] = character
+		character.progress = character.progress or {}
+	end
+	return character and character.progress or {}
+end
+
+-- Whether peers may see a character's progress: registered, and sharing on.
+local function sharingProgress(self, name)
+	return self:state(name) == "registered" and self.settings.shareProgress ~= false
+end
+
+-- A cell's fields, without what else the table holds.
+local function cellOf(from)
+	return { state = from.state, item = from.item, quest = from.quest, gems = from.gems }
+end
+
+-- Reads a character's progress as Milestones.cells gives it, by milestone ID
+-- (nil for none). A milestone it no longer has is dropped: peers hear of it as
+-- a removal at the next stamp. Returns true when it changed what was read.
+function Self:seeProgress(name, cells)
+	local progress = progressOf(self, name, true)
+	local changed = false
+	for id, read in pairs(cells) do
+		local milestone = progress[id] or {}
+		progress[id] = milestone
+		changed = changed or not ns.Milestones.equal(milestone.state and milestone, read)
+		milestone.state, milestone.item, milestone.quest, milestone.gems = read.state, read.item, read.quest, read.gems
+	end
+	for id, milestone in pairs(progress) do
+		if not cells[id] then
+			changed = changed or milestone.state ~= nil
+			progress[id] = milestone.shared and { shared = milestone.shared } or nil
+		end
+	end
+	return changed
+end
+
+-- This account's characters with a milestone read now, sorted by name: what
+-- they show to their own player never depends on what is shared.
+function Self:withProgress()
+	local found = {}
+	for name in pairs(self.characters) do
+		if self:currentProgress(name)[1] then
+			found[#found + 1] = name
+		end
+	end
+	table.sort(found)
+	return found
+end
+
+local function byMilestone(a, b)
+	return a.milestone < b.milestone
+end
+
+-- A character's progress as read now, whatever was stamped or is shared,
+-- sorted by milestone ID, copies: { milestone, state, item, quest, gems }.
+function Self:currentProgress(name)
+	local found = {}
+	for id, milestone in pairs(progressOf(self, name)) do
+		if milestone.state then
+			local entry = cellOf(milestone)
+			entry.milestone = id
+			found[#found + 1] = entry
+		end
+	end
+	table.sort(found, byMilestone)
+	return found
+end
+
+-- Gives a new revision to each of a character's milestones whose cell changed
+-- since its last one (a sync starts), or that it no longer has or withdrew
+-- (the character is not registered, or sharing progress is off). ids
+-- (optional): the tracked milestone IDs, a set; while the character is
+-- registered, each it lacks gets a removal too, once, so the character's own
+-- share drops a copy a peer forged (as stampProfessions does).
+function Self:stampProgress(name, ids)
+	local shared = sharingProgress(self, name)
+	local registered = ids ~= nil and self:state(name) == "registered"
+	local progress = progressOf(self, name, registered)
+	for id in pairs(registered and ids or {}) do
+		progress[id] = progress[id] or {}
+	end
+	for _, milestone in pairs(progress) do
+		local last = milestone.shared
+		local now = shared and milestone.state and cellOf(milestone) or {}
+		local unchanged = last and ns.Milestones.equal(now.state and now, last.state and last)
+		-- A milestone never stamped needs no removal, no peer heard of it,
+		-- unless a peer may have forged it (registered).
+		if (last or now.state or registered) and not unchanged then
+			now.revision = nextRevision(self, last and last.revision)
+			milestone.shared = now
+		end
+	end
+end
+
+-- What peers may see of a character's progress, as last stamped, sorted by
+-- milestone ID, copies: { milestone, state, item, quest, gems, revision }, or
+-- { milestone, revision } for a removal. While the character is not
+-- registered or sharing progress is off, every milestone is a removal.
+-- Milestones never stamped are left out.
+function Self:progress(name)
+	local shared = sharingProgress(self, name)
+	local found = {}
+	for id, milestone in pairs(progressOf(self, name)) do
+		local last = milestone.shared
+		if last then
+			local entry = shared and last.state and cellOf(last) or {}
+			entry.milestone, entry.revision = id, last.revision
+			found[#found + 1] = entry
+		end
+	end
+	table.sort(found, byMilestone)
 	return found
 end

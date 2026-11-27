@@ -26,6 +26,7 @@ src\core\Self.lua
 src\core\Copies.lua
 src\core\Professions.lua
 src\core\Milestones.lua
+src\core\Progress.lua
 src\core\Seed.lua
 src\core\Sync.lua
 src\core\News.lua
