@@ -87,18 +87,21 @@ describe("Recognition", function()
 		end)
 
 		it(
-			"shows each GUID it learns to the professions, so those of a name another character took go stale",
+			"shows each GUID it learns to the professions and the progress, so those of a name another character took go stale",
 			function()
 				local seen = {}
-				local professions = {
-					see = function(_, name, guid)
-						seen[#seen + 1] = name .. " " .. guid
-					end,
-				}
-				recognition = Recognition.new(memory, settings, ns.L, clock, nil, professions)
+				local function category(label)
+					return {
+						see = function(_, name, guid)
+							seen[#seen + 1] = label .. " " .. name .. " " .. guid
+						end,
+					}
+				end
+				recognition =
+					Recognition.new(memory, settings, ns.L, clock, nil, category("professions"), category("progress"))
 				recognition:learn(GUID, "Anna Conda")
 				recognition:learn("", "Anna Conda")
-				assert.same({ "Anna Conda " .. GUID }, seen)
+				assert.same({ "professions Anna Conda " .. GUID, "progress Anna Conda " .. GUID }, seen)
 			end
 		)
 
