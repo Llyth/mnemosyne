@@ -14,7 +14,8 @@
 --     copies, as a sync starts, and returns them, as Self holds them.
 --   withCurrent(), current(name): this account's characters with a copy read
 --     now, and a character's copies read now (Self).
---   clean(key, heard), optional: trims the content of a copy heard from a peer.
+--   clean(key, heard), optional: trims the content of a copy heard from a peer;
+--     false drops the copy whole (malformed).
 -- Pure: it takes its saved table, the clock (the server time), the memory,
 -- this account's characters and the settings as arguments (decision 0004).
 --
@@ -261,7 +262,9 @@ function Copies:hear(peer, heard)
 	for _, field in ipairs(self.FIELDS) do
 		taken[field] = heard[field]
 	end
-	self:clean(key, taken)
+	if self:clean(key, taken) == false then
+		return false
+	end
 	heard = taken
 	-- The hash holds the revision: copies of two revisions never say the same.
 	local same = known

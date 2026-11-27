@@ -1,4 +1,4 @@
-local Self = require("spec.helpers.addon")("Protocol", "Self").Self
+local Self = require("spec.helpers.addon")("Protocol", "Milestones", "Self").Self
 
 describe("Self", function()
 	local now, saved, settings, characters
@@ -705,6 +705,144 @@ describe("Self", function()
 			loaded:seeProfessions("Hugh Jass", { { skillLine = TAILORING, level = 50, maxLevel = 75 } })
 			loaded:stampProfessions("Hugh Jass")
 			assert.equal(50, loaded:professions("Hugh Jass")[1].level)
+		end)
+	end)
+
+	describe("progress", function()
+		local ONYXIA, DIRE_MAUL, STRATHOLME = 1, 4, 7
+		local done = { state = "done", item = 18249 }
+
+		before_each(function()
+			characters:register("Hugh Jass", "Tony")
+		end)
+
+		it("shares no milestone before a sync stamps it", function()
+			characters:seeProgress("Hugh Jass", { [DIRE_MAUL] = done })
+			assert.same({}, characters:progress("Hugh Jass"))
+		end)
+
+		it("gives each milestone a revision at the server's time when a sync stamps it, sorted by ID", function()
+			characters:seeProgress("Hugh Jass", { [DIRE_MAUL] = done, [ONYXIA] = { state = "progress", quest = 6403 } })
+			characters:stampProgress("Hugh Jass")
+			assert.same({
+				{ milestone = ONYXIA, state = "progress", quest = 6403, revision = 1000 },
+				{ milestone = DIRE_MAUL, state = "done", item = 18249, revision = 1000 },
+			}, characters:progress("Hugh Jass"))
+		end)
+
+		it("gives a milestone a new revision only when its cell changed since its last one", function()
+			characters:seeProgress("Hugh Jass", { [DIRE_MAUL] = done })
+			characters:stampProgress("Hugh Jass")
+			now = 2000
+			characters:seeProgress("Hugh Jass", { [DIRE_MAUL] = { state = "done", item = 18249 } })
+			characters:stampProgress("Hugh Jass")
+			assert.equal(1000, characters:progress("Hugh Jass")[1].revision)
+			characters:seeProgress("Hugh Jass", { [DIRE_MAUL] = { state = "progress" } })
+			characters:stampProgress("Hugh Jass")
+			assert.same(
+				{ { milestone = DIRE_MAUL, state = "progress", revision = 2000 } },
+				characters:progress("Hugh Jass")
+			)
+		end)
+
+		it("turns a milestone the character no longer has into a removal at the next stamp", function()
+			characters:seeProgress("Hugh Jass", { [DIRE_MAUL] = done })
+			characters:stampProgress("Hugh Jass")
+			characters:seeProgress("Hugh Jass", {})
+			now = 2000
+			characters:stampProgress("Hugh Jass")
+			assert.same({ { milestone = DIRE_MAUL, revision = 2000 } }, characters:progress("Hugh Jass"))
+		end)
+
+		it("stamps once a removal of each tracked milestone a registered character lacks", function()
+			local ids = { [DIRE_MAUL] = true, [STRATHOLME] = true }
+			characters:seeProgress("Hugh Jass", { [DIRE_MAUL] = done })
+			characters:stampProgress("Hugh Jass", ids)
+			now = 2000
+			characters:stampProgress("Hugh Jass", ids)
+			assert.same({
+				{ milestone = DIRE_MAUL, state = "done", item = 18249, revision = 1000 },
+				{ milestone = STRATHOLME, revision = 1000 },
+			}, characters:progress("Hugh Jass"))
+			characters:stampProgress("Anna Conda", ids)
+			assert.same({}, characters:progress("Anna Conda")) -- not registered: shares nothing
+		end)
+
+		it("withdraws every milestone of a character that unregisters or is kept anonymous", function()
+			characters:seeProgress("Hugh Jass", { [DIRE_MAUL] = done })
+			characters:stampProgress("Hugh Jass")
+			characters:unregister("Hugh Jass")
+			assert.same({ { milestone = DIRE_MAUL, revision = 1000 } }, characters:progress("Hugh Jass"))
+			characters:stampProgress("Hugh Jass")
+			assert.same({ { milestone = DIRE_MAUL, revision = 1001 } }, characters:progress("Hugh Jass"))
+			characters:register("Hugh Jass", "Tony")
+			characters:stampProgress("Hugh Jass")
+			characters:keepAnonymous("Hugh Jass")
+			characters:stampProgress("Hugh Jass")
+			assert.same({ { milestone = DIRE_MAUL, revision = 1003 } }, characters:progress("Hugh Jass"))
+		end)
+
+		it("withdraws every milestone when sharing progress is turned off, and shares them again when on", function()
+			characters:seeProgress("Hugh Jass", { [DIRE_MAUL] = done })
+			characters:stampProgress("Hugh Jass")
+			settings.shareProgress = false
+			characters:stampProgress("Hugh Jass")
+			assert.same({ { milestone = DIRE_MAUL, revision = 1001 } }, characters:progress("Hugh Jass"))
+			settings.shareProgress = true
+			characters:stampProgress("Hugh Jass")
+			assert.same(
+				{ { milestone = DIRE_MAUL, state = "done", item = 18249, revision = 1002 } },
+				characters:progress("Hugh Jass")
+			)
+		end)
+
+		it("shares progress whatever the professions' switch says", function()
+			settings.shareProfessions = false
+			characters:seeProgress("Hugh Jass", { [DIRE_MAUL] = done })
+			characters:stampProgress("Hugh Jass")
+			assert.equal("done", characters:progress("Hugh Jass")[1].state)
+		end)
+
+		it("never shares the progress of a character not registered", function()
+			characters:seeProgress("Anna Conda", { [DIRE_MAUL] = done })
+			characters:stampProgress("Anna Conda")
+			assert.same({}, characters:progress("Anna Conda"))
+			assert.equal("notAsked", characters:state("Anna Conda"))
+		end)
+
+		it("gives the progress as read now, unstamped, sorted by ID, whatever is shared", function()
+			settings.shareProgress = false
+			characters:seeProgress("Hugh Jass", { [DIRE_MAUL] = done })
+			characters:stampProgress("Hugh Jass")
+			characters:seeProgress("Hugh Jass", { [STRATHOLME] = { state = "done", item = 12382 }, [DIRE_MAUL] = done })
+			assert.same({
+				{ milestone = DIRE_MAUL, state = "done", item = 18249 },
+				{ milestone = STRATHOLME, state = "done", item = 12382 },
+			}, characters:currentProgress("Hugh Jass"))
+		end)
+
+		it("lists every character with a milestone read, registered or not, sorted by name", function()
+			characters:seeProgress("Hugh Jass", { [DIRE_MAUL] = done })
+			characters:seeProgress("Dee Zaster", { [STRATHOLME] = { state = "done", item = 12382 } })
+			characters:seeProgress("Cole Slaw", {})
+			assert.same({ "Dee Zaster", "Hugh Jass" }, characters:withProgress())
+		end)
+
+		it("says whether reading the progress changed anything", function()
+			assert.is_true(characters:seeProgress("Hugh Jass", { [DIRE_MAUL] = done }))
+			assert.is_false(characters:seeProgress("Hugh Jass", { [DIRE_MAUL] = { state = "done", item = 18249 } }))
+			assert.is_true(characters:seeProgress("Hugh Jass", { [DIRE_MAUL] = { state = "progress" } }))
+			assert.is_true(characters:seeProgress("Hugh Jass", {}))
+			assert.is_false(characters:seeProgress("Hugh Jass", {}))
+		end)
+
+		it("keeps progress in its saved table, apart from the professions", function()
+			characters:seeProfessions("Hugh Jass", { { skillLine = 197, level = 50, maxLevel = 75 } })
+			characters:seeProgress("Hugh Jass", { [DIRE_MAUL] = done })
+			characters:stampProgress("Hugh Jass")
+			local loaded = Self.new(saved, clock, settings)
+			assert.equal("done", loaded:progress("Hugh Jass")[1].state)
+			assert.equal(50, loaded:currentProfessions("Hugh Jass")[1].level)
 		end)
 	end)
 end)
