@@ -254,6 +254,8 @@ local SCOPE_EVERY = 30 -- seconds
 local scopeTimer -- the read due
 local scopeAfterCombat = false -- whether the read waits for combat to end
 
+local progressFirst = false -- which category's prune goes first at the next read (readScope)
+
 -- Reads the friends and the guild roster, and who of them is online, into
 -- the scope, the one place that holds them (Scope).
 local function readScope()
@@ -282,9 +284,14 @@ local function readScope()
 		end
 	end
 	ns.scope:see(friends, roster, online)
-	-- Whose professions and progress are kept.
-	ns.professions:seeLists()
-	ns.progress:seeLists()
+	-- Whose professions and progress are kept; never both pruned at one read,
+	-- each going first in turn so neither waits for ever.
+	local first, second = ns.professions, ns.progress
+	if progressFirst then
+		first, second = second, first
+	end
+	progressFirst = not progressFirst
+	second:seeLists(first:seeLists())
 	-- A guild's roster read empty had not come from the server yet: read again at the next change.
 	scopeRead = roster[1] ~= nil or not IsInGuild()
 end
