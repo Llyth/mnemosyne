@@ -197,10 +197,12 @@ function Inbox:receive(sender, channel, text)
 		return
 	end
 	-- Syncs with each new group member who is a peer, and after login with the
-	-- first peers answering its asks.
+	-- first peers answering its asks. A new member asks as it joins; the members
+	-- already there only announce themselves as the group grows, so a raid does
+	-- not sync each of them with every other one.
 	local now = self.clock()
 	local afterLogin = now - self.loginAt < Inbox.LOGIN_WINDOW and self.loginSyncs < Inbox.LOGIN_SYNCS
-	if GROUP_CHANNELS[channel] then
+	if GROUP_CHANNELS[channel] and kind == "ask" then
 		self:requestSync(sender)
 	elseif channel == "WHISPER" and kind ~= "ask" and afterLogin then
 		if self:requestSync(sender) then

@@ -233,17 +233,24 @@ describe("Inbox", function()
 		assert.same({ "Anna Conda channel", "Anna Conda channel" }, dropped)
 	end)
 
-	it("syncs with a group member who is a peer", function()
+	it("syncs with a new group member who is a peer, which asks as it joins", function()
 		inbox:loggedIn()
 		now = now + Inbox.LOGIN_WINDOW
-		inbox:receive("Anna Conda", "PARTY", announce)
-		assert.same({ "Anna Conda" }, targets())
+		inbox:receive("Anna Conda", "PARTY", ask)
+		assert.is_table(sync.sessions["Anna Conda"])
+	end)
+
+	it("does not sync with a group member announcing itself as the group grows", function()
+		inbox:loggedIn()
+		now = now + Inbox.LOGIN_WINDOW
+		inbox:receive("Anna Conda", "RAID", announce)
+		assert.same({}, targets())
 	end)
 
 	it("lets a group member's sync wait in combat or lockdown", function()
 		paused = true
-		inbox:receive("Anna Conda", "PARTY", announce)
-		assert.same({}, targets())
+		inbox:receive("Anna Conda", "PARTY", ask)
+		assert.is_nil(sync.sessions["Anna Conda"])
 		assert.equal(1, sync:waitingCount())
 	end)
 
