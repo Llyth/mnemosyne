@@ -906,4 +906,66 @@ describe("Professions", function()
 		local loaded = Professions.new(saved, clock, memory, characters, settings, scope)
 		assert.equal("Anna Conda", loaded:list()[1].source)
 	end)
+
+	describe("copied", function()
+		local function tailoring(name, revision, recipes)
+			return {
+				name = name,
+				skillLine = TAILORING,
+				level = 10,
+				maxLevel = 75,
+				recipes = recipes,
+				revision = revision,
+			}
+		end
+
+		before_each(function()
+			professions:hear("Hugh Jass", alchemy())
+			professions:hear("Anna Conda", tailoring("Cole Slaw", 900, { 2387 }))
+			professions:hear("Cole Slaw", tailoring("Anna Conda", 900))
+			professions:hear("Bo Nanza", tailoring("Anna Conda", 900, { 1 }))
+			characters.unregistered["Dee Zaster"] = true
+			saved.held["Dee Zaster"] = { own = true, skills = { [ALCHEMY] = { revision = 950, firstHand = true } } }
+		end)
+
+		local function load(copy)
+			return Professions.new(copy, clock, memory, characters, settings, scope, recipeSkillLine, function()
+				return played
+			end)
+		end
+
+		it("copies the professions held, this account's characters' too, and when each was seen", function()
+			local copy = Professions.copy(saved)
+			assert.same(saved.held["Hugh Jass"], copy.held["Hugh Jass"])
+			assert.same(saved.held["Cole Slaw"], copy.held["Cole Slaw"])
+			assert.same(saved.held["Dee Zaster"], copy.held["Dee Zaster"])
+			assert.same(saved.seen, copy.seen)
+			local listed = professions:list()
+			table.remove(listed, 1) -- Anna Conda's, disputed
+			assert.same(listed, load(copy):list())
+		end)
+
+		it("leaves out disputed professions and the daily counts of each peer", function()
+			assert.same({ { name = "Anna Conda", skillLine = TAILORING, disputed = true } }, shown("Anna Conda"))
+			local copy = Professions.copy(saved)
+			assert.is_nil(copy.held["Anna Conda"])
+			assert.is_nil(copy.newFrom)
+			assert.is_true(load(copy):hear("Cole Slaw", tailoring("Anna Conda", 900)))
+		end)
+
+		it("leaves the source alone when the copy changes", function()
+			local copy = Professions.copy(saved)
+			assert.is_not.equal(
+				saved.held["Hugh Jass"].skills[ALCHEMY].recipes,
+				copy.held["Hugh Jass"].skills[ALCHEMY].recipes
+			)
+			local copied = load(copy)
+			copied:see("Hugh Jass", "Player-1-00000001")
+			copied:see("Hugh Jass", "Player-1-00000002")
+			copied:hear("Anna Conda", tailoring("Hugh Jass", 900))
+			assert.is_nil(saved.held["Hugh Jass"].guid)
+			assert.is_nil(saved.held["Hugh Jass"].skills[ALCHEMY].stale)
+			assert.is_nil(saved.held["Hugh Jass"].skills[TAILORING])
+		end)
+	end)
 end)

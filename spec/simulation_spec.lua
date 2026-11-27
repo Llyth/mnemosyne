@@ -51,9 +51,10 @@ describe("Several peers", function()
 		end
 	end
 
-	local function newPeer(name)
+	-- savedMemory: the memory's saved table to start from (Memory.copy), an empty one when left out.
+	local function newPeer(name, savedMemory)
 		local characters = Self.new({}, clock, {})
-		local memory = Memory.new({}, clock, {}, characters)
+		local memory = Memory.new(savedMemory or {}, clock, {}, characters)
 		local scope = Scope.new({})
 		local professions = Professions.new({}, clock, memory, characters, { passOn = true }, scope)
 		local peer = {
@@ -301,6 +302,54 @@ describe("Several peers", function()
 		d.memory:forget(a.name)
 		announce(a, d)
 		assert.is_true(d.memory:recall(a.name).firstHand)
+	end)
+
+	describe("an account's characters, each with its own memory copied from one seed", function()
+		local revision, seed, ray, mallory
+
+		-- One of the account's characters logs on for the first time since the
+		-- update: its memory starts from a copy of the seed.
+		local function logOn(name)
+			return newPeer(name, Memory.copy(seed))
+		end
+
+		before_each(function()
+			announce(a, b)
+			revision = a.characters:registration(a.name).revision
+			seed = {}
+			Memory.new(seed, clock):hear(a.name, { nickname = "Tony", revision = revision, source = b.name })
+			ray = logOn("Ray Gunn")
+			mallory = newPeer("Mallory Knox")
+		end)
+
+		it("lets no character pass on a first-hand change only another of them heard, vouched or not", function()
+			mallory.characters:register(mallory.name, "Mark")
+			announce(mallory, ray)
+			now = now + 5 * HOUR
+			local al = logOn("Al Beback")
+			sync(al, d)
+			assert.is_nil(d.memory:recall(mallory.name))
+			sync(ray, c)
+			assert.equal(ray.name, c.memory:recall(mallory.name).source)
+		end)
+
+		it("keeps another character's digest equal to an honest peer's after a dispute sent to one", function()
+			mallory.memory:hear(a.name, { nickname = "Mallory", revision = revision })
+			sync(mallory, ray)
+			assert.is_nil(ray.memory:recall(a.name))
+			assert.are_not.equal(b.memory:digest(), ray.memory:digest())
+			assert.equal(b.memory:digest(), logOn("Al Beback").memory:digest())
+		end)
+
+		it("lets another character take a peer's changes once it used up its daily limit on one", function()
+			for i = 1, Memory.MAX_CHANGES_PER_PEER do
+				mallory.memory:hear("Fake Name" .. i, { nickname = "Mallory", revision = 900 })
+			end
+			sync(mallory, ray)
+			local heard = { nickname = "Ella", revision = 900, source = mallory.name }
+			assert.is_false(ray.memory:hear("Ella Vator", heard))
+			assert.is_true(logOn("Al Beback").memory:hear("Ella Vator", heard))
+		end)
 	end)
 
 	describe("sharing professions", function()

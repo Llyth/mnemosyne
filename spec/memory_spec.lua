@@ -1049,3 +1049,65 @@ describe("Memory, this account's characters", function()
 		end
 	)
 end)
+
+describe("Memory, copied", function()
+	local now, saved, source
+
+	local function clock()
+		return now
+	end
+
+	before_each(function()
+		now = 1000
+		saved = {}
+		source = Memory.new(saved, clock)
+	end)
+
+	local function hearFrom(memory, peer, name, nickname, revision)
+		return memory:hear(name, { nickname = nickname, revision = revision, source = peer })
+	end
+
+	it("copies first-hand and second-hand identities, with their GUIDs and stale marks", function()
+		source:hear("Hugh Jass", { nickname = "Tony", revision = 900 })
+		source:hear("Anna Conda", { nickname = "Ann", revision = 900, source = "Barb Dwyer", guid = "Player-1-A" })
+		source:hear("Cole Slaw", { nickname = "Cole", revision = 900, source = "Barb Dwyer", guid = "Player-1-C" })
+		source:see("Cole Slaw", "Player-1-D")
+		local copy = Memory.copy(saved)
+		assert.same(saved.identities, copy.identities)
+		local copied = Memory.new(copy, clock)
+		assert.is_true(copied:knows("Hugh Jass"))
+		assert.equal("Barb Dwyer", copied:recall("Anna Conda").source)
+		assert.equal("Player-1-A", copied:guid("Anna Conda"))
+		assert.is_nil(copied:recall("Cole Slaw"))
+		assert.equal(source:digest(), copied:digest())
+	end)
+
+	it("leaves out disputed identities, so the copy takes the honest copy the source refuses", function()
+		hearFrom(source, "Barb Dwyer", "Hugh Jass", "Tony", 900)
+		hearFrom(source, "Mallory Knox", "Hugh Jass", "Mallory", 900)
+		assert.is_false(hearFrom(source, "Cole Slaw", "Hugh Jass", "Tony", 900))
+		local copied = Memory.new(Memory.copy(saved), clock)
+		assert.is_nil(copied:recall("Hugh Jass"))
+		assert.is_true(hearFrom(copied, "Cole Slaw", "Hugh Jass", "Tony", 900))
+		assert.equal("Tony", copied:recall("Hugh Jass").nickname)
+	end)
+
+	it("leaves out the daily counts of each peer, so a peer the source refuses for the day is taken", function()
+		for i = 1, Memory.MAX_CHANGES_PER_PEER do
+			hearFrom(source, "Mallory Knox", "Fake Name" .. i, "Mallory", 900)
+		end
+		assert.is_false(hearFrom(source, "Mallory Knox", "Hugh Jass", "Tony", 900))
+		local copied = Memory.new(Memory.copy(saved), clock)
+		assert.is_true(hearFrom(copied, "Mallory Knox", "Hugh Jass", "Tony", 900))
+	end)
+
+	it("leaves the source alone when the copy changes", function()
+		source:hear("Anna Conda", { nickname = "Ann", revision = 900, source = "Barb Dwyer", guid = "Player-1-A" })
+		local copied = Memory.new(Memory.copy(saved), clock)
+		copied:see("Anna Conda", "Player-1-B")
+		copied:hear("Hugh Jass", { nickname = "Tony", revision = 900 })
+		assert.equal("Ann", source:recall("Anna Conda").nickname)
+		assert.equal("Player-1-A", source:guid("Anna Conda"))
+		assert.is_nil(source:recall("Hugh Jass"))
+	end)
+end)

@@ -96,6 +96,41 @@ function Professions.new(saved, clock, memory, characters, settings, scope, reci
 	}, Professions)
 end
 
+-- A copy of the professions' saved table (as Professions.new takes it) for
+-- another of the account's characters to start from (decision 0001): every
+-- profession held but the disputed ones, each its own tables, this account's
+-- characters' included (prepare takes an unregistered one's removals from
+-- them); when each character was seen, so a roster read empty at login drops
+-- nothing; not the daily counts of each peer.
+function Professions.copy(saved)
+	local held, seen = {}, {}
+	for name, character in pairs(saved.held or {}) do
+		local skills = {}
+		for skillLine, profession in pairs(character.skills) do
+			if not profession.disputed then
+				local copied = {}
+				for key, value in pairs(profession) do
+					copied[key] = value
+				end
+				if profession.recipes then
+					copied.recipes = {}
+					for i, recipe in ipairs(profession.recipes) do
+						copied.recipes[i] = recipe
+					end
+				end
+				skills[skillLine] = copied
+			end
+		end
+		if character.own or next(skills) then
+			held[name] = { guid = character.guid, own = character.own, skills = skills }
+		end
+	end
+	for name, seenAt in pairs(saved.seen or {}) do
+		seen[name] = seenAt
+	end
+	return { held = held, seen = seen }
+end
+
 -- Whether a recipe belongs to a profession (a skill line), from the skill line
 -- the game places it in: yes unless that is another of the game's skill lines
 -- or the game cannot place it (nil). A skill line the game has no profession

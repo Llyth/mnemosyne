@@ -295,6 +295,25 @@ local function isMine(self, name, guid)
 	return self.characters ~= nil and self.characters:owns(name, guid)
 end
 
+-- A copy of a memory's saved table (as Memory.new takes it) for another of
+-- the account's characters to start from (decision 0001): every identity but
+-- the disputed ones (so the copy takes the honest copy the source refuses),
+-- each its own table, as see changes one in place; not the daily counts of
+-- each peer.
+function Memory.copy(saved)
+	local identities = {}
+	for name, known in pairs(saved.identities or {}) do
+		if not known.disputed then
+			local copied = {}
+			for key, value in pairs(known) do
+				copied[key] = value
+			end
+			identities[name] = copied
+		end
+	end
+	return { identities = identities }
+end
+
 -- Counts one second-hand change from a peer, toward its 5,000 vouched ones
 -- while they last when vouched, else its 1,000. Returns false once the peer
 -- brought all it may of the day.
