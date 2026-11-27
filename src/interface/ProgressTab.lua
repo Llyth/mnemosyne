@@ -52,9 +52,11 @@ local function milestoneName(milestone)
 end
 
 -- An item's icon; the question mark until the game has it: its data is asked
--- for, and the views are drawn again once an item asked for arrives (not for
--- every item the game loads elsewhere).
+-- for, and the views' cells are drawn again once an item asked for arrives (not
+-- for every item the game loads elsewhere), on the Grid they hold: an icon
+-- changes no data.
 local awaited, redrawPending = {}, false
+local views = {} -- content -> its refresh, which keeps the Grid
 local function itemIcon(item)
 	local icon = C_Item.GetItemIconByID(item)
 	if not icon and not awaited[item] then
@@ -72,7 +74,11 @@ events:SetScript("OnEvent", function(_, _, item)
 			redrawPending = true
 			C_Timer.After(0.2, function()
 				redrawPending = false
-				ns.Window.refresh("progress")
+				for content, refresh in pairs(views) do
+					if content:IsVisible() then
+						refresh()
+					end
+				end
 			end)
 		end
 	end
@@ -396,6 +402,7 @@ local function newView(content, viewWidth, place)
 	end
 	content.refresh = rebuild
 	content:SetScript("OnShow", rebuild)
+	views[content] = refresh
 end
 
 local ProgressTab = {}
