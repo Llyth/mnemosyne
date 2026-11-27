@@ -92,7 +92,7 @@ L.LOOKUP_FOUND_SECOND_HAND = "%s: gespielt von %s, weitergegeben von %s" -- the 
 L.HELP_SYNC = "/mnemosyne sync: das Gedächtnis dieses Charakters mit den Peers abgleichen, die Ihr jetzt erreicht"
 L.SYNC_STARTED = "Synchronisierung mit %d |4Peer:Peers;."
 L.SYNC_NONE = "Gerade kein Peer zum Synchronisieren: keiner in dieser Sitzung gehört, "
-	.. "oder alle vor Kurzem synchronisiert (Gildenmitglieder in der letzten Stunde, "
+	.. "oder alle vor Kurzem synchronisiert (Gildenmitglieder in den letzten 15 Minuten, "
 	.. "alle anderen in den letzten 6 Stunden)."
 L.HELP_SYNC_RESET = "/mnemosyne sync reset: vergessen, wann Ihr zuletzt mit jedem Spieler synchronisiert habt, "
 	.. "um sofort erneut zu synchronisieren (der andere muss es auch tun)"
