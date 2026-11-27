@@ -476,5 +476,57 @@ describe("Recognition", function()
 			characters:keepAnonymous("Hugh Jass")
 			assert.is_nil(recognition:recall("Hugh Jass"))
 		end)
+
+		describe("in the status", function()
+			it("says a registered character's nickname", function()
+				characters:register("Zed Zulu", "Llyth")
+				assert.equal("This character: registered as Llyth", recognition:registrationLine("Zed Zulu"))
+			end)
+
+			it("says a character kept anonymous is anonymous", function()
+				characters:keepAnonymous("Zed Zulu")
+				assert.equal("This character: anonymous", recognition:registrationLine("Zed Zulu"))
+			end)
+
+			it("says a character that unregistered is unregistered, not that it was never asked", function()
+				characters:register("Zed Zulu", "Llyth")
+				characters:unregister("Zed Zulu")
+				assert.equal("This character: unregistered", recognition:registrationLine("Zed Zulu"))
+			end)
+
+			it("says a character never asked is not registered yet", function()
+				assert.equal("This character: not registered yet", recognition:registrationLine("Zed Zulu"))
+			end)
+
+			it("counts the identities shown, your characters and the peers heard", function()
+				characters:register("Zed Zulu", "Llyth")
+				characters:register("Yan Yak", "Llyth")
+				characters:keepAnonymous("Xia Xu")
+				memory:hear("Anna Conda", { nickname = "Ann", revision = 900, source = "Barb Dwyer" })
+				settings.showSecondHand = false
+				local lines = recognition:statusLines({}, 3)
+				assert.same({
+					"Identities known: 1",
+					"Your characters: 2 registered, 1 anonymous",
+					"Peers heard this session: 3",
+				}, { lines[1], lines[2], lines[3] })
+			end)
+
+			it("lists each sync of the last 6 hours with how long ago it was", function()
+				now = 1000 + 2 * 3600
+				local lines = recognition:statusLines(
+					{ { peer = "Anna Conda", at = 1000 + 3600 }, { peer = "Cole Slaw", at = 1000 } },
+					0
+				)
+				assert.equal(
+					"Synced in the last 6 hours: Anna Conda (1 |4hour:hours; ago), Cole Slaw (2 |4hour:hours; ago)",
+					lines[4]
+				)
+			end)
+
+			it("says when no sync happened in the last 6 hours", function()
+				assert.equal("No sync in the last 6 hours.", recognition:statusLines({}, 0)[4])
+			end)
+		end)
 	end)
 end)

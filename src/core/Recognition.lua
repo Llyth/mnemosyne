@@ -1,6 +1,6 @@
--- Recognition: what Mnemosyne shows where a character appears, and in the
--- window's list of identities, decided here and drawn by the adapters
--- (decision 0004). Pure: it takes the memory, the
+-- Recognition: what Mnemosyne shows where a character appears, in the
+-- window's list of identities and in the status, decided here and drawn by the
+-- adapters (decision 0004). Pure: it takes the memory, the
 -- settings, the locale table and the clock (the server time) as arguments.
 --
 -- It also keeps, for the session only, which GUID goes with which full name
@@ -276,4 +276,34 @@ function Recognition:syncStatus(recent, waiting)
 	local L, last = self.L, recent[1]
 	local synced = last and L.WINDOW_LAST_SYNC:format(last.peer, self:ago(last.at)) or L.STATUS_NO_SYNC
 	return synced .. " " .. L.WINDOW_WAITING:format(waiting)
+end
+
+-- The registration of one of this account's characters (Self:state), in words.
+function Recognition:registrationLine(name)
+	local L, characters = self.L, self.characters
+	local state = characters:state(name)
+	if state == "registered" then
+		return L.STATUS_REGISTERED:format(characters:registration(name).nickname)
+	elseif state == "anonymous" then
+		return L.STATUS_ANONYMOUS
+	elseif state == "unregistered" then
+		return L.STATUS_UNREGISTERED
+	end
+	return L.STATUS_NOT_ASKED
+end
+
+-- What the memory holds and whom it synced with, as lines: the identities
+-- shown, this account's characters, the peers heard this session (peerCount)
+-- and each sync of Sync:recent (recent) with how long ago it was.
+function Recognition:statusLines(recent, peerCount)
+	local L, syncs = self.L, {}
+	for i, synced in ipairs(recent) do
+		syncs[i] = L.STATUS_SYNC:format(synced.peer, self:ago(synced.at))
+	end
+	return {
+		L.STATUS_IDENTITIES:format(self:count()),
+		L.STATUS_CHARACTERS:format(self.characters:count("registered"), self.characters:count("anonymous")),
+		L.STATUS_PEERS:format(peerCount),
+		syncs[1] and L.STATUS_SYNCS:format(table.concat(syncs, ", ")) or L.STATUS_NO_SYNC,
+	}
 end

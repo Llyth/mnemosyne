@@ -177,7 +177,7 @@ function refresh()
 		return -- before login: nothing to show yet
 	end
 	local canSend = Client.canSend()
-	registration:SetText(ns.registrationLine())
+	registration:SetText(ns.recognition:registrationLine(Client.playerName()))
 	controls:SetShown(canSend)
 	cannotRegister:SetShown(not canSend)
 	local name = Client.playerName()
@@ -196,7 +196,7 @@ function refresh()
 		checkbox:SetChecked(MnemosyneDB.settings[key])
 	end
 
-	status:SetText(table.concat(ns.statusLines(), "\n"))
+	status:SetText(table.concat(ns.recognition:statusLines(ns.sync:recent(), Client.peerCount()), "\n"))
 	content:SetHeight(y + status:GetStringHeight() + 8)
 end
 
