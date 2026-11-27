@@ -396,15 +396,19 @@ end
 -- Sees the friends' characters online and the guild roster, as the Scope
 -- holds them once Client read them again: each is seen now. Then drops what is
 -- no longer kept, at most once every 10 minutes: a character is kept 30 days.
-function Copies:seeLists()
+-- wait: another category pruned at this read, so this one's waits for the
+-- next (two prunes in one frame). Returns whether it pruned.
+function Copies:seeLists(wait)
 	self.summed = nil
 	local now = self.clock()
 	for _, name in ipairs(self.scope:listed()) do
 		self.seen[name] = now
 	end
-	if not self.prunedAt or now - self.prunedAt >= self.PRUNE_EVERY then
+	if not wait and (not self.prunedAt or now - self.prunedAt >= self.PRUNE_EVERY) then
 		self:prune()
+		return true
 	end
+	return false
 end
 
 -- Reads this account's characters' copies, as a sync starts: stamps each

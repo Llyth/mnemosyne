@@ -1133,6 +1133,18 @@ describe("Professions", function()
 		assert.is_nil(saved.held["Hugh Jass"])
 	end)
 
+	it("leaves its prune to the next read of the lists when another category pruned at this one", function()
+		professions:hear("Anna Conda", alchemy())
+		memory:forget("Hugh Jass")
+		scope:see({}, { "Hugh Jass", "Anna Conda" })
+		professions:seeLists()
+		now = now + Professions.PRUNE_EVERY
+		assert.is_false(professions:seeLists(true))
+		assert.is_not_nil(saved.held["Hugh Jass"])
+		assert.is_true(professions:seeLists())
+		assert.is_nil(saved.held["Hugh Jass"])
+	end)
+
 	it("looks at one copy only, at each prune, while the game places no recipe", function()
 		recipeLines = {}
 		professions:hear("Anna Conda", alchemy())
