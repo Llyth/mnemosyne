@@ -84,7 +84,7 @@ ns.L = {
 	HELP_SYNC = "/mnemosyne sync: bring this character's memory up to date with the peers you can reach now",
 	SYNC_STARTED = "Syncing with %d |4peer:peers;.",
 	SYNC_NONE = "No peer to sync with now: none heard this session, or all synced recently (in the last 15 minutes "
-		.. "for guildmates, the last 6 hours for anyone else).",
+		.. "for friends and guildmates, the last 6 hours for anyone else).",
 	HELP_SYNC_RESET = "/mnemosyne sync reset: forget when you last synced with each player, to sync again at once "
 		.. "(they must reset too)",
 	SYNC_RESET = "Sync cooldowns cleared on your side. The other player must also type /mnemosyne sync reset "

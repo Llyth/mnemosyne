@@ -92,7 +92,7 @@ L.LOOKUP_FOUND_SECOND_HAND = "%s: jugado por %s, transmitido por %s" -- the nick
 L.HELP_SYNC = "/mnemosyne sync: actualiza la memoria de este personaje con los contactos que puedes contactar ahora"
 L.SYNC_STARTED = "Sincronizando con %d |4contacto:contactos;."
 L.SYNC_NONE = "No hay ningún contacto con el que sincronizar ahora: ninguno escuchado en esta sesión, "
-	.. "o todos sincronizados hace poco (en los últimos 15 minutos los compañeros de hermandad, "
+	.. "o todos sincronizados hace poco (en los últimos 15 minutos los amigos y los compañeros de hermandad, "
 	.. "en las últimas 6 horas los demás)."
 L.HELP_SYNC_RESET = "/mnemosyne sync reset: olvidar cuándo te sincronizaste con cada jugador, "
 	.. "para volver a sincronizar al momento (el otro también debe hacerlo)"

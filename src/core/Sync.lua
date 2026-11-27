@@ -7,8 +7,8 @@
 -- the other lacks or holds at an older revision, then the end of its part. A
 -- sync passes on at most what the other keeps in a day from one peer,
 -- first-hand changes of the last day first. A sync with a peer happens at most
--- once every 15 minutes with a guildmate (on this side's guild roster, as Scope holds
--- it) and once every 6 hours with anyone else; at most 2 run at once
+-- once every 15 minutes with a friend or a guildmate (on this side's lists, as
+-- Scope holds them) and once every 6 hours with anyone else; at most 2 run at once
 -- and at most 10 wait, the most recently heard peers first. A sync whose peer
 -- passes on nothing new for 2 minutes, or that lasts 20 minutes, is cut; the
 -- next one starts again from the digest. Whispers can arrive out of order, so a
@@ -45,8 +45,8 @@ local Sync = {}
 Sync.__index = Sync
 ns.Sync = Sync
 
-Sync.COOLDOWN_GUILD = 15 * 60 -- seconds between two syncs with the same guildmate
-Sync.COOLDOWN = 6 * 60 * 60 -- seconds between two syncs with the same peer outside the guild
+Sync.COOLDOWN_LISTED = 15 * 60 -- seconds between two syncs with the same friend or guildmate
+Sync.COOLDOWN = 6 * 60 * 60 -- seconds between two syncs with the same peer outside the lists (a stranger)
 Sync.MAX_RUNNING = 2
 Sync.MAX_WAITING = 10
 Sync.TIMEOUT = 120 -- seconds without anything new from the peer before a sync is cut
@@ -103,7 +103,7 @@ end
 -- kept its own (a mark by peer) are let go.
 -- playerName: returns the full name of the character played, the one that
 -- syncs; nil before login, when nothing syncs.
--- scope: the Scope, which tells guildmates, who sync more often; with none,
+-- scope: the Scope, which tells friends and guildmates, who sync more often; with none,
 -- every peer waits the longer cooldown.
 -- lazy: an answer comes as { peer, produce }, which Outbox calls as the
 -- queue sends (produce returns the next message, false while it is not
@@ -222,8 +222,8 @@ end
 
 local function isCooling(self, peer, now)
 	local syncedAt = played(self, self.saved)[peer]
-	local guildmate = self.scope and self.scope:isGuildmate(peer)
-	return syncedAt ~= nil and now - syncedAt < (guildmate and Sync.COOLDOWN_GUILD or Sync.COOLDOWN)
+	local listed = self.scope and self.scope:isListed(peer)
+	return syncedAt ~= nil and now - syncedAt < (listed and Sync.COOLDOWN_LISTED or Sync.COOLDOWN)
 end
 
 -- Whether the cooldown keeps a sync with the peer from starting: a peer whose
@@ -588,8 +588,8 @@ function Sync:tick(paused)
 	return whole(self, startWaiting(self, now))
 end
 
--- The peers the character played synced with in the last 6 hours, guildmates
--- included, as { peer, at }, the most recent first.
+-- The peers the character played synced with in the last 6 hours, friends
+-- and guildmates included, as { peer, at }, the most recent first.
 function Sync:recent()
 	local now, recent = self.clock(), {}
 	for peer, at in pairs(played(self, self.saved)) do

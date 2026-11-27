@@ -91,7 +91,7 @@ L.LOOKUP_FOUND_SECOND_HAND = "%s：玩家是%s，由%s转告" -- the nickname ma
 L.HELP_SYNC = "/mnemosyne sync：与当前能联系到的Mnemosyne玩家同步，更新此角色的记忆"
 L.SYNC_STARTED = "正在与%d名Mnemosyne玩家同步。"
 L.SYNC_NONE =
-	"当前没有可同步的Mnemosyne玩家：本次会话未收到任何Mnemosyne玩家的消息，或都已在近期同步过（公会成员为过去15分钟内，其他玩家为过去6小时内）。"
+	"当前没有可同步的Mnemosyne玩家：本次会话未收到任何Mnemosyne玩家的消息，或都已在近期同步过（好友和公会成员为过去15分钟内，其他玩家为过去6小时内）。"
 L.HELP_SYNC_RESET = "/mnemosyne sync reset：忘记与每位玩家上次同步的时间，"
 	.. "以便立即再次同步（对方也须这样做）"
 L.SYNC_RESET = "已清除你这边的同步冷却。"

@@ -49,6 +49,13 @@ describe("Scope", function()
 		assert.is_false(scope:isGuildmate("Anna Conda"))
 	end)
 
+	it("tells a friend or a guildmate from anyone else, whether everyone is on or not", function()
+		settings.everyone = true
+		assert.is_true(scope:isListed("Mip Wiq"))
+		assert.is_true(scope:isListed("Bo Nanza-Realm"))
+		assert.is_false(scope:isListed("Anna Conda"))
+	end)
+
 	it("lists every friend and guildmate seen, as read", function()
 		scope:see({ "Mip Wiq" }, { "Bo Nanza", "Hugh Jass" })
 		local listed = scope:listed()
