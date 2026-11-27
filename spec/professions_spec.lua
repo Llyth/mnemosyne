@@ -1,4 +1,4 @@
-local ns = require("spec.helpers.addon")("Protocol", "Memory", "Professions")
+local ns = require("spec.helpers.addon")("Protocol", "Digest", "Memory", "Professions")
 local Memory, Professions, Protocol = ns.Memory, ns.Professions, ns.Protocol
 
 describe("Professions", function()
@@ -525,6 +525,17 @@ describe("Professions", function()
 			local hugh = passed[1].name == "Hugh Jass" and passed[1] or passed[2]
 			assert.equal("Player-1-00000001", hugh.guid)
 			assert.same({ 2329, 2330 }, hugh.recipes)
+		end)
+
+		it("gives the digest peers on 1.4.0 give for the same professions", function()
+			professions:hear("Anna Conda", alchemy())
+			professions:hear("Anna Conda", { name = "Cole Slaw", skillLine = ALCHEMY, revision = 900 })
+			local buckets = { [96] = "334c8ac3", [99] = "158eb9cc" }
+			local expected = {}
+			for bucket = 1, Protocol.DIGEST_LENGTH / 8 do
+				expected[bucket] = buckets[bucket] or "00000000"
+			end
+			assert.equal(table.concat(expected), professions:digest("Anna Conda"))
 		end)
 
 		it("passes on nothing a peer with the same professions holds", function()

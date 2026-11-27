@@ -1,4 +1,4 @@
-local ns = require("spec.helpers.addon")("Protocol", "Memory", "Self", "News")
+local ns = require("spec.helpers.addon")("Protocol", "Digest", "Memory", "Self", "News")
 local Memory, News, Self = ns.Memory, ns.News, ns.Self
 
 describe("News", function()

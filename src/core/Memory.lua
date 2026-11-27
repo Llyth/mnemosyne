@@ -16,6 +16,8 @@
 -- (only the player's choice, nobody is told).
 local _, ns = ...
 
+local Digest = ns.Digest
+
 local Memory = {}
 Memory.__index = Memory
 ns.Memory = Memory
@@ -25,15 +27,11 @@ Memory.MAX_CHANGES_PER_PEER = 1000
 -- Changes a peer vouches it heard first-hand in the last day, taken from it a
 -- day besides its 1,000 (decision 0001).
 Memory.MAX_VOUCHED_PER_PEER = 5000
-Memory.BUCKETS = 128 -- of the digest, DIGITS each (BUCKETS * DIGITS = Protocol.DIGEST_LENGTH)
-
-local DIGITS = 8 -- hexadecimal, a bucket of the digest
 
 local DAY = 24 * 60 * 60
 -- How old, at most, a vouched change may be (its revision) to count as vouched;
 -- one ahead of the clock never does: no real change is.
 Memory.VOUCHED_WINDOW = DAY
-local HASH_MODULUS = 4294967296 -- 2^32: the hashes stay exact in a Lua number
 
 -- Latin letters with accents, by code point ranges, and the letters they fold
 -- to for a search: Latin-1 Supplement and Latin Extended-A, both cases.
@@ -150,18 +148,6 @@ function Memory.matches(text, name, nickname)
 	return matches(fold(text), name, nickname) ~= nil
 end
 
-local function hash(text)
-	local value = 5381
-	for i = 1, #text do
-		value = (value * 33 + text:byte(i)) % HASH_MODULUS
-	end
-	return value
-end
-
-local function bucketOf(name)
-	return hash(name) % Memory.BUCKETS
-end
-
 -- Adds (sign 1) or takes out (sign -1) an identity's hash, with its revision
 -- and nickname, in the sum of its bucket for the digest. A disputed identity
 -- is left out. A stale one is not, so peers still holding the same old copy
@@ -169,9 +155,12 @@ end
 -- would never match: neither changes a sum.
 local function sum(self, name, known, sign)
 	if known and not known.disputed then
-		local bucket = bucketOf(name) + 1
-		local value = hash(name .. "\n" .. known.revision .. "\n" .. (known.nickname or ""))
-		self.sums[bucket] = (self.sums[bucket] + sign * value) % HASH_MODULUS
+		local hashed = Digest.hash(name .. "\n" .. known.revision .. "\n" .. (known.nickname or ""))
+		if sign > 0 then
+			self.sums:add(name, hashed)
+		else
+			self.sums:remove(name, hashed)
+		end
 	end
 end
 
@@ -207,7 +196,7 @@ local function store(self, name, known)
 	sum(self, name, before, -1)
 	self.identities[name] = known
 	sum(self, name, known, 1)
-	self.names[bucketOf(name) + 1][name] = known and true or nil
+	self.names[Digest.bucket(name)][name] = known and true or nil
 	if self.byFolded and (before == nil) ~= (known == nil) then
 		index(self, name, known ~= nil)
 	end
@@ -255,7 +244,7 @@ function Memory.new(saved, clock, forgotten)
 		folded = {}, -- each forgotten name, by its folded text
 		secondHand = 0,
 		clock = clock,
-		sums = {},
+		sums = Digest.new(),
 		names = {}, -- bucket -> set of the names held in it, so missing hashes no name
 		folds = {}, -- text -> its folded text, for searches (cachedFold)
 		byFolded = nil, -- folded text -> full name held (or a set of them), built on the first fullName
@@ -263,8 +252,7 @@ function Memory.new(saved, clock, forgotten)
 		queueStart = 1,
 		queueEnd = 0,
 	}, Memory)
-	for bucket = 1, Memory.BUCKETS do
-		self.sums[bucket] = 0
+	for bucket = 1, Digest.BUCKETS do
 		self.names[bucket] = {}
 	end
 	for name in pairs(self.forgottenNames) do
@@ -274,7 +262,7 @@ function Memory.new(saved, clock, forgotten)
 	end
 	for name, known in pairs(saved.identities) do
 		sum(self, name, known, 1)
-		self.names[bucketOf(name) + 1][name] = true
+		self.names[Digest.bucket(name)][name] = true
 		if not known.firstHand then
 			self.secondHand = self.secondHand + 1
 			queue(self, name, known)
@@ -576,12 +564,7 @@ end
 -- identity is left out, as it is never passed on. The sums are kept as the
 -- identities change (store), so a digest only writes them out.
 function Memory:digest()
-	local digits = {}
-	for bucket, total in ipairs(self.sums) do
-		-- Two halves: string.format's %x takes at most 32-bit signed integers on some builds.
-		digits[bucket] = string.format("%04x%04x", math.floor(total / 65536), total % 65536)
-	end
-	return table.concat(digits)
+	return self.sums:write()
 end
 
 -- What to pass on to a peer, from its digest: the names of every identity in a
@@ -590,15 +573,11 @@ end
 -- passOn gives what to send of the ones chosen. The peer keeps what is newer
 -- than what it holds.
 function Memory:missing(digest)
-	local mine = self:digest()
 	local found = {}
-	for bucket = 1, Memory.BUCKETS do
-		local first, last = (bucket - 1) * DIGITS + 1, bucket * DIGITS
-		if mine:sub(first, last) ~= digest:sub(first, last) then
-			for name in pairs(self.names[bucket]) do
-				if passesOn(self.identities[name]) then
-					found[#found + 1] = name
-				end
+	for _, bucket in ipairs(Digest.differing(self:digest(), digest)) do
+		for name in pairs(self.names[bucket]) do
+			if passesOn(self.identities[name]) then
+				found[#found + 1] = name
 			end
 		end
 	end
