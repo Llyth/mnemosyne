@@ -76,6 +76,14 @@ _Avoid_: version, timestamp
 An identity heard second-hand with the same revision but different nicknames. A nickname and a removal at the same revision dispute too, and the identity is then held as a removal, whichever came first. Not shown until the character settles it first-hand.
 _Avoid_: conflict, invalid
 
+**Held as a removal**:
+An identity whose last revision is a removal, even disputed or stale: what the character withdrew stays withdrawn (in code, withdrawn). Its character's second-hand professions are refused and dropped, so no peer can link an anonymous character to a profession list.
+_Avoid_: deleted, forgotten (forgetting is your own choice, not the character's)
+
+**Disputed removal**:
+An identity held as a removal because a nickname and a removal came at the same revision. Any peer can forge one with a single guild news, so it refuses only second-hand professions; a removal that is not disputed refuses the character's first-hand professions too.
+_Avoid_: conflict
+
 **Stale**:
 An identity or profession whose full name now belongs to another character (a different GUID), after its own was deleted or renamed. Hidden until the new character speaks first-hand.
 _Avoid_: expired, outdated, invalid
@@ -83,6 +91,14 @@ _Avoid_: expired, outdated, invalid
 **Sync**:
 Two peers bringing each other's memory up to date, privately and in the background.
 _Avoid_: exchange, transfer, replication
+
+**Digest**:
+A short summary of a memory that a sync starts with, one for identities and one for professions: each identity or profession hashed, the hashes summed in the bucket of its character's name. Two peers compare digests and pass on only what is in the buckets that differ.
+_Avoid_: checksum, hash (one hash is a single entry's), fingerprint
+
+**Bucket**:
+One of the 128 parts of a digest, holding the sum of the hashes of the characters whose names fall in it. A bucket that differs between two peers is passed on whole.
+_Avoid_: shard, slot, partition
 
 **News**:
 An identity that a sync brought you new or at a higher revision, posted once to your guild so it spreads in seconds.
@@ -105,8 +121,12 @@ Withdrawing a character's registration. The character tells its peers, and they 
 _Avoid_: deleting, opting out
 
 **Removal**:
-The message a character sends when it unregisters: a revision without a nickname, so its peers forget its identity. In a sync, any identity passed on without a nickname is a removal, whether the character unregistered or is anonymous. A profession passed on empty is a removal too: the character dropped it, stopped sharing professions, or is anonymous or unregistered (those go only from the character itself, while it is the one played, never from its account's other characters).
+The message a character sends when it unregisters: a revision without a nickname, so its peers forget its identity. In a sync, any identity passed on without a nickname is a removal, whether the character unregistered or is anonymous. A profession passed on empty is a removal too: the character dropped it, stopped sharing professions, or is anonymous or unregistered (those go only from the character itself, while it is the one played, never from its account's other characters). A registered character also passes on a removal of each of the game's professions it lacks, so a profession a peer made up for it is dropped.
 _Avoid_: deletion
+
+**As anyone's**:
+How your memory holds what peers say about your own characters: a second-hand copy kept and passed on like any other player's, under the same rules and limits, so your digest looks like any peer's. It is never adopted: what shows for your characters is your own registration, and the copy never shows as another player's character. While you play a character you have not registered, your other characters' professions go and come as anyone's too.
+_Avoid_: own copy, mirror
 
 **Forgetting**:
 Dropping a character's identity from your own memory and refusing second-hand copies of it until you undo it. A first-hand message from the character still gets through. Nobody else is told.

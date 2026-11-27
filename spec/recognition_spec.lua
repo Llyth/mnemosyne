@@ -412,13 +412,16 @@ describe("Recognition", function()
 		it("says the last sync, with whom and when, and how many peers wait", function()
 			now = 1000 + 5 * 60
 			assert.equal(
-				"Last sync: Anna Conda, 5 |4minute:minutes; ago. Waiting to sync: 2",
+				"This character's last sync: Anna Conda, 5 |4minute:minutes; ago. Waiting to sync: 2",
 				recognition:syncStatus({ { peer = "Anna Conda", at = 1000 }, { peer = "Cole Slaw", at = 900 } }, 2)
 			)
 		end)
 
 		it("says when no sync happened in the last 6 hours", function()
-			assert.equal("No sync in the last 6 hours. Waiting to sync: 0", recognition:syncStatus({}, 0))
+			assert.equal(
+				"No sync on this character in the last 6 hours. Waiting to sync: 0",
+				recognition:syncStatus({}, 0)
+			)
 		end)
 	end)
 
@@ -564,13 +567,14 @@ describe("Recognition", function()
 					0
 				)
 				assert.equal(
-					"Synced in the last 6 hours: Anna Conda (1 |4hour:hours; ago), Cole Slaw (2 |4hour:hours; ago)",
+					"This character synced in the last 6 hours with: Anna Conda (1 |4hour:hours; ago), "
+						.. "Cole Slaw (2 |4hour:hours; ago)",
 					lines[4]
 				)
 			end)
 
 			it("says when no sync happened in the last 6 hours", function()
-				assert.equal("No sync in the last 6 hours.", recognition:statusLines({}, 0)[4])
+				assert.equal("No sync on this character in the last 6 hours.", recognition:statusLines({}, 0)[4])
 			end)
 		end)
 

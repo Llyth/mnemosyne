@@ -159,12 +159,12 @@ L.PANEL_FORGOTTEN = "已遺忘"
 L.PANEL_YOURS = "你的" -- one of your own characters
 L.PANEL_ANONYMOUS = "匿名" -- one of your own characters, kept anonymous
 L.STATUS_PEERS = "本次登入聽到的Mnemosyne玩家：%d"
-L.STATUS_SYNCS = "過去6小時內已同步：%s"
+L.STATUS_SYNCS = "此角色過去6小時內已同步：%s"
 L.STATUS_SYNC = "%s（%s）" -- a peer and how long ago: "Anna Conda (5 minutes ago)"
-L.STATUS_NO_SYNC = "過去6小時內沒有同步。"
+L.STATUS_NO_SYNC = "此角色過去6小時內沒有同步。"
 -- Mnemosyne's window.
 L.WINDOW_WHISPER = "悄悄話"
-L.WINDOW_LAST_SYNC = "上次同步：%s，%s。" -- a peer and how long ago
+L.WINDOW_LAST_SYNC = "此角色上次同步：%s，%s。" -- a peer and how long ago
 L.WINDOW_WAITING = "等待中：%d"
 
 -- The window's Professions tab.

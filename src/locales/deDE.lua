@@ -167,12 +167,12 @@ L.PANEL_FORGOTTEN = "vergessen"
 L.PANEL_YOURS = "eigener" -- one of your own characters
 L.PANEL_ANONYMOUS = "anonym" -- one of your own characters, kept anonymous
 L.STATUS_PEERS = "In dieser Sitzung gehörte Peers: %d"
-L.STATUS_SYNCS = "In den letzten 6 Stunden synchronisiert: %s"
+L.STATUS_SYNCS = "Dieser Charakter hat in den letzten 6 Stunden synchronisiert mit: %s"
 L.STATUS_SYNC = "%s (%s)" -- a peer and how long ago: "Anna Conda (vor 5 Minuten)"
-L.STATUS_NO_SYNC = "Keine Synchronisierung in den letzten 6 Stunden."
+L.STATUS_NO_SYNC = "Keine Synchronisierung dieses Charakters in den letzten 6 Stunden."
 -- Mnemosyne's window.
 L.WINDOW_WHISPER = "Flüstern"
-L.WINDOW_LAST_SYNC = "Letzte Synchronisierung: %s, %s." -- a peer and how long ago
+L.WINDOW_LAST_SYNC = "Letzte Synchronisierung dieses Charakters: %s, %s." -- a peer and how long ago
 L.WINDOW_WAITING = "Wartend: %d"
 
 -- The window's Professions tab.

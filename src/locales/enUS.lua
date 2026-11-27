@@ -153,12 +153,13 @@ ns.L = {
 	PANEL_YOURS = "yours", -- one of your own characters
 	PANEL_ANONYMOUS = "anonymous", -- one of your own characters, kept anonymous
 	STATUS_PEERS = "Peers heard this session: %d",
-	STATUS_SYNCS = "Synced in the last 6 hours: %s",
+	STATUS_SYNCS = "This character synced in the last 6 hours with: %s",
 	STATUS_SYNC = "%s (%s)", -- a peer and how long ago: "Anna Conda (5 minutes ago)"
-	STATUS_NO_SYNC = "No sync in the last 6 hours.",
+	STATUS_NO_SYNC = "No sync on this character in the last 6 hours.",
 	-- Mnemosyne's window, opened from the Escape menu and by /mnemosyne alone.
 	WINDOW_WHISPER = "Whisper",
-	WINDOW_LAST_SYNC = "Last sync: %s, %s.", -- a peer and how long ago: "Last sync: Anna Conda, 5 minutes ago."
+	-- A peer and how long ago: "This character's last sync: Anna Conda, 5 minutes ago."
+	WINDOW_LAST_SYNC = "This character's last sync: %s, %s.",
 	WINDOW_WAITING = "Waiting to sync: %d",
 	-- The window's Professions tab: profession and recipe names come from the game.
 	PROFESSIONS = "Professions",
