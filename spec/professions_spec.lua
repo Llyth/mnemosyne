@@ -159,8 +159,8 @@ describe("Professions", function()
 
 	it("lets a first-hand profession replace a second-hand copy", function()
 		professions:hear("Anna Conda", alchemy(5000))
-		assert.is_true(professions:hear("Hugh Jass", alchemy(900, { 3 })))
-		assert.same({ 3 }, shown("Hugh Jass")[1].recipes)
+		assert.is_true(professions:hear("Hugh Jass", alchemy(900, { 2330 })))
+		assert.same({ 2330 }, shown("Hugh Jass")[1].recipes)
 	end)
 
 	it("hides a profession two peers pass on at the same revision with different content", function()
@@ -352,9 +352,21 @@ describe("Professions", function()
 		assert.same({ 2329, 2330 }, shown("Hugh Jass")[1].recipes)
 	end)
 
-	it("keeps a peer's recipe the game cannot place", function()
+	it("drops a peer's recipe the game cannot place", function()
+		professions:hear("Hugh Jass", alchemy(900, { 2329, 99999, 2147483647, 2330 }))
+		assert.same({ 2329, 2330 }, shown("Hugh Jass")[1].recipes)
+	end)
+
+	it("keeps a peer's recipes while the game has placed none this session", function()
+		recipeLines = {}
 		professions:hear("Hugh Jass", alchemy(900, { 2329, 99999 }))
 		assert.same({ 2329, 99999 }, shown("Hugh Jass")[1].recipes)
+	end)
+
+	it("keeps a peer's recipe the game places in a skill line it has no profession for", function()
+		recipeLines[3000] = 2540
+		professions:hear("Hugh Jass", alchemy(900, { 2329, 3000 }))
+		assert.same({ 2329, 3000 }, shown("Hugh Jass")[1].recipes)
 	end)
 
 	it("hears again a copy with another profession's recipe without disputing it", function()
@@ -366,15 +378,23 @@ describe("Professions", function()
 	it("drops from the copies it holds the recipes the game places in another profession", function()
 		recipeLines = {}
 		professions:hear("Anna Conda", alchemy(900, { 2329, 7421 }))
-		recipeLines = { [7421] = ENCHANTING }
+		recipeLines = { [2329] = ALCHEMY, [7421] = ENCHANTING }
 		professions:prune()
 		assert.same({ 2329 }, shown("Hugh Jass")[1].recipes)
 	end)
 
-	it("says a recipe belongs to a profession unless the game places it in another", function()
+	it("drops from the copies it holds the recipes the game cannot place, once it places one", function()
+		recipeLines = {}
+		professions:hear("Anna Conda", alchemy(900, { 2329, 99999 }))
+		recipeLines = { [2329] = ALCHEMY }
+		professions:prune()
+		assert.same({ 2329 }, shown("Hugh Jass")[1].recipes)
+	end)
+
+	it("says a recipe belongs to a profession unless the game places it in another or cannot place it", function()
 		assert.is_true(Professions.belongsTo(ALCHEMY, ALCHEMY))
 		assert.is_false(Professions.belongsTo(ENCHANTING, ALCHEMY))
-		assert.is_true(Professions.belongsTo(nil, ALCHEMY))
+		assert.is_false(Professions.belongsTo(nil, ALCHEMY))
 		assert.is_true(Professions.belongsTo(2540, ALCHEMY)) -- a skill line not of the game's
 	end)
 

@@ -60,7 +60,8 @@ Professions.MAX_SYNC_BYTES = 100000 -- of professions a sync passes on
 -- settings: the saved settings; settings.passOn switches passing on what was
 -- heard from others (this account's characters' professions always go).
 -- recipeSkillLine: returns the skill line the game places a recipe ID in, or
--- nil when it cannot; peers' recipes placed in another profession are dropped.
+-- nil when it cannot; peers' recipes placed in another profession, or that it
+-- cannot place, are dropped.
 -- playerName: returns the full name of the character played, the one that
 -- syncs, or nil before login.
 function Professions.new(saved, clock, memory, characters, settings, recipeSkillLine, playerName)
@@ -86,36 +87,46 @@ function Professions.new(saved, clock, memory, characters, settings, recipeSkill
 		roster = {}, -- the current guild roster, a set, for this session
 		changes = 0, -- how many changes were heard this session: the window redraws when it moves
 		hashes = setmetatable({}, { __mode = "k" }), -- profession -> its hash, computed once
-		-- profession -> true once the game placed each of its recipes: prune checks it no more.
+		-- profession -> true once its recipes were checked with the game placing recipes: prune checks it no more.
 		checked = setmetatable({}, { __mode = "k" }),
+		placesRecipes = false, -- whether the game placed a recipe this session
 	}, Professions)
 end
 
 -- Whether a recipe belongs to a profession (a skill line), from the skill line
--- the game places it in: yes unless that is another of the game's skill lines,
--- so a recipe the game cannot place (nil, or a skill line it has no
--- profession for) is kept.
+-- the game places it in: yes unless that is another of the game's skill lines
+-- or the game cannot place it (nil). A skill line the game has no profession
+-- for is kept.
 function Professions.belongsTo(lookedUp, skillLine)
-	return not Professions.SKILL_LINES[lookedUp] or lookedUp == skillLine
+	return lookedUp ~= nil and (not Professions.SKILL_LINES[lookedUp] or lookedUp == skillLine)
 end
 
--- A peer's recipes of a profession without those the game places in another:
--- 1.1.x saved a window's recipes under the profession opened before. The
--- same table when none is dropped; then whether the game placed every one,
--- so checking them again would change nothing.
+-- A peer's recipes of a profession without those the game places in another
+-- (1.1.x saved a window's recipes under the profession opened before) or
+-- cannot place: a hostile peer could fill each copy with 600 made-up IDs. All
+-- are kept while the game has placed no recipe this session (its lookup
+-- missing, or answering nothing), so real recipes are never lost to it. The
+-- same table when none is dropped; then whether checking them again would
+-- change nothing.
 local function ownRecipes(self, skillLine, recipes)
 	if not recipes then
 		return nil, true
 	end
-	local kept, placed = {}, true
-	for _, recipe in ipairs(recipes) do
-		local lookedUp = self.recipeSkillLine(recipe)
-		placed = placed and lookedUp ~= nil
-		if Professions.belongsTo(lookedUp, skillLine) then
+	local lookedUp = {}
+	for i, recipe in ipairs(recipes) do
+		lookedUp[i] = self.recipeSkillLine(recipe)
+		self.placesRecipes = self.placesRecipes or lookedUp[i] ~= nil
+	end
+	if not self.placesRecipes then
+		return recipes, false
+	end
+	local kept = {}
+	for i, recipe in ipairs(recipes) do
+		if Professions.belongsTo(lookedUp[i], skillLine) then
 			kept[#kept + 1] = recipe
 		end
 	end
-	return #kept < #recipes and kept or recipes, placed
+	return #kept < #recipes and kept or recipes, true
 end
 
 local function hash(text)
@@ -277,8 +288,8 @@ end
 -- Drops quietly the professions no longer kept: of characters neither seen on
 -- a roster nor as a friend's in the last 30 days, and those refused
 -- (isRefused). Drops from the peers' professions held the recipes the game
--- places in another profession, each copy until the game placed all its
--- recipes once this session.
+-- places in another profession or cannot place, each copy once this session
+-- after the game placed a recipe.
 function Professions:prune()
 	local now = self.clock()
 	for name, seenAt in pairs(self.seen) do
