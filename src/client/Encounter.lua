@@ -42,13 +42,12 @@ frame:SetScript("OnEvent", function(_, event)
 	elseif event == "PLAYER_TARGET_CHANGED" then
 		meet("target")
 	else
-		-- PLAYER_LOGIN: Client set MnemosyneDB up on ADDON_LOADED, before it.
-		local db = MnemosyneDB
-		settings = db.settings
+		-- PLAYER_LOGIN: Client set the saved variables up on ADDON_LOADED, before it.
+		settings = MnemosyneDB.settings
 		-- The server time, with GetTime's fractions: the 2 seconds between asks
 		-- need more than whole seconds.
 		local offset = GetServerTime() - GetTime()
-		strangers = ns.Strangers.new(db.asked, function()
+		strangers = ns.Strangers.new(MnemosyneCharacterDB.asked, function()
 			return GetTime() + offset
 		end, ns.memory)
 		frame:RegisterEvent("UPDATE_MOUSEOVER_UNIT")

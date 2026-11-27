@@ -1,6 +1,7 @@
--- Memory: every identity this account holds, keyed by the character's full
--- name as the server gives it ("First Last", decision 0003). Pure: it takes
--- its saved table and the clock (the server time) as arguments (decision 0004).
+-- Memory: every identity the character played holds, keyed by the
+-- character's full name as the server gives it ("First Last", decision 0003).
+-- Pure: it takes its saved table and the clock (the server time) as arguments
+-- (decision 0004).
 --
 -- The rules of decision 0001 live here: a first-hand identity always wins;
 -- among second-hand copies the later revision wins; the same revision with
@@ -223,7 +224,8 @@ local function queue(self, name, known)
 	end
 end
 
--- saved: the table Memory keeps its identities in (MnemosyneDB.memory), and
+-- saved: the table Memory keeps its identities in
+-- (MnemosyneCharacterDB.memory), and
 -- how many second-hand changes each peer brought today. Counts older
 -- than a day are let go here, and so are identities whose nickname the rules
 -- now refuse (an older version took it): every updated peer refuses it, so it
@@ -234,7 +236,7 @@ end
 -- updates: Self.new then tidies it with a new revision, or asks again.
 -- clock: returns the server time, in seconds.
 -- forgotten: the characters forgotten, as a set of full names
--- (MnemosyneDB.forgotten); an empty one when left out. A name matches it
+-- (MnemosyneCharacterDB.forgotten); an empty one when left out. A name matches it
 -- ignoring case and accents, as a player may type it.
 -- characters: this account's characters (Self), told apart by GUID; none when
 -- left out.

@@ -17,6 +17,7 @@ ns.Client = Client
 Client.VERSION = Protocol.releaseVersion(C_AddOns.GetAddOnMetadata(addonName, "Version"))
 
 local SCHEMA = 1
+local SEED_KEPT_FOR = 30 * 24 * 60 * 60 -- seconds the account's memory is kept to copy from (ADDON_LOADED)
 local TICK = 0.25 -- seconds between two looks at the queue
 local SYNC_TICK = 5 -- seconds between two looks at the syncs (cut, start waiting ones)
 local NEWS_TICK = 1 -- seconds between two looks at the news due
@@ -498,10 +499,37 @@ function handlers.ADDON_LOADED(name)
 	end
 	local db = MnemosyneDB
 	db.schema = db.schema or SCHEMA
-	db.memory = db.memory or {}
+	-- The account's memory as 1.4.x left it (memory, professions, forgotten,
+	-- asked) is the seed: never written again, so a downgrade finds it as it was,
+	-- and dropped 30 days after the first login since the update (decision 0001).
+	local now = GetServerTime()
+	if db.memory then
+		db.seededAt = db.seededAt or now
+	end
+	if db.seededAt and now - db.seededAt >= SEED_KEPT_FOR then
+		db.memory, db.professions, db.forgotten, db.asked = nil, nil, nil, nil
+	end
+	-- Each character's own memory (decision 0001): at its first login since the
+	-- update, a copy of the seed, without its disputes and daily counts.
+	if type(MnemosyneCharacterDB) ~= "table" then
+		MnemosyneCharacterDB = {}
+	end
+	local mine = MnemosyneCharacterDB
+	if mine.schema == nil and db.memory then
+		mine.memory = ns.Memory.copy(db.memory)
+		mine.professions = ns.Professions.copy(db.professions or {})
+		mine.forgotten = {}
+		for character, forgotten in pairs(db.forgotten or {}) do
+			mine.forgotten[character] = forgotten
+		end
+	end
+	mine.schema = mine.schema or SCHEMA
+	mine.memory = mine.memory or {}
+	mine.forgotten = mine.forgotten or {}
+	mine.professions = mine.professions or {}
+	mine.asked = mine.asked or {}
 	db.characters = db.characters or {}
 	db.debug = db.debug == true
-	db.forgotten = db.forgotten or {}
 	db.settings = db.settings or {}
 	for key, value in pairs(DEFAULTS) do
 		if db.settings[key] == nil then
@@ -509,8 +537,7 @@ function handlers.ADDON_LOADED(name)
 		end
 	end
 	ns.characters = ns.Self.new(db.characters, GetServerTime, db.settings)
-	ns.memory = ns.Memory.new(db.memory, GetServerTime, db.forgotten, ns.characters)
-	db.asked = db.asked or {}
+	ns.memory = ns.Memory.new(mine.memory, GetServerTime, mine.forgotten, ns.characters)
 	-- Each character's syncs and early syncs (Sync), under keys of their own: 1.4.0
 	-- reads syncs and earlySyncs as times and marks by peer, so emptying those keeps a
 	-- downgrade working; what they held is let go (at most one more sync).
@@ -518,13 +545,12 @@ function handlers.ADDON_LOADED(name)
 	db.characterSyncs = db.characterSyncs or {}
 	db.characterEarlySyncs = db.characterEarlySyncs or {}
 	db.window = db.window or {} -- Mnemosyne's window: its position and last tab
-	db.professions = db.professions or {}
 	-- The versions of Mnemosyne peers run, by name (Inbox).
 	-- shortcut: never pruned, one short entry per peer ever heard; prune with the memory if it grows.
 	db.versions = db.versions or {}
 	ns.scope = ns.Scope.new(db.settings)
 	ns.professions = ns.Professions.new(
-		db.professions,
+		mine.professions,
 		GetServerTime,
 		ns.memory,
 		ns.characters,

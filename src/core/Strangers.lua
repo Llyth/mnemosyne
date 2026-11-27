@@ -16,8 +16,8 @@ ns.Strangers = Strangers
 local DAY = 24 * 60 * 60 -- seconds before asking the same character again
 local SPACING = 2 -- seconds between two asks
 
--- saved: the table of whom it asked and when (MnemosyneDB.asked). Asks older
--- than a day are let go here, so it holds at most a day of them.
+-- saved: the table of whom it asked and when (MnemosyneCharacterDB.asked).
+-- Asks older than a day are let go here, so it holds at most a day of them.
 -- clock: returns the server time, in seconds (fractions welcome).
 -- memory: the Memory, to leave alone the characters it knows.
 function Strangers.new(saved, clock, memory)

@@ -117,7 +117,7 @@ the same in every language (`/mnemosyne register`, `/mnemosyne lookup`...).
 Mnemosyne's window opens from the **Mnemosyne** button under the Escape menu,
 or with `/mnemosyne` alone. You can drag the window
 anywhere; it opens again where you left it, on the tab you last used, and Escape
-closes it. Its **Identities** tab lists the characters you know, one row each,
+closes it. Its **Identities** tab lists the characters this character knows, one row each,
 sorted by nickname, searched by name or nickname, ignoring case and accents.
 Each row shows the nickname, whether you heard it first-hand or from whom, and
 when, and the version of Mnemosyne the player runs (sent by versions after 1.4.0,
@@ -167,7 +167,7 @@ the minimap and `/mnemosyne settings` open it too. It has:
 | `/mnemosyne register <nickname>` | Register the character you are playing |
 | `/mnemosyne unregister` | Withdraw its registration; peers forget it |
 | `/mnemosyne lookup <text>` | Find characters by name or by nickname, ignoring case and accents; a second-hand nickname shows with who passed it on |
-| `/mnemosyne forget <character>` | Forget a character (its full name): drop its nickname from your memory and refuse what other players pass on about it; what the character says itself still counts. Without a name, lists the characters you forgot |
+| `/mnemosyne forget <character>` | Forget a character (its full name): drop its nickname from this character's memory and refuse what other players pass on about it; what the character says itself still counts. Without a name, lists the characters you forgot |
 | `/mnemosyne unforget <character>` | Undo forget: learn about the character from other players again |
 | `/mnemosyne sync` | Sync with the players heard this session who have Mnemosyne (at most once an hour with each guildmate, once every 6 hours with anyone else) |
 | `/mnemosyne sync reset` | Forget when you last synced with each player, on all your characters, so you can sync with them again at once. It works on your side only: a player who synced with you recently still refuses until they type `/mnemosyne sync reset` too |
@@ -197,10 +197,12 @@ I know**, off to share only your own registrations, and **Show second-hand**, of
 to see only what characters said about themselves. When a player with a newer Mnemosyne talks
 to yours, it tells you once a session that a newer version exists.
 
-Your characters share one memory, though: two of them that sync with the same
-player within a short time send that player the same summary of it, which a
-player who records every sync could use to guess they're yours, an anonymous
-one included.
+Each of your characters has its own memory: what one learns, the others don't
+show or pass on, so another player can't plant something through one and find
+it through another. When you update from 1.4.0 or earlier, each character
+starts, the first time you play it, from a copy of the memory your characters
+shared; a new character, or one you first play more than 30 days after the
+update, starts empty and learns from your guild, group and friends.
 
 When you register a character, its nickname spreads to every player who has
 Mnemosyne, through other players too. Characters you don't register are never
@@ -223,14 +225,14 @@ characters' professions go only as anyone's would: to a guildmate, only those
 of characters on your guild roster, and only with **Pass on what I know** on;
 their changes, and turning **Share my professions** off, reach other players at
 the next sync of one of your registered characters. A player whose professions you never received gets one sync even
-within an hour (a guildmate) or 6 hours of the last one, so professions don't wait for the next. You keep the professions of your guild roster's characters and your
+within an hour (a guildmate) or 6 hours of the last one, so professions don't wait for the next. Each of your characters keeps the professions of its guild roster's characters and its
 friends' only, dropped once a character has gone 30 days unseen on your roster
 or online as a friend's. The **Professions** tab of Mnemosyne's window shows
 them (see [Using it](#using-it)).
 
-Forgetting a character (`/mnemosyne forget`) removes it from your own memory
-and keeps what other players pass on about it out until you undo it, on all your
-characters, without telling anyone. Your syncs stop passing it on too. If
+Forgetting a character (`/mnemosyne forget`) removes it from the memory of the
+character you play and keeps what other players pass on about it out until you
+undo it, without telling anyone. Your syncs stop passing it on too. If
 the character itself tells you who plays it, that still counts, and is passed on
 like anything you heard first-hand.
 
