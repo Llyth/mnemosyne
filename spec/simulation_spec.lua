@@ -2,9 +2,9 @@
 -- its own Memory, Self, Sync, News and Protocol reader, wired through an
 -- in-memory transport that carries wire text, chunks included, the way Client
 -- would.
-local ns = require("spec.helpers.addon")("Protocol", "Digest", "Memory", "Self", "Professions", "Sync", "News")
-local Memory, News, Professions, Protocol, Self, Sync =
-	ns.Memory, ns.News, ns.Professions, ns.Protocol, ns.Self, ns.Sync
+local ns = require("spec.helpers.addon")("Protocol", "Digest", "Memory", "Self", "Scope", "Professions", "Sync", "News")
+local Memory, News, Professions, Protocol, Scope, Self, Sync =
+	ns.Memory, ns.News, ns.Professions, ns.Protocol, ns.Scope, ns.Self, ns.Sync
 
 describe("Several peers", function()
 	local HOUR, DAY = 60 * 60, 24 * 60 * 60
@@ -54,13 +54,15 @@ describe("Several peers", function()
 	local function newPeer(name)
 		local memory = Memory.new({}, clock)
 		local characters = Self.new({}, clock, {})
-		local professions = Professions.new({}, clock, memory, characters, { passOn = true })
+		local scope = Scope.new({})
+		local professions = Professions.new({}, clock, memory, characters, { passOn = true }, scope)
 		local peer = {
 			name = name,
 			memory = memory,
 			characters = characters,
+			scope = scope,
 			professions = professions,
-			sync = Sync.new({}, clock, memory, { passOn = true }, professions),
+			sync = Sync.new({}, clock, memory, { passOn = true }, professions, nil, nil, scope),
 			reader = Protocol.newReader(clock),
 			writer = Protocol.newWriter(),
 			delay = 0, -- what its randomness draws for each news delay
@@ -312,7 +314,8 @@ describe("Several peers", function()
 				roster[#roster + 1] = peer.name
 			end
 			for _, peer in ipairs({ ... }) do
-				peer.professions:seeLists({}, roster)
+				peer.scope:see({}, roster)
+				peer.professions:seeLists()
 			end
 		end
 
@@ -415,7 +418,16 @@ describe("Several peers", function()
 			sync(a, b)
 			now = now + HOUR
 			for _, peer in ipairs({ a, b }) do
-				peer.sync = Sync.new(peer.saved, clock, peer.memory, { passOn = true }, peer.professions, peer.early)
+				peer.sync = Sync.new(
+					peer.saved,
+					clock,
+					peer.memory,
+					{ passOn = true },
+					peer.professions,
+					peer.early,
+					nil,
+					peer.scope
+				)
 			end
 			sync(a, b)
 			assert.equal(50, shown(b).level)
@@ -429,7 +441,8 @@ describe("Several peers", function()
 		it("takes at most 2,000 second-hand professions a day from one peer", function()
 			local names = { a, b, c, d, mallory }
 			for i = 1, Professions.MAX_CHANGES_PER_PEER + 100 do
-				names[#names + 1] = { name = "Fake Name" .. i, professions = { seeLists = function() end } }
+				names[#names + 1] =
+					{ name = "Fake Name" .. i, scope = Scope.new({}), professions = { seeLists = function() end } }
 			end
 			guild(unpack(names))
 			for i = 1, Professions.MAX_CHANGES_PER_PEER + 100 do

@@ -1,10 +1,10 @@
-local ns = require("spec.helpers.addon")("Protocol", "Digest", "Memory", "Professions")
-local Memory, Professions, Protocol = ns.Memory, ns.Professions, ns.Protocol
+local ns = require("spec.helpers.addon")("Protocol", "Digest", "Memory", "Scope", "Professions")
+local Memory, Professions, Protocol, Scope = ns.Memory, ns.Professions, ns.Protocol, ns.Scope
 
 describe("Professions", function()
 	local DAY = 24 * 60 * 60
 	local ALCHEMY, TAILORING, ENCHANTING = 171, 197, 333
-	local now, saved, memory, characters, settings, professions, recipeLines, played
+	local now, saved, memory, characters, settings, scope, professions, recipeLines, played
 
 	-- The game's skill line of each recipe, as Client looks it up; nil when the
 	-- game cannot place it.
@@ -63,6 +63,13 @@ describe("Professions", function()
 		return stub
 	end
 
+	-- Reads the friends and the guild roster as Client does: into a Professions'
+	-- scope, then it sees them.
+	local function seeLists(of, ofScope, friends, roster)
+		ofScope:see(friends, roster)
+		of:seeLists()
+	end
+
 	before_each(function()
 		now = 1000000
 		saved = {}
@@ -72,10 +79,11 @@ describe("Professions", function()
 		recipeLines = { [2329] = ALCHEMY, [2330] = ALCHEMY, [7421] = ENCHANTING }
 		played = "Bea Bop" -- the character logged on, which syncs: registered, without professions
 		characters.registered[played] = "Bea"
-		professions = Professions.new(saved, clock, memory, characters, settings, recipeSkillLine, function()
+		scope = Scope.new(settings)
+		professions = Professions.new(saved, clock, memory, characters, settings, scope, recipeSkillLine, function()
 			return played
 		end)
-		professions:seeLists({ "Bo Nanza" }, { "Hugh Jass", "Anna Conda", "Cole Slaw" })
+		seeLists(professions, scope, { "Bo Nanza" }, { "Hugh Jass", "Anna Conda", "Cole Slaw" })
 	end)
 
 	local function alchemy(revision, recipes)
@@ -205,10 +213,10 @@ describe("Professions", function()
 			{ name = "Bo Nanza", skillLine = ALCHEMY, revision = 900, level = 1, maxLevel = 75 }
 		)
 		now = now + 29 * DAY
-		professions:seeLists({}, { "Hugh Jass" })
+		seeLists(professions, scope, {}, { "Hugh Jass" })
 		assert.equal(1, #shown("Bo Nanza"))
 		now = now + 2 * DAY
-		professions:seeLists({}, { "Hugh Jass" })
+		seeLists(professions, scope, {}, { "Hugh Jass" })
 		assert.same({}, shown("Bo Nanza"))
 		assert.is_nil(saved.held["Bo Nanza"])
 	end)
@@ -318,7 +326,7 @@ describe("Professions", function()
 			roster[i] = "Name Number" .. i
 		end
 		roster[#roster + 1] = "Anna Conda"
-		professions:seeLists({}, roster)
+		seeLists(professions, scope, {}, roster)
 		local taken = 0
 		for i = 1, Professions.MAX_CHANGES_PER_PEER + 10 do
 			local heard = { name = "Name Number" .. i, skillLine = ALCHEMY, revision = 900, level = 1, maxLevel = 75 }
@@ -469,8 +477,16 @@ describe("Professions", function()
 
 	describe("in a sync", function()
 		local function other(roster)
-			local theirs = Professions.new({}, clock, Memory.new({}, clock), newCharacters(), { passOn = true })
-			theirs:seeLists({}, roster or { "Hugh Jass", "Anna Conda", "Cole Slaw" })
+			local theirScope = Scope.new({})
+			local theirs = Professions.new(
+				{},
+				clock,
+				Memory.new({}, clock),
+				newCharacters(),
+				{ passOn = true },
+				theirScope
+			)
+			seeLists(theirs, theirScope, {}, roster or { "Hugh Jass", "Anna Conda", "Cole Slaw" })
 			return theirs
 		end
 
@@ -600,8 +616,9 @@ describe("Professions", function()
 			played = "Hugh Jass"
 			professions:prepare()
 			local theirMemory = Memory.new({}, clock)
-			local theirs = Professions.new({}, clock, theirMemory, newCharacters(), { passOn = true })
-			theirs:seeLists({}, { "Hugh Jass", "Anna Conda", "Cole Slaw" })
+			local theirScope = Scope.new({})
+			local theirs = Professions.new({}, clock, theirMemory, newCharacters(), { passOn = true }, theirScope)
+			seeLists(theirs, theirScope, {}, { "Hugh Jass", "Anna Conda", "Cole Slaw" })
 			local function sync()
 				for _, profession in ipairs(professions:answer("Anna Conda", theirs:digest("Hugh Jass"))) do
 					theirs:hear("Hugh Jass", profession)
@@ -655,8 +672,16 @@ describe("Professions", function()
 
 		it("digests the roster's professions with passing on off, so a guildmate sends none it holds", function()
 			local mine = other()
-			local theirs = Professions.new({}, clock, Memory.new({}, clock), newCharacters(), { passOn = false })
-			theirs:seeLists({}, { "Hugh Jass", "Anna Conda", "Cole Slaw" })
+			local theirScope = Scope.new({})
+			local theirs = Professions.new(
+				{},
+				clock,
+				Memory.new({}, clock),
+				newCharacters(),
+				{ passOn = false },
+				theirScope
+			)
+			seeLists(theirs, theirScope, {}, { "Hugh Jass", "Anna Conda", "Cole Slaw" })
 			mine:hear("Hugh Jass", alchemy())
 			theirs:hear("Anna Conda", alchemy())
 			assert.same({}, mine:answer("Cole Slaw", theirs:digest("Anna Conda")))
@@ -684,7 +709,7 @@ describe("Professions", function()
 				function()
 					assert.same({}, professions:answer("Anna Conda", other():digest("Barb Dwyer")))
 					assert.equal(other():digest("Barb Dwyer"), professions:digest("Anna Conda"))
-					professions:seeLists({}, ROSTER)
+					seeLists(professions, scope, {}, ROSTER)
 					assert.same({}, professions:answer("Bo Nanza", other():digest("Bo Nanza")))
 					assert.same(
 						{ "Dee Zaster 171" },
@@ -694,19 +719,19 @@ describe("Professions", function()
 			)
 
 			it("passes on the account's other characters' professions only while passing on is on", function()
-				professions:seeLists({}, ROSTER)
+				seeLists(professions, scope, {}, ROSTER)
 				settings.passOn = false
 				assert.same({}, professions:answer("Anna Conda", other(ROSTER):digest("Barb Dwyer")))
 			end)
 
 			it("leaves out of its digest the account's character whose identity it holds as a removal", function()
-				professions:seeLists({}, ROSTER)
+				seeLists(professions, scope, {}, ROSTER)
 				memory:hear("Dee Zaster", { revision = 2000, source = "Cole Slaw" })
 				assert.equal(other(ROSTER):digest("Barb Dwyer"), professions:digest("Anna Conda"))
 			end)
 
 			it("takes peers' copies of the account's other characters' professions as anyone's", function()
-				professions:seeLists({}, ROSTER)
+				seeLists(professions, scope, {}, ROSTER)
 				local tailoring =
 					{ name = "Dee Zaster", skillLine = TAILORING, level = 1, maxLevel = 75, revision = 900 }
 				assert.is_true(professions:hear("Anna Conda", tailoring))
@@ -721,7 +746,7 @@ describe("Professions", function()
 			end)
 
 			it("never gives the account's other characters' professions a new revision", function()
-				professions:seeLists({}, ROSTER)
+				seeLists(professions, scope, {}, ROSTER)
 				characters.owned["Dee Zaster"] = { { skillLine = ALCHEMY, level = 6, maxLevel = 75, revision = 1000 } }
 				professions:prepare()
 				assert.same({ "Bea Bop" }, characters.stamped)
@@ -748,7 +773,7 @@ describe("Professions", function()
 			for i = 1, 200 do
 				roster[#roster + 1] = "Name Number" .. i
 			end
-			professions:seeLists({}, roster)
+			seeLists(professions, scope, {}, roster)
 			for i = 1, 200 do
 				local name = "Name Number" .. i
 				-- The last ten heard first-hand today, the rest second-hand, long ago.
@@ -778,13 +803,13 @@ describe("Professions", function()
 	it("checks the recipes of a copy it holds against the game once a session, not at each roster read", function()
 		professions:hear("Anna Conda", alchemy())
 		local lookups = 0
-		local loaded = Professions.new(saved, clock, memory, characters, settings, function(recipe)
+		local loaded = Professions.new(saved, clock, memory, characters, settings, scope, function(recipe)
 			lookups = lookups + 1
 			return recipeLines[recipe]
 		end)
-		loaded:seeLists({}, { "Hugh Jass", "Anna Conda" })
+		seeLists(loaded, scope, {}, { "Hugh Jass", "Anna Conda" })
 		assert.equal(2, lookups)
-		loaded:seeLists({}, { "Hugh Jass", "Anna Conda" })
+		seeLists(loaded, scope, {}, { "Hugh Jass", "Anna Conda" })
 		loaded:prepare()
 		assert.equal(2, lookups)
 	end)
@@ -802,14 +827,14 @@ describe("Professions", function()
 		professions:hear("Anna Conda", alchemy())
 		now = now + DAY
 		professions:hear("Cole Slaw", alchemy(950))
-		Professions.new(saved, clock, memory, characters, settings)
+		Professions.new(saved, clock, memory, characters, settings, scope)
 		assert.is_nil(saved.newFrom["Anna Conda"])
 		assert.is_not_nil(saved.newFrom["Cole Slaw"])
 	end)
 
 	it("loads what it saved", function()
 		professions:hear("Anna Conda", alchemy())
-		local loaded = Professions.new(saved, clock, memory, characters, settings)
+		local loaded = Professions.new(saved, clock, memory, characters, settings, scope)
 		assert.equal("Anna Conda", loaded:list()[1].source)
 	end)
 end)
