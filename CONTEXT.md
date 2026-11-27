@@ -65,7 +65,7 @@ The peer a second-hand identity came from, shown with it so you can judge it.
 _Avoid_: origin, provider, relay
 
 **Memory**:
-Every identity and profession one account holds, first-hand and second-hand, shared by all its characters.
+Every identity and profession one character holds, first-hand and second-hand. Each of the account's characters has its own.
 _Avoid_: database, cache, store
 
 **Revision**:
@@ -129,5 +129,5 @@ How your memory holds what peers say about your own characters: a second-hand co
 _Avoid_: own copy, mirror
 
 **Forgetting**:
-Dropping a character's identity from your own memory and refusing second-hand copies of it until you undo it. A first-hand message from the character still gets through. Nobody else is told.
+Dropping a character's identity from the memory of the character played and refusing second-hand copies of it until you undo it. A first-hand message from the character still gets through. Nobody else is told.
 _Avoid_: deleting, blocking
