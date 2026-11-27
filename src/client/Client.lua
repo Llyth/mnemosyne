@@ -117,16 +117,22 @@ end
 
 -- Whether the guild roster shows a character offline. A character off the
 -- roster, or with a secret name or status, counts as online: only the server
--- can tell.
+-- can tell. The roster is walked once into a set of the names it shows
+-- offline, read again after it changes (GUILD_ROSTER_UPDATE), not at every
+-- whisper.
+local offline -- name -> true, nil until read
 local function isOffline(name)
-	local isKnown = Client.isKnown
-	for i = 1, GetNumGuildMembers() do
-		local member, _, _, _, _, _, _, _, isOnline = GetGuildRosterInfo(i)
-		if isKnown(member) and member == name then
-			return isKnown(isOnline) and not isOnline
+	if not offline then
+		local isKnown = Client.isKnown
+		offline = {}
+		for i = 1, GetNumGuildMembers() do
+			local member, _, _, _, _, _, _, _, isOnline = GetGuildRosterInfo(i)
+			if isKnown(member) and isKnown(isOnline) and not isOnline then
+				offline[member] = true
+			end
 		end
 	end
-	return false
+	return offline[name] == true
 end
 
 -- Sends a message, or loops it back from the echo peer, and logs it. Returns
@@ -815,6 +821,7 @@ end
 -- On joining a guild (also when the guild is known only after login), a
 -- registered character announces itself, and every character asks.
 function handlers.PLAYER_GUILD_UPDATE()
+	offline = nil -- the roster read again (isOffline)
 	local nowInGuild = IsInGuild()
 	if nowInGuild and not inGuild then
 		if isRegistered() then
@@ -826,7 +833,10 @@ function handlers.PLAYER_GUILD_UPDATE()
 end
 
 handlers.BN_FRIEND_INFO_CHANGED = listsChanged
-handlers.GUILD_ROSTER_UPDATE = listsChanged
+function handlers.GUILD_ROSTER_UPDATE()
+	offline = nil -- the roster read again (isOffline)
+	listsChanged()
+end
 
 local REDRAW_EVERY = 2 -- seconds: at most one redraw this often while a sync brings professions
 local redrawPending -- a redraw for professions a sync brought, due soon
