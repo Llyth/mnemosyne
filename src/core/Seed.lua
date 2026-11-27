@@ -18,7 +18,10 @@ Seed.KEPT_FOR = 30 * 24 * 60 * 60 -- seconds the seed is kept after it was first
 -- login since the update (no schema yet), it gets a copy of the seed's
 -- memory, professions and forgotten characters (Memory.copy,
 -- Professions.copy: without disputes and daily counts); then its schema.
+-- A character created since the update must start empty instead, which only
+-- its name tells, read at login (isNew).
 -- now: the server time, in seconds. schema: the saved tables' schema.
+-- Returns true when it copied the seed.
 function Seed.load(account, character, now, schema)
 	if account.memory then
 		account.seededAt = account.seededAt or now
@@ -26,7 +29,8 @@ function Seed.load(account, character, now, schema)
 	if account.seededAt and now - account.seededAt >= Seed.KEPT_FOR then
 		account.memory, account.professions, account.forgotten, account.asked = nil, nil, nil, nil
 	end
-	if character.schema == nil and account.memory then
+	local copied = character.schema == nil and account.memory ~= nil
+	if copied then
 		character.memory = ns.Memory.copy(account.memory)
 		character.professions = ns.Professions.copy(account.professions or {})
 		character.forgotten = {}
@@ -35,4 +39,17 @@ function Seed.load(account, character, now, schema)
 		end
 	end
 	character.schema = character.schema or schema
+	return copied
+end
+
+-- Whether the character played, by its full name and its GUID, is new since
+-- the update, so it starts empty rather than from the seed (decision 0001):
+-- the account's characters (MnemosyneDB.characters, Self's saved table) did
+-- not know it before this login, or knew another GUID for its name (that
+-- character was deleted or renamed since). A character of 1.4.x that never
+-- registered nor read its professions is not known either, and starts empty
+-- too. guid: nil when the game did not give it.
+function Seed.isNew(account, name, guid)
+	local known = account.characters and account.characters[name]
+	return known == nil or (guid ~= nil and known.guid ~= nil and known.guid ~= guid)
 end

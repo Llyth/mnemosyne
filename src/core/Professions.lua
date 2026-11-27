@@ -375,6 +375,16 @@ function Professions:see(name, guid)
 	end
 end
 
+-- Drops every profession held, every character seen and every peer's daily
+-- count: a character new since the update starts empty (Memory:empty).
+function Professions:empty()
+	for _, saved in ipairs({ self.held, self.seen, self.newFrom }) do
+		for key in pairs(saved) do
+			saved[key] = nil
+		end
+	end
+end
+
 -- Drops quietly the professions no longer kept: of characters neither seen on
 -- a roster nor as a friend's in the last 30 days, and those refused
 -- (isRefused). Drops from the peers' professions held the recipes the game

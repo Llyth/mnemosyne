@@ -154,4 +154,35 @@ describe("Seed", function()
 		assert.same({}, account)
 		assert.same({ schema = SCHEMA }, character)
 	end)
+
+	it("says whether it copied the seed", function()
+		local character = {}
+		assert.is_true(Seed.load(account, character, now, SCHEMA))
+		assert.is_false(Seed.load(account, character, now, SCHEMA))
+		assert.is_false(Seed.load({}, {}, now, SCHEMA))
+	end)
+
+	describe("tells a character created since the update", function()
+		before_each(function()
+			account.characters = {
+				["Hugh Jass"] = { nickname = "Tony", revision = 900 }, -- saved by 1.4.x: no GUID
+				["Anna Conda"] = { revision = 900, anonymous = true, guid = "Player-1-0000000A" },
+			}
+		end)
+
+		it("from one the account's characters knew before this login", function()
+			assert.is_false(Seed.isNew(account, "Hugh Jass", "Player-1-0000000B"))
+			assert.is_false(Seed.isNew(account, "Anna Conda", "Player-1-0000000A"))
+			assert.is_false(Seed.isNew(account, "Anna Conda", nil)) -- the game gave no GUID
+		end)
+
+		it("as one the account's characters did not know", function()
+			assert.is_true(Seed.isNew(account, "Cole Slaw", "Player-1-0000000C"))
+			assert.is_true(Seed.isNew({}, "Cole Slaw", "Player-1-0000000C"))
+		end)
+
+		it("as one under the name of a character known with another GUID, deleted since", function()
+			assert.is_true(Seed.isNew(account, "Anna Conda", "Player-1-0000000C"))
+		end)
+	end)
 end)

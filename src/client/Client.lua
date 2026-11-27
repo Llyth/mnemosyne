@@ -29,6 +29,7 @@ local RETRY = {
 }
 
 local playerName
+local seeded -- whether this login copied the account's memory to the character (Seed)
 local outbox -- the paced queue, once loaded
 local ticker
 local groupSize, inGuild = 0, false
@@ -504,7 +505,7 @@ function handlers.ADDON_LOADED(name)
 		MnemosyneCharacterDB = {}
 	end
 	local mine = MnemosyneCharacterDB
-	ns.Seed.load(db, mine, GetServerTime(), SCHEMA)
+	seeded = ns.Seed.load(db, mine, GetServerTime(), SCHEMA)
 	mine.memory = mine.memory or {}
 	mine.forgotten = mine.forgotten or {}
 	mine.professions = mine.professions or {}
@@ -588,9 +589,19 @@ end
 
 function handlers.PLAYER_LOGIN()
 	playerName = GetUnitName("player")
-	-- Its full name can come back on another player's character (Recognition:recall).
 	local guid = UnitGUID("player")
-	if Client.isKnown(guid) then
+	if not Client.isKnown(guid) then
+		guid = nil
+	end
+	-- A character created since the update starts empty (decision 0001): told
+	-- by its name, read here as everywhere (not at ADDON_LOADED, which copied
+	-- the seed), before Self learns it and before any sync.
+	if seeded and ns.Seed.isNew(MnemosyneDB, playerName, guid) then
+		ns.memory:empty()
+		ns.professions:empty()
+	end
+	-- Its full name can come back on another player's character (Recognition:recall).
+	if guid then
 		ns.characters:see(playerName, guid)
 	end
 	forgetEcho() -- left by a session that ended with the echo peer on
