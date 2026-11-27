@@ -79,6 +79,27 @@ describe("Memory", function()
 		assert.equal("Tony", reloaded:recall("Hugh Jass").nickname)
 	end)
 
+	it("lets go at load an identity whose saved nickname the rules now refuse, as a peer would", function()
+		local blank = "Bo\227\133\164b" -- a Hangul filler inside, which an older version took
+		memory:hear("Hugh Jass", { nickname = "Tony", revision = 900 })
+		memory:hear("Anna Conda", { revision = 900, source = "Barb Dwyer" })
+		saved.identities["Cole Slaw"] = { nickname = blank, revision = 900, firstHand = true, heard = 1000 }
+		saved.identities["Dee Zaster"] = {
+			nickname = "Jo\226\157\164\239\184\143",
+			revision = 900,
+			firstHand = false,
+			source = "Barb Dwyer",
+			heard = 1000,
+		}
+		local reloaded = Memory.new(saved, clock)
+		assert.is_nil(reloaded:recall("Cole Slaw"))
+		assert.is_false(reloaded:knows("Cole Slaw"))
+		assert.is_nil(saved.identities["Dee Zaster"])
+		assert.equal("Tony", reloaded:recall("Hugh Jass").nickname)
+		assert.is_not_nil(saved.identities["Anna Conda"])
+		assert.equal(reloaded:digest(), memory:digest())
+	end)
+
 	it("knows a character it heard of, registered or not", function()
 		assert.is_false(memory:knows("Hugh Jass"))
 		memory:hear("Hugh Jass", { nickname = "Tony", revision = 900 })

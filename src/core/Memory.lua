@@ -18,7 +18,7 @@
 -- GUID Self knows (Self:owns), never a peer's.
 local _, ns = ...
 
-local Digest = ns.Digest
+local Digest, Protocol = ns.Digest, ns.Protocol
 
 local Memory = {}
 Memory.__index = Memory
@@ -225,7 +225,13 @@ end
 
 -- saved: the table Memory keeps its identities in (MnemosyneDB.memory), and
 -- how many second-hand changes each peer brought today. Counts older
--- than a day are let go here.
+-- than a day are let go here, and so are identities whose nickname the rules
+-- now refuse (an older version took it): every updated peer refuses it, so it
+-- could be neither passed on nor matched, and it would show on this side only.
+-- It is not tidied as Self tidies a typed one: only the character's player
+-- gives a new revision, and the tidied one at the same revision would make a
+-- peer holding the old one hold it disputed. It comes back once its player
+-- updates: Self.new then tidies it with a new revision, or asks again.
 -- clock: returns the server time, in seconds.
 -- forgotten: the characters forgotten, as a set of full names
 -- (MnemosyneDB.forgotten); an empty one when left out. A name matches it
@@ -266,11 +272,15 @@ function Memory.new(saved, clock, forgotten, characters)
 		end
 	end
 	for name, known in pairs(saved.identities) do
-		sum(self, name, known, 1)
-		self.names[Digest.bucket(name)][name] = true
-		if not known.firstHand then
-			self.secondHand = self.secondHand + 1
-			queue(self, name, known)
+		if known.nickname and not Protocol.checkNickname(known.nickname) then
+			saved.identities[name] = nil
+		else
+			sum(self, name, known, 1)
+			self.names[Digest.bucket(name)][name] = true
+			if not known.firstHand then
+				self.secondHand = self.secondHand + 1
+				queue(self, name, known)
+			end
 		end
 	end
 	table.sort(self.queue, function(a, b)
