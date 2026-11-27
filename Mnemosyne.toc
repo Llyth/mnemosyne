@@ -37,6 +37,7 @@ src\core\Report.lua
 src\core\Outbox.lua
 src\core\Inbox.lua
 src\core\Catalog.lua
+src\core\Grid.lua
 src\locales\enUS.lua
 src\locales\frFR.lua
 src\locales\deDE.lua
@@ -57,6 +58,7 @@ src\interface\Panel.lua
 src\interface\Window.lua
 src\interface\Identities.lua
 src\interface\ProfessionsTab.lua
+src\interface\ProgressTab.lua
 src\interface\CommunitiesTab.lua
 src\client\Encounter.lua
 src\interface\ReportWindow.lua

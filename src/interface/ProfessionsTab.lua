@@ -117,8 +117,9 @@ end
 -- the font strings of columns ({ key, x, width }) and an icon at x 7, empty
 -- until set; onClick(row) on a click, onEnter(row) on hover if given. Only the
 -- rows that fit are created, and filled again as the list scrolls: peers' data
--- can make a list of thousands, and a frame is never freed.
-local function scrolledList(parent, x, top, width, columns, onClick, onEnter)
+-- can make a list of thousands, and a frame is never freed. build(row), if
+-- given, adds to each row as it is created.
+local function scrolledList(parent, x, top, width, columns, onClick, onEnter, build)
 	local scroll = CreateFrame("ScrollFrame", nil, parent, "UIPanelScrollFrameTemplate")
 	scroll:SetPoint("TOPLEFT", x, -top)
 	scroll:SetPoint("BOTTOMLEFT", x, 0)
@@ -145,6 +146,9 @@ local function scrolledList(parent, x, top, width, columns, onClick, onEnter)
 		if onEnter then
 			row:SetScript("OnEnter", onEnter)
 			row:SetScript("OnLeave", hideTooltip)
+		end
+		if build then
+			build(row)
 		end
 		return row
 	end
@@ -433,6 +437,7 @@ end
 local ProfessionsTab = {}
 ns.ProfessionsTab = ProfessionsTab
 ProfessionsTab.newView = newView
+ProfessionsTab.scrolledList = scrolledList
 
 newView(ns.Window.addTab("professions", L.PROFESSIONS), WIDTH)
 

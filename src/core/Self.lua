@@ -584,6 +584,18 @@ function Self:seeProgress(name, cells)
 	return changed
 end
 
+-- Every one of this account's characters, sorted by name, whatever its
+-- state: the Progress tab lists them for their own player, with progress or
+-- none.
+function Self:names()
+	local found = {}
+	for name in pairs(self.characters) do
+		found[#found + 1] = name
+	end
+	table.sort(found)
+	return found
+end
+
 -- This account's characters with a milestone read now, sorted by name: what
 -- they show to their own player never depends on what is shared.
 function Self:withProgress()
