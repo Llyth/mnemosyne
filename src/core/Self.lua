@@ -389,9 +389,18 @@ end
 -- Gives a new revision to each of a character's professions that changed since
 -- its last one (a sync starts): its level, its learned recipes, or that it was
 -- dropped or withdrawn (the character is not registered, or sharing is off).
-function Self:stampProfessions(name)
+-- skillLines (optional): the game's skill lines, a set; while the character is
+-- registered, each it lacks gets a removal too, once, so the character's own
+-- share drops a copy a peer forged of a profession it never had (first-hand
+-- wins over any second-hand copy).
+function Self:stampProfessions(name, skillLines)
 	local shared = sharing(self, name)
-	for _, profession in pairs(professionsOf(self, name)) do
+	local registered = skillLines ~= nil and self:state(name) == "registered"
+	local professions = professionsOf(self, name, registered)
+	for skillLine in pairs(registered and skillLines or {}) do
+		professions[skillLine] = professions[skillLine] or {}
+	end
+	for _, profession in pairs(professions) do
 		local last = profession.shared
 		local now = {}
 		if shared and profession.level then
@@ -401,8 +410,9 @@ function Self:stampProfessions(name)
 			and now.level == last.level
 			and now.maxLevel == last.maxLevel
 			and sameList(now.recipes, last.recipes)
-		-- A profession never stamped needs no removal: no peer heard of it.
-		if (last or now.level) and not unchanged then
+		-- A profession never stamped needs no removal, no peer heard of it,
+		-- unless a peer may have forged it (registered).
+		if (last or now.level or registered) and not unchanged then
 			now.revision = nextRevision(self, last and last.revision)
 			profession.shared = now
 		end

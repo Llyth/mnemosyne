@@ -357,6 +357,22 @@ describe("Several peers", function()
 			assert.equal(50, shown(d).level)
 		end)
 
+		it("lets a character's first-hand share drop a profession forged for it that it never had", function()
+			local FISHING = 356
+			mallory.professions:hear(
+				"Zed Ex",
+				{ name = a.name, skillLine = FISHING, revision = now + 1000, level = 300, maxLevel = 300 }
+			)
+			sync(mallory, d)
+			assert.equal(FISHING, shown(d).skillLine)
+			sync(a, d)
+			local list = d.professions:list()
+			assert.equal(1, #list)
+			assert.equal(ALCHEMY, list[1].skillLine)
+			sync(mallory, d)
+			assert.equal(1, #d.professions:list())
+		end)
+
 		it("carries a dropped profession's removal to everyone who knew it", function()
 			sync(a, b)
 			sync(b, c)

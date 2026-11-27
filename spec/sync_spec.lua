@@ -737,12 +737,11 @@ describe("Sync", function()
 				"Barb Dwyer professions",
 				"Barb Dwyer done",
 			}, sent(outgoing))
-			local passed = decode(outgoing[4].text).professions
-			table.sort(passed, function(a, b)
-				return a.name < b.name
-			end)
-			assert.equal("Dee Zaster", passed[1].name)
-			assert.equal("Hugh Jass", passed[2].name)
+			local names = {} -- Dee Zaster's include the removals of the skill lines it lacks
+			for _, passed in ipairs(decode(outgoing[4].text).professions) do
+				names[passed.name] = true
+			end
+			assert.same({ ["Dee Zaster"] = true, ["Hugh Jass"] = true }, names)
 		end)
 
 		it("passes on only identities to a peer that sent no digest of professions", function()

@@ -343,10 +343,11 @@ function Professions:seeLists(friends, roster)
 end
 
 -- Reads this account's characters' professions, as a sync starts: stamps each
--- character's (a new revision for what changed since its last one), then keeps
--- them first-hand, and only them: a profession peers passed on before the
--- character was this account's never goes as its own. Then drops what is no
--- longer kept.
+-- character's (a new revision for what changed since its last one, and a
+-- removal of each of the game's skill lines a registered one lacks, so peers
+-- drop a copy forged for it), then keeps them first-hand, and only them: a
+-- profession peers passed on before the character was this account's never
+-- goes as its own. Then drops what is no longer kept.
 function Professions:prepare()
 	local names = {}
 	for _, character in ipairs(self.characters:list("")) do
@@ -360,7 +361,7 @@ function Professions:prepare()
 	end
 	local now = self.clock()
 	for name in pairs(names) do
-		self.characters:stampProfessions(name)
+		self.characters:stampProfessions(name, Professions.SKILL_LINES)
 		local character = self.held[name] or { skills = {} }
 		character.own = true
 		self.held[name] = character
