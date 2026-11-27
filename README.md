@@ -13,12 +13,12 @@ back: when you hover a character or read its chat line, you see who plays it.
 It also shows the professions and recipes of your guildmates and friends, which
 WoW Forever's own guild professions view no longer does.
 
-> **Status: 1.4.0.** Everything version 1 set out to do: registering,
+> **Status: 1.5.0.** Everything version 1 set out to do: registering,
 > recognition on tooltips and in chat, sharing first-hand and second-hand, and
 > every language WoW Forever has; since 1.1.0, Mnemosyne's window and the
 > professions of the characters you know, also in the Guild & Communities
-> window since 1.3.0. The **Progress** tab (attunements, entrance keys and
-> summoning items) is not released yet. Nameplates and unit frames come later; the
+> window since 1.3.0; since 1.5.0, the **Progress** tab: who has the
+> attunements, entrance keys and summoning items. Nameplates and unit frames come later; the
 > plan is in [docs/decisions/](docs/decisions/) and the words in
 > [CONTEXT.md](CONTEXT.md).
 
