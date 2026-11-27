@@ -423,6 +423,16 @@ describe("Sync", function()
 		assert.same({}, sync:request("Barb Dwyer", now))
 	end)
 
+	it("lets go at load when it synced with a peer more than 6 hours ago", function()
+		syncWith("Barb Dwyer")
+		now = now + 1
+		syncWith("Cole Slaw")
+		now = now + 6 * HOUR - 1
+		Sync.new(saved, clock, memory, settings, characters)
+		assert.is_nil(saved["Barb Dwyer"])
+		assert.equal(now - 6 * HOUR + 1, saved["Cole Slaw"])
+	end)
+
 	it("runs at most 2 syncs at once, and starts a waiting one when one ends", function()
 		sync:request("Anna Conda", now)
 		sync:request("Barb Dwyer", now)

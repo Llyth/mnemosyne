@@ -383,6 +383,15 @@ describe("Memory, second-hand", function()
 		assert.is_true(hearFrom("Mallory Knox", "Anna Conda", "Ann", 900))
 	end)
 
+	it("lets go at load the counts of a peer's changes older than a day", function()
+		hearFrom("Mallory Knox", "Hugh Jass", "Tony", 900)
+		now = now + DAY
+		hearFrom("Barb Dwyer", "Anna Conda", "Ann", 900)
+		Memory.new(saved, clock)
+		assert.is_nil(saved.newFrom["Mallory Knox"])
+		assert.is_not_nil(saved.newFrom["Barb Dwyer"])
+	end)
+
 	it("keeps counting a peer's changes after a reload", function()
 		for i = 1, Memory.MAX_CHANGES_PER_PEER do
 			hearFrom("Mallory Knox", "Hugh Jass" .. i, "Tony", 900)
@@ -445,7 +454,9 @@ describe("Memory, second-hand", function()
 	it("keeps its drop queue small however often an identity changes", function()
 		for revision = 1, 10000 do
 			now = 1000 + revision
-			hearFrom("Barb Dwyer", "Anna Conda", "Ann", revision)
+			-- Each from one of many peers, as a peer brings at most 1,000 changes a day.
+			local peer = "Barb Dwyer" .. math.ceil(revision / Memory.MAX_CHANGES_PER_PEER)
+			assert.is_true(hearFrom(peer, "Anna Conda", "Ann", revision))
 		end
 		assert.is_true(memory.queueEnd - memory.queueStart < 2000)
 	end)
@@ -453,7 +464,9 @@ describe("Memory, second-hand", function()
 	it("still drops the identity heard first once its drop queue is compacted", function()
 		for revision = 1, 10000 do
 			now = 1000 + revision
-			hearFrom("Barb Dwyer", "Anna Conda", "Ann", revision)
+			-- Each from one of many peers, as a peer brings at most 1,000 changes a day.
+			local peer = "Barb Dwyer" .. math.ceil(revision / Memory.MAX_CHANGES_PER_PEER)
+			assert.is_true(hearFrom(peer, "Anna Conda", "Ann", revision))
 		end
 		fill() -- its last identity drops Anna Conda
 		now = now + 1
@@ -461,6 +474,31 @@ describe("Memory, second-hand", function()
 		assert.is_nil(memory:recall("Anna Conda"))
 		assert.is_nil(memory:recall("Hugh Jass1"))
 		assert.is_not_nil(memory:recall("Hugh Jass2"))
+	end)
+
+	it("keeps dropping the oldest heard first after compacting its drop queue", function()
+		hearFrom("Barb Dwyer", "Cole Slaw", "Cole", 900)
+		hearFrom("Barb Dwyer", "Ella Vator", "Ella", 900)
+		-- Enough changes to compact the queue, each peer bringing at most 1,000 a day.
+		for revision = 1, 2 * Memory.MAX_CHANGES_PER_PEER do
+			now = 1000 + revision
+			local peer = "Mallory Knox" .. math.ceil(revision / Memory.MAX_CHANGES_PER_PEER)
+			assert.is_true(hearFrom(peer, "Anna Conda", "Ann", revision))
+		end
+		for i = 4, Memory.MAX_SECOND_HAND do
+			now = now + 1
+			hearFrom("Peer" .. math.ceil(i / Memory.MAX_CHANGES_PER_PEER), "Hugh Jass" .. i, "Tony", 900)
+		end
+		now = now + 1
+		assert.is_true(hearFrom("Zed", "Ida Know", "Ida", 900))
+		assert.is_nil(memory:recall("Cole Slaw"))
+		assert.equal("Ella", memory:recall("Ella Vator").nickname)
+		assert.is_true(hearFrom("Zed", "Bo Nanza", "Bo", 900))
+		assert.is_nil(memory:recall("Ella Vator"))
+		assert.equal("Ann", memory:recall("Anna Conda").nickname)
+		assert.is_true(hearFrom("Zed", "Barb Dwyer", "Barb", 900))
+		assert.is_nil(memory:recall("Anna Conda"))
+		assert.equal("Tony", memory:recall("Hugh Jass4").nickname)
 	end)
 
 	it("keeps its digest the same as one hashed anew, whatever it hears", function()
@@ -788,7 +826,7 @@ describe("Memory, stale", function()
 
 	it("learns nothing from the GUID of a character it does not know", function()
 		memory:see("Anna Conda", OLD)
-		assert.is_nil(memory.identities["Anna Conda"])
+		assert.is_nil(memory:passOn("Anna Conda"))
 	end)
 
 	it("keeps showing a character seen again with the same GUID", function()
@@ -896,12 +934,20 @@ describe("Memory, stale", function()
 		assert.equal("Ann", memory:recall("Anna Conda").nickname)
 	end)
 
-	it("keeps a stale second-hand identity in its drop queue", function()
+	it("drops a stale second-hand identity in its turn, the oldest heard first", function()
 		hearFrom("Barb Dwyer", "Anna Conda", "Ann", 900)
 		memory:see("Anna Conda", OLD)
 		memory:see("Anna Conda", NEW)
-		local entry = memory.queue[memory.queueEnd]
-		assert.equal(memory.identities["Anna Conda"], entry.known)
+		for i = 2, Memory.MAX_SECOND_HAND do
+			now = now + 1
+			hearFrom("Peer" .. math.ceil(i / Memory.MAX_CHANGES_PER_PEER), "Cole Slaw" .. i, "Cole", 900)
+		end
+		now = now + 1
+		assert.is_true(hearFrom("Barb Dwyer", "Ella Vator", "Ella", 900))
+		assert.equal("Cole", memory:recall("Cole Slaw2").nickname)
+		assert.equal("Ella", memory:recall("Ella Vator").nickname)
+		-- Gone, no longer stale: a second-hand copy is taken again.
+		assert.is_true(hearFrom("Barb Dwyer", "Anna Conda", "Ann", 900))
 	end)
 
 	it("keeps its digest the same as one hashed anew while identities go stale", function()

@@ -2,7 +2,7 @@ local ns = require("spec.helpers.addon")("Protocol", "Memory", "Self", "Sync", "
 local Protocol, Inbox = ns.Protocol, ns.Inbox
 
 describe("Inbox", function()
-	local now, inbox, memory, outbox, dropped, newer, inScope, versions, ownVersion
+	local now, inbox, memory, guildNews, outbox, dropped, newer, inScope, versions, ownVersion
 
 	local function clock()
 		return now
@@ -19,14 +19,15 @@ describe("Inbox", function()
 		outbox = ns.Outbox.new(clock, function()
 			return true
 		end)
+		guildNews = ns.News.new(clock, function()
+			return 0
+		end, memory, characters, settings)
 		inbox = Inbox.new({
 			clock = clock,
 			serverClock = clock,
 			memory = memory,
 			sync = ns.Sync.new({}, clock, memory, settings, characters),
-			news = ns.News.new(clock, function()
-				return 0
-			end, memory, characters, settings),
+			news = guildNews,
 			reader = Protocol.newReader(clock),
 			outbox = outbox,
 			wake = function() end,
@@ -166,6 +167,30 @@ describe("Inbox", function()
 		local news = Protocol.write({ kind = "news", identity = { name = "Barb Dwyer", revision = 900 } })
 		inbox:receive("Anna Conda", "WHISPER", news)
 		assert.same({ "Anna Conda channel", "Anna Conda channel" }, dropped)
+	end)
+
+	it("posts to the guild the identities a sync by whisper brought", function()
+		local digest = Protocol.write({ kind = "digest", digest = ns.Memory.new({}, clock):digest() })
+		for _, chunk in ipairs(Protocol.newWriter():split(digest)) do
+			inbox:receive("Anna Conda", "WHISPER", chunk)
+		end
+		local identities = Protocol.write({
+			kind = "identities",
+			identities = { { name = "Barb Dwyer", nickname = "Barb", revision = 900 } },
+		})
+		inbox:receive("Anna Conda", "WHISPER", identities)
+		assert.same({ name = "Barb Dwyer", nickname = "Barb", revision = 900 }, guildNews:due())
+	end)
+
+	it("learns guild news second-hand, with the guildmate as source, and drops news it holds already", function()
+		local posted =
+			Protocol.write({ kind = "news", identity = { name = "Barb Dwyer", nickname = "Barb", revision = 900 } })
+		inbox:receive("Anna Conda", "GUILD", posted)
+		assert.equal("Barb", memory:recall("Barb Dwyer").nickname)
+		assert.equal("Anna Conda", memory:recall("Barb Dwyer").source)
+		assert.same({}, dropped)
+		inbox:receive("Cole Slaw", "GUILD", posted)
+		assert.same({ "Cole Slaw older" }, dropped)
 	end)
 
 	it("takes professions and their digest by whisper only, as other sync messages", function()
