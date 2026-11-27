@@ -52,6 +52,14 @@ _Avoid_: achievements, attunements (for the whole category), unlocks
 One tracked attunement, entrance key or summoning item, and where a character stands on it: has it now, in progress, or neither. Each has its own revision.
 _Avoid_: step, goal, key (for a milestone in general)
 
+**Cell**:
+Where one character stands on one milestone, as the Progress tab shows it and peers pass it on: ✓ (it holds the item that counts), In progress (a quest of it in the log, an item on the way, or Upper Blackrock Spire's gems), or — (neither). A summon is only ever ✓ or —. A cell heard from a peer is taken whole or dropped whole, never trimmed.
+_Avoid_: status, value, entry
+
+**Progress tab**:
+Where progress shows, in Mnemosyne's window and in the Guild & Communities window: four sub-tabs (Attunements, Endgame entrances, Endgame summons, Leveling), each a grid with one row per character and one column per milestone.
+_Avoid_: keys tab, attunement tab, achievements
+
 **Sharing progress**:
 Letting your registered characters' progress spread to peers. On by default, account-wide; turning it off makes peers forget it.
 _Avoid_: publishing, broadcasting
@@ -77,11 +85,11 @@ The peer a second-hand identity came from, shown with it so you can judge it.
 _Avoid_: origin, provider, relay
 
 **Memory**:
-Every identity and profession one character holds, first-hand and second-hand. Each of the account's characters has its own.
+Every identity, profession and milestone one character holds, first-hand and second-hand. Each of the account's characters has its own.
 _Avoid_: database, cache, store
 
 **Copy**:
-An identity or profession as one memory holds it: peers hold copies of the same character's identity, and among second-hand copies the later revision wins. A whole memory a character starts from is not "the copy": the character starts from the seed.
+An identity, profession or milestone as one memory holds it: peers hold copies of the same character's identity, and among second-hand copies the later revision wins. A whole memory a character starts from is not "the copy": the character starts from the seed.
 _Avoid_: replica, mirror
 
 **Seed**:
@@ -97,15 +105,15 @@ An identity heard second-hand with the same revision but different nicknames. A 
 _Avoid_: conflict, invalid
 
 **Held as a removal**:
-An identity whose last revision is a removal, even disputed or stale: what the character withdrew stays withdrawn (in code, withdrawn). Its character's second-hand professions are refused and dropped, so no peer can link an anonymous character to a profession list.
+An identity whose last revision is a removal, even disputed or stale: what the character withdrew stays withdrawn (in code, withdrawn). Its character's second-hand professions and progress are refused and dropped, so no peer can link an anonymous character to a profession list or its milestones.
 _Avoid_: deleted, forgotten (forgetting is your own choice, not the character's)
 
 **Disputed removal**:
-An identity held as a removal because a nickname and a removal came at the same revision. Any peer can forge one with a single guild news, so it refuses only second-hand professions; a removal that is not disputed refuses the character's first-hand professions too.
+An identity held as a removal because a nickname and a removal came at the same revision. Any peer can forge one with a single guild news, so it refuses only second-hand professions and progress; a removal that is not disputed refuses the character's first-hand professions and progress too.
 _Avoid_: conflict
 
 **Stale**:
-An identity or profession whose full name now belongs to another character (a different GUID), after its own was deleted or renamed. Hidden until the new character speaks first-hand.
+An identity, profession or milestone whose full name now belongs to another character (a different GUID), after its own was deleted or renamed. Hidden until the new character speaks first-hand.
 _Avoid_: expired, outdated, invalid
 
 **Taken name**:
@@ -117,7 +125,7 @@ Two peers bringing each other's memory up to date, privately and in the backgrou
 _Avoid_: exchange, transfer, replication
 
 **Digest**:
-A short summary of a memory that a sync starts with, one for identities and one for professions: each identity or profession hashed, the hashes summed in the bucket of its character's name. Two peers compare digests and pass on only what is in the buckets that differ.
+A short summary of a memory that a sync starts with, one each for identities, professions and progress (the progress digest, which an older peer never sends): each identity, profession or milestone hashed, the hashes summed in the bucket of its character's name. Two peers compare digests and pass on only what is in the buckets that differ.
 _Avoid_: checksum, hash (one hash is a single entry's), fingerprint
 
 **Bucket**:
@@ -145,11 +153,11 @@ Withdrawing a character's registration. The character tells its peers, and they 
 _Avoid_: deleting, opting out
 
 **Removal**:
-The message a character sends when it unregisters: a revision without a nickname, so its peers forget its identity. In a sync, any identity passed on without a nickname is a removal, whether the character unregistered or is anonymous. A profession passed on empty is a removal too: the character dropped it, stopped sharing professions, or is anonymous or unregistered (those go only from the character itself, while it is the one played, never from its account's other characters). A registered character also passes on a removal of each of the game's professions it lacks, so a profession a peer made up for it is dropped.
+The message a character sends when it unregisters: a revision without a nickname, so its peers forget its identity. In a sync, any identity passed on without a nickname is a removal, whether the character unregistered or is anonymous. A profession passed on empty is a removal too: the character dropped it, stopped sharing professions, or is anonymous or unregistered (those go only from the character itself, while it is the one played, never from its account's other characters). A registered character also passes on a removal of each of the game's professions it lacks, so a profession a peer made up for it is dropped. A milestone passed on without a cell is a removal the same way: the character no longer has it, stopped sharing progress, or is anonymous or unregistered, and a registered character passes on a removal of each milestone it lacks.
 _Avoid_: deletion
 
 **As anyone's**:
-How your memory holds what peers say about your own characters: a second-hand copy kept and passed on like any other player's, under the same rules and limits, so your digest looks like any peer's. It is never adopted: what shows for your characters is your own registration, and the copy never shows as another player's character. While you play a character you have not registered, your other characters' professions go and come as anyone's too.
+How your memory holds what peers say about your own characters: a second-hand copy kept and passed on like any other player's, under the same rules and limits, so your digest looks like any peer's. It is never adopted: what shows for your characters is your own registration, and the copy never shows as another player's character. While you play a character you have not registered, your other characters' professions and progress go and come as anyone's too.
 _Avoid_: own copy, mirror
 
 **Forgetting**:

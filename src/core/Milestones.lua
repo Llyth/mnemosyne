@@ -19,9 +19,15 @@ local _, ns = ...
 local Milestones = {}
 ns.Milestones = Milestones
 
--- One entry per milestone, in the order shown. Adding a milestone is one
--- entry here. Each id goes on the wire: never reuse or renumber one, even
--- after its milestone is dropped (older clients ignore IDs they don't know).
+-- One entry per milestone, in the order shown. Adding a milestone takes an
+-- entry here (Client then reads its items and quests, Progress takes its id
+-- and Grid gives it a column), its column's name (MILESTONE_<KEY> in each
+-- locale, or its instance ID in ProgressTab's ZONES when the game names it),
+-- and the count in spec/milestones_spec.lua. A field not listed below needs
+-- code in cell, normalize and ProgressTab; a new field in the cell, a new
+-- message kind (decision 0009). Each id goes on the wire: never reuse or
+-- renumber one, even after its milestone is dropped (older clients ignore IDs
+-- they don't know).
 --   items          held: done (✓)
 --   quests         in the log: in progress (a character only ever has its
 --                  own faction's)
