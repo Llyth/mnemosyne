@@ -119,7 +119,9 @@ end
 
 -- A scrolled list of clickable rows, at x, width wide, under top. Each row has
 -- the font strings of columns ({ key, x, width }) and an icon at x 7, empty
--- until set; onClick(row) on a click, onEnter(row) on hover if given.
+-- until set; onClick(row) on a click, onEnter(row) on hover if given. Only the
+-- rows that fit are created, and filled again as the list scrolls: peers' data
+-- can make a list of thousands, and a frame is never freed.
 local function scrolledList(parent, x, top, width, columns, onClick, onEnter)
 	local scroll = CreateFrame("ScrollFrame", nil, parent, "UIPanelScrollFrameTemplate")
 	scroll:SetPoint("TOPLEFT", x, -top)
@@ -130,39 +132,64 @@ local function scrolledList(parent, x, top, width, columns, onClick, onEnter)
 	scroll:SetScrollChild(list)
 	list.empty = text(list, "GameFontDisableSmall", 7, 4, width - 35)
 	list.rows = {}
-	-- Shows count rows, filling each with fill(row, i); empty when none.
-	function list:show(count, fill, empty)
-		for i = 1, count do
-			local row = self.rows[i]
-			if not row then
-				row = CreateFrame("Button", nil, self)
-				row:SetSize(width - 28, ROW)
-				row:SetPoint("TOPLEFT", 0, -((i - 1) * ROW))
-				row:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
-				for _, column in ipairs(columns) do
-					row[column[1]] = text(row, "GameFontHighlightSmall", column[2], 4, column[3])
-					row[column[1]]:SetWordWrap(false)
-				end
-				row.icon = row:CreateTexture(nil, "ARTWORK")
-				row.icon:SetSize(16, 16)
-				row.icon:SetPoint("LEFT", 7, 0)
-				row:SetScript("OnClick", onClick)
-				if onEnter then
-					row:SetScript("OnEnter", onEnter)
-					row:SetScript("OnLeave", hideTooltip)
-				end
-				self.rows[i] = row
-			end
+	local count, fill = 0, nil -- what show was last given
+
+	local function newRow()
+		local row = CreateFrame("Button", nil, list)
+		row:SetSize(width - 28, ROW)
+		row:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
+		for _, column in ipairs(columns) do
+			row[column[1]] = text(row, "GameFontHighlightSmall", column[2], 4, column[3])
+			row[column[1]]:SetWordWrap(false)
+		end
+		row.icon = row:CreateTexture(nil, "ARTWORK")
+		row.icon:SetSize(16, 16)
+		row.icon:SetPoint("LEFT", 7, 0)
+		row:SetScript("OnClick", onClick)
+		if onEnter then
+			row:SetScript("OnEnter", onEnter)
+			row:SetScript("OnLeave", hideTooltip)
+		end
+		return row
+	end
+
+	-- Fills the rows in view at the current scroll (within the list's new
+	-- height, should it have shrunk), placed where the i-th row of the list
+	-- goes, and hides the others.
+	local function draw()
+		local height = scroll:GetHeight()
+		local offset = math.min(scroll:GetVerticalScroll(), math.max(0, list:GetHeight() - height))
+		local first = math.floor(offset / ROW) + 1
+		local last = math.min(count, first + math.ceil(height / ROW))
+		local drawn = 0
+		for i = first, last do
+			drawn = drawn + 1
+			local row = list.rows[drawn] or newRow()
+			list.rows[drawn] = row
+			row:SetPoint("TOPLEFT", 0, -((i - 1) * ROW))
 			row:UnlockHighlight()
 			row:SetAlpha(1)
 			fill(row, i)
 			row:Show()
+			-- The row under the mouse now shows another line: its tooltip follows.
+			if onEnter and GameTooltip:IsOwned(row) then
+				onEnter(row)
+			end
 		end
-		for i = count + 1, #self.rows do
-			self.rows[i]:Hide()
+		for i = drawn + 1, #list.rows do
+			list.rows[i]:Hide()
 		end
+	end
+	scroll:HookScript("OnVerticalScroll", draw)
+	scroll:HookScript("OnSizeChanged", draw)
+
+	-- Shows count rows, filling each with fill(row, i) as it comes into view;
+	-- empty when none.
+	function list:show(newCount, newFill, empty)
+		count, fill = newCount, newFill
 		self.empty:SetText(count == 0 and empty or "")
 		self:SetHeight(count * ROW + 20)
+		draw()
 	end
 	return list
 end
