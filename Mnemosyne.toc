@@ -24,6 +24,7 @@ src\core\Digest.lua
 src\core\Memory.lua
 src\core\Self.lua
 src\core\Professions.lua
+src\core\Seed.lua
 src\core\Sync.lua
 src\core\News.lua
 src\core\Recognition.lua

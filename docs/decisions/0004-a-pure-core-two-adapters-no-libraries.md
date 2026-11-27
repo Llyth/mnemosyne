@@ -14,13 +14,14 @@ No library is embedded (Ace3, ChatThrottleLib, LibDeflate), against the habit of
 
 **Update, 2026-11-27.** The digest scheme moved out of `Memory` and `Professions`, which each wrote it, into a pure module of its own, `Digest` (the hash, the bucket of a name, the sums, the written form and the buckets two digests differ in), which both use. What goes on the wire is unchanged. The decision holds.
 
-**Update, 2026-11-27.** The pure modules in `src/core/` are now fourteen, each tested by busted through its own interface:
+**Update, 2026-11-27.** The pure modules in `src/core/` are now fifteen, each tested by busted through its own interface:
 
 - `Protocol`: the wire format, chunking, and validating what peers send.
 - `Digest`: the digest a sync compares, for identities and professions alike.
 - `Memory`: identities, first-hand wins, revisions, disputes, staleness, the cap and the daily limits.
 - `Self`: your characters' registrations and their professions as read from the game.
 - `Professions`: every profession held, first-hand and second-hand (decision 0008).
+- `Seed`: the account's 1.4.x memory each character copies once, kept 30 days (decision 0001).
 - `Sync`: the digest exchange, its cooldowns and its early syncs (decision 0002).
 - `News`: the guild news a sync's changes post, and those heard.
 - `Recognition`: what to show where a character appears, and the status.
