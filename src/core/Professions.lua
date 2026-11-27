@@ -10,8 +10,9 @@
 -- removal (no level) is a revision too. It goes stale when its full name
 -- shows up with another GUID, hidden until the character shares first-hand;
 -- never this account's characters', which take their GUID from Self.
--- Kept only for this account's characters, and for characters seen on a guild
--- roster or online as a friend's in the last 30 days; others are dropped
+-- Kept only for this account's characters (not while they come as anyone's,
+-- nor a name another player's character has taken), and for characters seen
+-- on a guild roster or online as a friend's in the last 30 days; others are dropped
 -- quietly. Second-hand ones are refused and dropped while the character is
 -- forgotten (a first-hand one still gets through, as for identities) or while
 -- its identity is held as a removal (anonymous or unregistered), so no peer
@@ -236,8 +237,12 @@ local function seenLately(self, name, now)
 end
 
 -- Whether professions of a character are kept: this account's, or seen lately.
-local function keeps(self, name, now)
-	return isOwn(self, name) or seenLately(self, name, now)
+-- This account's are kept as anyone's while they go and come as anyone's
+-- (asAnyone), and so is a name another player's character has taken (isTaken,
+-- or told under its GUID: guid as isOwn takes it).
+local function keeps(self, name, now, guid)
+	return (isOwn(self, name, guid) and not asAnyone(self, name) and not isTaken(self, name))
+		or seenLately(self, name, now)
 end
 
 -- Whether a character's profession heard first-hand or not is refused:
@@ -283,7 +288,7 @@ function Professions:hear(peer, heard)
 		not Professions.SKILL_LINES[skillLine]
 		or heard.revision > now + DAY
 		or (isOwn(self, name, guid) and not asAnyone(self, name))
-		or not keeps(self, name, now)
+		or not keeps(self, name, now, guid)
 		or isRefused(self, name, firstHand)
 	then
 		return false

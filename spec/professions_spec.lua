@@ -229,6 +229,35 @@ describe("Professions", function()
 		assert.is_nil(saved.held["Bo Nanza"])
 	end)
 
+	it("refuses the professions of a character that took a name of yours, off every roster and friend list", function()
+		characters.registered["Zed Ex"] = "Tony"
+		characters.guids["Zed Ex"] = "Player-1-0000000A"
+		assert.is_false(professions:hear("Zed Ex", {
+			name = "Zed Ex",
+			skillLine = ALCHEMY,
+			revision = 900,
+			level = 1,
+			maxLevel = 75,
+			guid = "Player-1-0000000B",
+		}))
+	end)
+
+	it("drops a taken name's professions 30 days after the character that took it was last seen", function()
+		characters.registered["Bo Nanza"] = "Tony"
+		characters.guids["Bo Nanza"] = "Player-1-0000000A"
+		professions:hear("Bo Nanza", {
+			name = "Bo Nanza",
+			skillLine = ALCHEMY,
+			revision = 900,
+			level = 1,
+			maxLevel = 75,
+			guid = "Player-1-0000000B",
+		})
+		now = now + 31 * DAY
+		seeLists(professions, scope, {}, { "Hugh Jass" })
+		assert.is_nil(saved.held["Bo Nanza"])
+	end)
+
 	it("drops and refuses a forgotten character's second-hand professions, until unforgotten", function()
 		professions:hear("Anna Conda", alchemy())
 		memory:forget("Hugh Jass")
@@ -807,6 +836,15 @@ describe("Professions", function()
 					revision = 950,
 				}))
 			end)
+
+			it(
+				"refuses, as anyone's, a peer's copy of the account's other characters' professions off the roster",
+				function()
+					local tailoring =
+						{ name = "Dee Zaster", skillLine = TAILORING, level = 1, maxLevel = 75, revision = 900 }
+					assert.is_false(professions:hear("Anna Conda", tailoring))
+				end
+			)
 
 			it("never gives the account's other characters' professions a new revision", function()
 				seeLists(professions, scope, {}, ROSTER)
