@@ -589,6 +589,21 @@ describe("Professions", function()
 			assert.same({}, theirs:list())
 		end)
 
+		it("passes on as a character's own only what it reads, not what peers said before it registered", function()
+			professions:hear(
+				"Anna Conda",
+				{ name = "Hugh Jass", skillLine = 182, revision = 900, level = 200, maxLevel = 300 }
+			)
+			professions:hear("Anna Conda", alchemy(900))
+			characters.registered["Hugh Jass"] = "Hugh"
+			characters.owned["Hugh Jass"] = { { skillLine = ALCHEMY, level = 120, maxLevel = 150, revision = 950 } }
+			professions:prepare()
+			settings.passOn = false
+			local passed = professions:answer("Anna Conda", other():digest("Barb Dwyer"))
+			assert.same({ "Hugh Jass 171" }, names(passed))
+			assert.equal(120, passed[1].level)
+		end)
+
 		it("passes on nothing to a peer neither on the roster nor a friend, which would refuse it", function()
 			characters.registered["Dee Zaster"] = "Dee"
 			characters.owned["Dee Zaster"] = { { skillLine = ALCHEMY, level = 5, maxLevel = 75, revision = 900 } }

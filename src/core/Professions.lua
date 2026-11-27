@@ -333,7 +333,9 @@ end
 
 -- Reads this account's characters' professions, as a sync starts: stamps each
 -- character's (a new revision for what changed since its last one), then keeps
--- them first-hand. Then drops what is no longer kept.
+-- them first-hand, and only them: a profession peers passed on before the
+-- character was this account's never goes as its own. Then drops what is no
+-- longer kept.
 function Professions:prepare()
 	local names = {}
 	for _, character in ipairs(self.characters:list("")) do
@@ -351,7 +353,9 @@ function Professions:prepare()
 		local character = self.held[name] or { skills = {} }
 		character.own = true
 		self.held[name] = character
+		local read = {}
 		for _, profession in ipairs(self.characters:professions(name)) do
+			read[profession.skillLine] = true
 			local known = character.skills[profession.skillLine]
 			if
 				not known
@@ -366,6 +370,11 @@ function Professions:prepare()
 					firstHand = true,
 					heard = now,
 				}
+			end
+		end
+		for skillLine in pairs(character.skills) do
+			if not read[skillLine] then
+				character.skills[skillLine] = nil
 			end
 		end
 	end
