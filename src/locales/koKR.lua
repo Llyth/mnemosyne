@@ -175,12 +175,12 @@ L.PANEL_FORGOTTEN = "잊음"
 L.PANEL_YOURS = "내 캐릭터" -- one of your own characters
 L.PANEL_ANONYMOUS = "익명" -- one of your own characters, kept anonymous
 L.STATUS_PEERS = "이번 세션에 수신된 피어: %d"
-L.STATUS_SYNCS = "최근 6시간 내 동기화: %s"
+L.STATUS_SYNCS = "이 캐릭터의 최근 6시간 내 동기화: %s"
 L.STATUS_SYNC = "%s (%s)" -- a peer and how long ago: "Anna Conda (5분 전)"
-L.STATUS_NO_SYNC = "최근 6시간 내 동기화 없음."
+L.STATUS_NO_SYNC = "이 캐릭터의 최근 6시간 내 동기화 없음."
 -- Mnemosyne's window.
 L.WINDOW_WHISPER = "귓속말"
-L.WINDOW_LAST_SYNC = "마지막 동기화: %s, %s." -- a peer and how long ago
+L.WINDOW_LAST_SYNC = "이 캐릭터의 마지막 동기화: %s, %s." -- a peer and how long ago
 L.WINDOW_WAITING = "대기 중: %d"
 
 -- The window's Professions tab.
