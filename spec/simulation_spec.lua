@@ -52,8 +52,9 @@ describe("Several peers", function()
 	end
 
 	-- savedMemory: the memory's saved table to start from (Memory.copy), an empty one when left out.
-	local function newPeer(name, savedMemory)
-		local characters = Self.new({}, clock, {})
+	-- characters: its account's characters (Self), shared with the account's others; its own when left out.
+	local function newPeer(name, savedMemory, characters)
+		characters = characters or Self.new({}, clock, {})
 		local memory = Memory.new(savedMemory or {}, clock, {}, characters)
 		local scope = Scope.new({})
 		local professions = Professions.new({}, clock, memory, characters, { passOn = true }, scope)
@@ -305,12 +306,13 @@ describe("Several peers", function()
 	end)
 
 	describe("an account's characters, each with its own memory copied from one seed", function()
-		local revision, seed, ray, mallory
+		local revision, seed, account, ray, mallory
 
 		-- One of the account's characters logs on for the first time since the
-		-- update: its memory starts from a copy of the seed.
+		-- update: its memory starts from a copy of the seed, and the account's
+		-- characters (Self) are the account's, as in the game.
 		local function logOn(name)
-			return newPeer(name, Memory.copy(seed))
+			return newPeer(name, Memory.copy(seed), account)
 		end
 
 		before_each(function()
@@ -318,8 +320,51 @@ describe("Several peers", function()
 			revision = a.characters:registration(a.name).revision
 			seed = {}
 			Memory.new(seed, clock):hear(a.name, { nickname = "Tony", revision = revision, source = b.name })
+			account = Self.new({}, clock, {})
 			ray = logOn("Ray Gunn")
 			mallory = newPeer("Mallory Knox")
+		end)
+
+		it("passes on each of them for the other as anyone's, with the GUID a peer gave", function()
+			local al = logOn("Al Beback")
+			for guid, character in pairs({ ["Player-1-0000000A"] = al, ["Player-1-0000000B"] = ray }) do
+				account:register(character.name, character.name:sub(1, 3))
+				account:see(character.name, guid)
+				announce(character, b)
+				b.memory:see(character.name, guid) -- it speaks in chat
+			end
+			-- Mallory passes each on at a later revision, with a GUID made up.
+			for _, character in ipairs({ al, ray }) do
+				mallory.memory:hear(
+					character.name,
+					{ nickname = "Mark", revision = now + 1, source = b.name, guid = "Player-1-0ABCDEF1" }
+				)
+			end
+			for _, peer in ipairs({ al, ray, d }) do
+				sync(b, peer)
+				sync(mallory, peer)
+			end
+			assert.same(d.memory:passOn(ray.name), al.memory:passOn(ray.name))
+			assert.same(d.memory:passOn(al.name), ray.memory:passOn(al.name))
+			assert.same(
+				{ "Mark", "Player-1-0000000B" },
+				{ al.memory:passOn(ray.name).nickname, al.memory:passOn(ray.name).guid }
+			)
+		end)
+
+		it("takes later revisions of each of them where the seed holds it stale on its own GUID", function()
+			-- 1.4.x saw Ray in chat while holding another GUID for its name.
+			local old = Memory.new(seed, clock)
+			old:hear(ray.name, { nickname = "Ray", revision = now - 10, source = b.name, guid = "Player-1-00000009" })
+			old:see(ray.name, "Player-1-0000000B")
+			account:register(ray.name, "Ray")
+			account:see(ray.name, "Player-1-0000000B") -- Ray logs on after the update
+			local al = logOn("Al Beback")
+			announce(ray, b)
+			sync(b, al)
+			sync(b, d)
+			assert.equal(d.memory:digest(), al.memory:digest())
+			assert.equal(account:registration(ray.name).revision, al.memory:passOn(ray.name).revision)
 		end)
 
 		it("lets no character pass on a first-hand change only another of them heard, vouched or not", function()

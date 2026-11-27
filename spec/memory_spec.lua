@@ -1048,6 +1048,97 @@ describe("Memory, this account's characters", function()
 			assert.equal("Llyth", memory:recall("Zed Zulu").nickname)
 		end
 	)
+
+	it("passes on one of them with the GUID a peer gave, as anyone's", function()
+		local MARK = "Player-1-0ABCDEF1"
+		hearFrom("Ann Bee", "Zed Zulu", "Llyth", 900, MARK)
+		assert.equal(MARK, memory:passOn("Zed Zulu").guid)
+		hearFrom("Ann Bee", "Zed Zulu", "Tony", 950, "Player-1-0ABCDEF2")
+		assert.equal(MARK, memory:passOn("Zed Zulu").guid)
+	end)
+
+	-- As 1.4.x saved it: a copy of one of them gone stale once it was seen with
+	-- its own GUID, the account's memory telling no character of its own.
+	local function staleOnItsGuid(firstHand)
+		return {
+			identities = {
+				["Zed Zulu"] = {
+					nickname = "Bob",
+					revision = 800,
+					firstHand = firstHand,
+					source = not firstHand and "Ann Bee" or nil,
+					heard = 900,
+					stale = true,
+					guid = MINE,
+				},
+			},
+		}
+	end
+
+	it("takes later revisions of a copy of one of them stale on its own GUID, once seen with it", function()
+		characters = Self.new({ ["Zed Zulu"] = { nickname = "Llyth", revision = 700 } }, clock, {})
+		memory = Memory.new(staleOnItsGuid(false), clock, {}, characters)
+		characters:see("Zed Zulu", MINE) -- it logs on after the memory loaded
+		memory:see("Zed Zulu", MINE) -- it speaks in chat
+		assert.is_true(hearFrom("Ann Bee", "Zed Zulu", "Llyth", 950))
+	end)
+
+	it("takes later revisions of a copy of one of them stale on the GUID Self knows, from the start", function()
+		memory = Memory.new(staleOnItsGuid(false), clock, {}, characters)
+		assert.is_true(hearFrom("Ann Bee", "Zed Zulu", "Llyth", 950))
+		assert.equal("Llyth", memory:passOn("Zed Zulu").nickname)
+	end)
+
+	it(
+		"leaves stale from the start a copy of one of them stale on another GUID, or on one Self does not know",
+		function()
+			local saved = staleOnItsGuid(false)
+			saved.identities["Zed Zulu"].guid = FORMER
+			saved.identities["Yan Yak"] = saved.identities["Zed Zulu"]
+			characters:register("Yan Yak", "Llyth") -- not played since GUIDs were kept: none
+			memory = Memory.new(Memory.copy(saved), clock, {}, characters)
+			assert.is_false(hearFrom("Ann Bee", "Zed Zulu", "Llyth", 950))
+			assert.is_false(hearFrom("Ann Bee", "Yan Yak", "Llyth", 950))
+		end
+	)
+
+	it("drops the first-hand identity of the name's former owner once one of them is seen with its GUID", function()
+		characters = Self.new({}, clock, {})
+		memory = Memory.new({}, clock, {}, characters)
+		memory:hear("Zed Zulu", { nickname = "Bob", revision = 800 }) -- the former owner, itself
+		memory:see("Zed Zulu", FORMER)
+		characters:register("Zed Zulu", "Llyth") -- you made a character with the name, freed since
+		characters:see("Zed Zulu", MINE)
+		memory:see("Zed Zulu", MINE)
+		assert.is_false(memory:knows("Zed Zulu"))
+		assert.is_true(hearFrom("Ann Bee", "Zed Zulu", "Llyth", 950))
+		local peer = Memory.new({}, clock)
+		peer:hear("Zed Zulu", { nickname = "Llyth", revision = 950, source = "Cole Slaw" })
+		assert.equal(peer:digest(), memory:digest())
+	end)
+
+	it(
+		"drops from the start the first-hand identity of the name's former owner stale on the GUID Self knows",
+		function()
+			memory = Memory.new(staleOnItsGuid(true), clock, {}, characters)
+			assert.is_false(memory:knows("Zed Zulu"))
+			assert.is_true(hearFrom("Ann Bee", "Zed Zulu", "Llyth", 950))
+		end
+	)
+
+	it("lets a copy of one Self knows no GUID for go stale when the name shows up with a GUID, as anyone's", function()
+		characters:register("Yan Yak", "Llyth") -- not played since GUIDs were kept: none
+		hearFrom("Ann Bee", "Yan Yak", "Llyth", 900, FORMER)
+		memory:see("Yan Yak", "Player-1-00000003")
+		assert.is_nil(memory:recall("Yan Yak"))
+	end)
+
+	it("keeps the first-hand identity of a character that took a name Self knows no GUID for, once seen", function()
+		characters:register("Yan Yak", "Llyth")
+		memory:hear("Yan Yak", { nickname = "Bob", revision = 2000 })
+		memory:see("Yan Yak", FORMER)
+		assert.equal("Bob", memory:recall("Yan Yak").nickname)
+	end)
 end)
 
 describe("Memory, copied", function()

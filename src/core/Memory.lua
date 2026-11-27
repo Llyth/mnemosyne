@@ -15,8 +15,9 @@
 -- stale, hidden until its full name speaks first-hand, when the name shows up
 -- with another GUID. A forgotten character's second-hand copies are refused
 -- (only the player's choice, nobody is told). What peers say about this
--- account's own characters is held as anyone's (decision 0001), but with the
--- GUID Self knows (Self:owns), never a peer's.
+-- account's own characters is held as anyone's (decision 0001), the GUID a
+-- peer passed on included; only the game showing one of them with the GUID
+-- Self knows tells its name is yours (ownSeen).
 local _, ns = ...
 
 local Digest, Protocol = ns.Digest, ns.Protocol
@@ -224,6 +225,30 @@ local function queue(self, name, known)
 	end
 end
 
+-- Whether a GUID is the one Self knows for one of this account's characters,
+-- for a full name: the game showing it there tells the name is that
+-- character's now (decision 0003). Never by name alone, nor asked with a
+-- GUID a peer passed on: a peer's word proves nothing.
+local function isOwnGuid(self, name, guid)
+	return guid ~= nil and self.characters ~= nil and self.characters:guid(name) == guid
+end
+
+-- One of this account's characters is seen with its GUID (isOwnGuid). A
+-- second-hand copy of it is stale no more: it never speaks first-hand to its
+-- own account, so stale it would refuse every later revision for good. A
+-- first-hand identity under its name is dropped: only another player's
+-- character speaks first-hand to this account (no client hears itself or its
+-- account's others), and that character no longer has the name; what peers say
+-- of yours then comes in as anyone's.
+local function ownSeen(self, name, known, guid)
+	if known.firstHand then
+		store(self, name, nil)
+	else
+		known.stale = nil
+		known.guid = guid
+	end
+end
+
 -- saved: the table Memory keeps its identities in
 -- (MnemosyneCharacterDB.memory), and
 -- how many second-hand changes each peer brought today. Counts older
@@ -239,7 +264,9 @@ end
 -- (MnemosyneCharacterDB.forgotten); an empty one when left out. A name matches it
 -- ignoring case and accents, as a player may type it.
 -- characters: this account's characters (Self), told apart by GUID; none when
--- left out.
+-- left out. Each identity held with the GUID Self knows for its name is taken
+-- as seen with it (ownSeen): a 1.4.x memory, copied, could hold one gone
+-- stale there, which this character, never online with it, would never see.
 function Memory.new(saved, clock, forgotten, characters)
 	saved.identities = saved.identities or {}
 	saved.newFrom = saved.newFrom or {} -- counts every change, not only new ones (key kept)
@@ -288,13 +315,16 @@ function Memory.new(saved, clock, forgotten, characters)
 	table.sort(self.queue, function(a, b)
 		return a.known.heard < b.known.heard
 	end)
+	local seen = {}
+	for name, known in pairs(saved.identities) do
+		if isOwnGuid(self, name, known.guid) then
+			seen[#seen + 1] = name
+		end
+	end
+	for _, name in ipairs(seen) do
+		ownSeen(self, name, self.identities[name], self.identities[name].guid)
+	end
 	return self
-end
-
--- Whether a full name is one of this account's characters, given a GUID for
--- it, or by name without one (Self:owns).
-local function isMine(self, name, guid)
-	return self.characters ~= nil and self.characters:owns(name, guid)
 end
 
 -- A copy of a memory's saved table (as Memory.new takes it) for another of
@@ -397,8 +427,9 @@ local function hearSecondHand(self, name, heard, known)
 		-- The GUID held stays, whatever the peer says: if the name changed hands,
 		-- better hidden until it speaks than shown on another character, and a
 		-- forged GUID never stops it going stale. One of this account's
-		-- characters takes none from a peer: Self knows its GUID.
-		guid = known and known.guid or not isMine(self, name) and heard.guid or nil,
+		-- characters takes a peer's as anyone's would: holding none, or Self's,
+		-- would tell a peer which names are this account's.
+		guid = known and known.guid or heard.guid,
 	}
 	store(self, name, stored)
 	queue(self, name, stored)
@@ -432,15 +463,15 @@ function Memory:hear(name, heard)
 	-- The GUID stays, even a peer's or one from before a new registration: if it
 	-- is not this character's, the identity goes stale when the character is
 	-- seen, and is asked as a stranger, until it speaks first-hand again. But not
-	-- the GUID of one of this account's characters (or one held for its name
-	-- while Self knows none): what speaks first-hand under that name is another
-	-- player's character, as no client hears itself or its account's others.
+	-- the GUID Self knows for one of this account's characters: what speaks
+	-- first-hand under that name is another player's character, as no client
+	-- hears itself or its account's others.
 	store(self, name, {
 		nickname = heard.nickname,
 		revision = heard.revision,
 		firstHand = true,
 		heard = self.clock(),
-		guid = known and not isMine(self, name, known.guid) and known.guid or nil,
+		guid = known and not isOwnGuid(self, name, known.guid) and known.guid or nil,
 	})
 	return true
 end
@@ -451,15 +482,14 @@ end
 -- one was deleted or renamed), so it is hidden until the name speaks
 -- first-hand, and keeps the new GUID for that character. Neither changes the
 -- digest's sums (sum), so the identity is changed in place, keeping its place
--- in the drop queue. A copy of one of this account's characters seen with its
--- GUID never goes stale, and is stale no more: it never speaks first-hand to
--- its own account, so stale it would refuse every later revision for good.
+-- in the drop queue. One of this account's characters seen with the GUID Self
+-- knows is told apart (ownSeen).
 function Memory:see(name, guid)
 	local known = self.identities[name]
-	if known and known.guid ~= guid then
-		if not known.firstHand and isMine(self, name, guid) then
-			known.stale = nil
-		elseif known.guid then
+	if known and isOwnGuid(self, name, guid) then
+		ownSeen(self, name, known, guid)
+	elseif known and known.guid ~= guid then
+		if known.guid then
 			known.stale = true
 		end
 		known.guid = guid
