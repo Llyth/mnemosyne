@@ -42,7 +42,7 @@ ns.L = {
 	OPEN_PROFESSIONS = "Open each profession's window once so Mnemosyne can share its recipes: %s.",
 	-- The other commands.
 	HELP_LOOKUP = "/mnemosyne lookup <text>: find characters by name or by nickname",
-	HELP_STATUS = "/mnemosyne status: what your memory holds",
+	HELP_STATUS = "/mnemosyne status: what this character's memory holds",
 	HELP_DEBUG = "/mnemosyne debug: log every message sent and received in the chat frame, or stop; "
 		.. "/mnemosyne debug copy: the log in a window to copy",
 	HELP_HELP = "/mnemosyne help: this list",
@@ -50,7 +50,7 @@ ns.L = {
 	LOOKUP_NONE = 'No character known for "%s".',
 	LOOKUP_FOUND = "%s: played by %s",
 	LOOKUP_MORE = "...and %d more. Type more of the name to narrow the search.",
-	STATUS_IDENTITIES = "Identities known: %d",
+	STATUS_IDENTITIES = "Identities this character knows: %d",
 	STATUS_CHARACTERS = "Your characters: %d registered, %d anonymous",
 	STATUS_REGISTERED = "This character: registered as %s",
 	STATUS_ANONYMOUS = "This character: anonymous",
@@ -81,7 +81,7 @@ ns.L = {
 	SECOND_HAND = "~%s", -- a nickname heard second-hand: "~Tony"
 	HEARD_FROM = "Heard from %s",
 	LOOKUP_FOUND_SECOND_HAND = "%s: played by %s, heard from %s", -- the nickname marked as SECOND_HAND
-	HELP_SYNC = "/mnemosyne sync: bring your memory up to date with the peers you can reach now",
+	HELP_SYNC = "/mnemosyne sync: bring this character's memory up to date with the peers you can reach now",
 	SYNC_STARTED = "Syncing with %d |4peer:peers;.",
 	SYNC_NONE = "No peer to sync with now: none heard this session, or all synced recently (in the last hour "
 		.. "for guildmates, the last 6 hours for anyone else).",
@@ -90,13 +90,15 @@ ns.L = {
 	SYNC_RESET = "Sync cooldowns cleared on your side. The other player must also type /mnemosyne sync reset "
 		.. "before you can sync again.",
 	-- Forgetting.
-	HELP_FORGET = "/mnemosyne forget <character>: drop a character's nickname and refuse what others pass on about it",
+	HELP_FORGET = "/mnemosyne forget <character>: on this character only, drop a character's nickname "
+		.. "and refuse what others pass on about it",
 	HELP_UNFORGET = "/mnemosyne unforget <character>: undo forget",
-	FORGOTTEN = "%s is forgotten. Only what it says itself counts now, until /mnemosyne unforget %s.",
+	FORGOTTEN = "%s is forgotten on this character. Only what it says itself counts now, "
+		.. "until /mnemosyne unforget %s.",
 	ALREADY_FORGOTTEN = "%s is already forgotten.",
 	UNFORGOTTEN = "%s is no longer forgotten.",
 	NOT_FORGOTTEN = "%s is not forgotten.",
-	FORGOTTEN_LIST = "Forgotten: %s",
+	FORGOTTEN_LIST = "Forgotten on this character: %s",
 	FORGET_FULL_NAME = "Type the character's full name, first and last: /mnemosyne forget <character>",
 	FORGOTTEN_NONE = "No character is forgotten. Type a character's full name: /mnemosyne forget <character>",
 	NEWER_VERSION = "A newer Mnemosyne exists: update it, or some messages from other players stay ignored.",

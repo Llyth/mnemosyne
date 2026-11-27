@@ -265,8 +265,8 @@ end
 -- ignoring case and accents, as a player may type it.
 -- characters: this account's characters (Self), told apart by GUID; none when
 -- left out. Each identity held with the GUID Self knows for its name is taken
--- as seen with it (ownSeen): a 1.4.x memory, copied, could hold one gone
--- stale there, which this character, never online with it, would never see.
+-- as seen with it (ownSeen): the seed (Seed) could hold one gone stale
+-- there, which this character, never online with it, would never see.
 function Memory.new(saved, clock, forgotten, characters)
 	saved.identities = saved.identities or {}
 	saved.newFrom = saved.newFrom or {} -- counts every change, not only new ones (key kept)
@@ -327,9 +327,10 @@ function Memory.new(saved, clock, forgotten, characters)
 	return self
 end
 
--- A copy of a memory's saved table (as Memory.new takes it) for another of
--- the account's characters to start from (decision 0001): every identity but
--- the disputed ones (so the copy takes the honest copy the source refuses),
+-- A memory's saved table copied whole (as Memory.new takes it), for another
+-- of the account's characters to start from (the seed, decision 0001): every
+-- identity but the disputed ones (so the character takes the honest copy of
+-- one the source refuses),
 -- each its own table, as see changes one in place; not the daily counts of
 -- each peer.
 function Memory.copy(saved)
@@ -709,8 +710,8 @@ function Memory:forget(name)
 end
 
 -- Drops every identity, every forgotten character and every peer's daily
--- count: a character new since the update starts empty, not from the copy
--- of the account's memory it was given before its name was known (Seed).
+-- count: a character new since the update starts empty, not from the seed
+-- it was given before its name was known (Seed).
 function Memory:empty()
 	for name in pairs(self.identities) do
 		store(self, name, nil)

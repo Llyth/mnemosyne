@@ -554,7 +554,7 @@ describe("Recognition", function()
 				settings.showSecondHand = false
 				local lines = recognition:statusLines({}, 3)
 				assert.same({
-					"Identities known: 1",
+					"Identities this character knows: 1",
 					"Your characters: 2 registered, 1 anonymous",
 					"Peers heard this session: 3",
 				}, { lines[1], lines[2], lines[3] })

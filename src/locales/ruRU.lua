@@ -55,7 +55,7 @@ L.OPEN_PROFESSIONS =
 -- The other commands.
 L.HELP_LOOKUP =
 	"/mnemosyne lookup <текст>: найти персонажей по имени или прозвищу"
-L.HELP_STATUS = "/mnemosyne status: что хранит ваша память"
+L.HELP_STATUS = "/mnemosyne status: что хранит память этого персонажа"
 L.HELP_DEBUG = "/mnemosyne debug: выводить в окно чата каждое отправленное и полученное сообщение или прекратить; "
 	.. "/mnemosyne debug copy: журнал в окне для копирования"
 L.HELP_HELP = "/mnemosyne help: этот список"
@@ -64,7 +64,7 @@ L.LOOKUP_EMPTY =
 L.LOOKUP_NONE = "Нет известных персонажей по запросу «%s»."
 L.LOOKUP_FOUND = "%s: игрок %s"
 L.LOOKUP_MORE = "...и еще %d. Введите больше букв имени, чтобы сузить поиск."
-L.STATUS_IDENTITIES = "Известных личностей: %d"
+L.STATUS_IDENTITIES = "Личностей, известных этому персонажу: %d"
 L.STATUS_CHARACTERS =
 	"Ваши персонажи: зарегистрированных – %d, анонимных – %d"
 L.STATUS_REGISTERED = "Этот персонаж: зарегистрирован под прозвищем %s"
@@ -106,7 +106,7 @@ L.SECOND_HAND = "~%s" -- a nickname heard second-hand: "~Tony"
 L.HEARD_FROM = "Источник: %s"
 L.LOOKUP_FOUND_SECOND_HAND = "%s: игрок %s, источник: %s" -- the nickname marked as SECOND_HAND
 L.HELP_SYNC =
-	"/mnemosyne sync: сверить вашу память с участниками, доступными сейчас"
+	"/mnemosyne sync: сверить память этого персонажа с участниками, доступными сейчас"
 L.SYNC_STARTED =
 	"Синхронизация с %d |4участником:участниками:участниками;."
 L.SYNC_NONE = "Сейчас не с кем синхронизироваться: в этом сеансе не было слышно ни одного участника, "
@@ -117,15 +117,15 @@ L.HELP_SYNC_RESET = "/mnemosyne sync reset: забыть, когда вы син
 L.SYNC_RESET = "Ожидание между синхронизациями сброшено с вашей стороны. Другой игрок тоже должен ввести "
 	.. "/mnemosyne sync reset, прежде чем вы сможете снова синхронизироваться."
 -- Forgetting.
-L.HELP_FORGET = "/mnemosyne forget <персонаж>: удалить прозвище персонажа "
+L.HELP_FORGET = "/mnemosyne forget <персонаж>: только на этом персонаже удалить прозвище персонажа "
 	.. "и отвергать то, что о нем передают другие"
 L.HELP_UNFORGET = "/mnemosyne unforget <персонаж>: отменить forget"
-L.FORGOTTEN = "Персонаж %s забыт. Теперь учитывается только то, что он говорит о себе сам, "
+L.FORGOTTEN = "Персонаж %s забыт этим персонажем. Теперь учитывается только то, что он говорит о себе сам, "
 	.. "до /mnemosyne unforget %s."
 L.ALREADY_FORGOTTEN = "Персонаж %s уже забыт."
 L.UNFORGOTTEN = "Персонаж %s больше не забыт."
 L.NOT_FORGOTTEN = "Персонаж %s не забыт."
-L.FORGOTTEN_LIST = "Забытые: %s"
+L.FORGOTTEN_LIST = "Забытые этим персонажем: %s"
 L.FORGET_FULL_NAME =
 	"Введите полное имя персонажа, имя и фамилию: /mnemosyne forget <персонаж>"
 L.FORGOTTEN_NONE =
