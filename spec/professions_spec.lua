@@ -796,9 +796,32 @@ describe("Professions", function()
 		it("passes on an anonymous or unregistered character's removals while it syncs itself", function()
 			withdrawTwo()
 			played = "Dee Zaster"
+			professions:prepare()
 			assert.same({ "Dee Zaster 171" }, names(professions:answer("Anna Conda", other():digest("Barb Dwyer"))))
 			played = "Ella Vator"
+			professions:prepare()
 			assert.same({ "Ella Vator 171" }, names(professions:answer("Anna Conda", other():digest("Barb Dwyer"))))
+		end)
+
+		it(
+			"never stamps nor keeps its anonymous or unregistered characters' professions while another syncs",
+			function()
+				seeLists(professions, scope, {}, { "Dee Zaster", "Ella Vator", "Anna Conda" })
+				withdrawTwo()
+				characters.stamped = {}
+				professions:prepare()
+				assert.same({ "Bea Bop" }, characters.stamped)
+				-- Their removals, as a peer drops them with their identities' removals.
+				assert.same({}, { saved.held["Dee Zaster"], saved.held["Ella Vator"] })
+			end
+		)
+
+		it("takes peers' copies of its anonymous or unregistered characters' professions as anyone's", function()
+			characters.anonymous["Hugh Jass"] = true
+			characters.unregistered["Cole Slaw"] = true
+			assert.is_true(professions:hear("Anna Conda", alchemy()))
+			local removal = { name = "Cole Slaw", skillLine = ALCHEMY, revision = 900 }
+			assert.is_true(professions:hear("Anna Conda", removal))
 		end)
 
 		it("makes a peer that heard a character first-hand drop its professions once it syncs anonymous", function()
@@ -913,6 +936,15 @@ describe("Professions", function()
 				seeLists(professions, scope, {}, ROSTER)
 				settings.passOn = false
 				assert.same({}, professions:answer("Anna Conda", other(ROSTER):digest("Barb Dwyer")))
+			end)
+
+			it("drops, as anyone's, the account's other characters' professions once it holds a removal", function()
+				seeLists(professions, scope, {}, ROSTER)
+				memory:hear("Dee Zaster", { revision = 2000, source = "Cole Slaw" })
+				seeLists(professions, scope, {}, ROSTER)
+				assert.is_nil(saved.held["Dee Zaster"])
+				memory:hear("Dee Zaster", { nickname = "Dee", revision = 3000, source = "Cole Slaw" })
+				assert.equal(other(ROSTER):digest("Barb Dwyer"), professions:digest("Anna Conda"))
 			end)
 
 			it("leaves out of its digest the account's character whose identity it holds as a removal", function()
