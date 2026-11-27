@@ -19,16 +19,35 @@ describe("Professions", function()
 	-- This account's characters, as Self gives them (the contract of #91): each
 	-- name's registration (registered with a nickname, anonymous or
 	-- unregistered), its professions as stamped (owned, a removal without a
-	-- level) and as read now (current), and the GUID it was played with (guids).
+	-- level) and as read now (current), the GUID it was played with (guids),
+	-- and the names another player's character has taken (taken).
 	local function newCharacters()
-		local stub =
-			{ owned = {}, current = {}, registered = {}, anonymous = {}, unregistered = {}, stamped = {}, guids = {} }
+		local stub = {
+			owned = {},
+			current = {},
+			registered = {},
+			anonymous = {},
+			unregistered = {},
+			stamped = {},
+			guids = {},
+			taken = {},
+		}
 		function stub:guid(name)
 			return self.guids[name]
 		end
 		function stub:owns(name, guid)
 			local mine = self.registered[name] or self.anonymous[name] or self.unregistered[name] or self.guids[name]
-			return mine ~= nil and not (guid and self.guids[name] and guid ~= self.guids[name])
+			if mine == nil then
+				return false
+			elseif guid and self.guids[name] then
+				return guid == self.guids[name]
+			end
+			return not self.taken[name]
+		end
+		function stub:seeName(name, guid)
+			if self.guids[name] and guid ~= self.guids[name] then
+				self.taken[name] = true
+			end
 		end
 		function stub:withProfessions()
 			local found = {}
@@ -633,6 +652,63 @@ describe("Professions", function()
 			local found = shown("Hugh Jass")
 			assert.same({ 1, 75, true }, { #found, found[1] and found[1].level, found[1] and found[1].firstHand })
 			assert.is_nil(found[1].own)
+		end)
+
+		it("leaves a taken name to the character that took it, though a peer passed on yours first", function()
+			characters.registered["Hugh Jass"] = "Tony" -- deleted since
+			characters.guids["Hugh Jass"] = "Player-1-0000000A"
+			characters.owned["Hugh Jass"] = { { skillLine = ALCHEMY, level = 300, maxLevel = 300, revision = 2000 } }
+			played = "Bo Nanza" -- not registered: your other characters go and come as anyone's
+			local passed = alchemy(1800) -- your character's, from a peer that held it, with its GUID
+			passed.guid = "Player-1-0000000A"
+			assert.is_true(professions:hear("Anna Conda", passed))
+			assert.is_true(professions:hear("Hugh Jass", {
+				name = "Hugh Jass",
+				skillLine = TAILORING,
+				level = 10,
+				maxLevel = 75,
+				revision = 1900,
+				guid = "Player-1-0000000B",
+			}))
+			played = "Bea Bop"
+			professions:prepare()
+			local held = saved.held["Hugh Jass"]
+			assert.same(
+				{ "Player-1-0000000B", 10 },
+				{ held.guid, held.skills[TAILORING] and held.skills[TAILORING].level }
+			)
+			assert.is_nil(held.own)
+			assert.same({ "Hugh Jass 197" }, names(professions:answer("Anna Conda", other():digest("Barb Dwyer"))))
+		end)
+
+		it("keeps a taken name the other character's once its professions are dropped", function()
+			characters.registered["Dee Zaster"] = "Dee" -- off the roster: the character that took it too
+			characters.guids["Dee Zaster"] = "Player-1-0000000A"
+			characters.owned["Dee Zaster"] = { { skillLine = ALCHEMY, level = 100, maxLevel = 150, revision = 1500 } }
+			professions:prepare()
+			professions:see("Dee Zaster", "Player-1-0000000B") -- another player's character, in /say
+			professions:prepare()
+			assert.is_nil(saved.held["Dee Zaster"])
+			professions:prepare() -- the next sync
+			assert.is_nil(saved.held["Dee Zaster"])
+			assert.same({}, professions:answer("Anna Conda", other():digest("Barb Dwyer")))
+		end)
+
+		it("takes peers' copies of the professions of a character that took a name of yours, as anyone's", function()
+			characters.registered["Hugh Jass"] = "Tony"
+			characters.guids["Hugh Jass"] = "Player-1-0000000A"
+			characters.owned["Hugh Jass"] = { { skillLine = ALCHEMY, level = 100, maxLevel = 150, revision = 1500 } }
+			professions:prepare()
+			professions:see("Hugh Jass", "Player-1-0000000B")
+			professions:prepare()
+			assert.is_true(professions:hear("Anna Conda", {
+				name = "Hugh Jass",
+				skillLine = TAILORING,
+				level = 10,
+				maxLevel = 75,
+				revision = 1600,
+				guid = "Player-1-0000000B",
+			}))
 		end)
 
 		it(

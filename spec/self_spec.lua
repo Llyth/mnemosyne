@@ -161,6 +161,30 @@ describe("Self", function()
 			characters:see("Hugh Jass", GUID)
 			assert.is_false(characters:owns("Hugh Jass", OTHER))
 		end)
+
+		it("remembers a name of its characters seen with another GUID as taken, until it is played again", function()
+			characters:register("Hugh Jass", "Tony")
+			characters:see("Hugh Jass", GUID)
+			characters:seeName("Hugh Jass", GUID)
+			assert.is_true(characters:owns("Hugh Jass"))
+			characters:seeName("Hugh Jass", OTHER) -- another player's character took the name
+			characters:seeName("Anna Conda", OTHER) -- not one of its characters
+			local loaded = Self.new(saved, clock, settings)
+			assert.same({ false, false, true, false }, {
+				loaded:owns("Hugh Jass"),
+				loaded:owns("Hugh Jass", OTHER),
+				loaded:owns("Hugh Jass", GUID),
+				loaded:owns("Anna Conda"),
+			})
+			loaded:see("Hugh Jass", "Player-1-00000003") -- a character of the account takes the name again
+			assert.is_true(loaded:owns("Hugh Jass"))
+		end)
+
+		it("never takes a name of a character never played since GUIDs were kept as taken", function()
+			characters:keepAnonymous("Anna Conda")
+			characters:seeName("Anna Conda", OTHER)
+			assert.is_true(characters:owns("Anna Conda"))
+		end)
 	end)
 
 	describe("states", function()

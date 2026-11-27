@@ -116,10 +116,25 @@ end
 -- Remembers the GUID of a character as it is played: its full name can come
 -- back on another player's character once it is deleted or renamed (decision
 -- 0003). A character saved before Mnemosyne kept it has none until played.
+-- Played, the name is this account's again (seeName).
 function Self:see(name, guid)
 	local character = self.characters[name] or {}
 	self.characters[name] = character
 	character.guid = guid
+	character.taken = nil
+end
+
+-- Sees a full name with a GUID, as the game shows it (a chat line, a group
+-- member) or as its character tells it of itself (first-hand), never as a peer
+-- passes it on. Under a GUID other than the one one of this account's
+-- characters had when last played, another player's character has taken the
+-- name: remembered account-wide, so every character of the account leaves it
+-- to that character (owns) until the name is played again (see).
+function Self:seeName(name, guid)
+	local character = self.characters[name]
+	if character and character.guid and guid ~= character.guid then
+		character.taken = true
+	end
 end
 
 -- The GUID a character had when last played, or nil when unknown.
@@ -129,14 +144,19 @@ function Self:guid(name)
 end
 
 -- Whether a full name is one of this account's characters, given the GUID
--- seen for it (nil when none): by name while either GUID is unknown; not when
--- the GUID seen is another than the one the character had when last played,
--- as another player's character has taken its name (decision 0003). Ask with
--- a GUID the game gave or a character told of itself, never one a peer passed
--- on: a peer's word on another character's GUID is no proof.
+-- seen for it (nil when none): when both GUIDs are known, whether the GUID
+-- seen is the one the character had when last played; else by name, unless
+-- another player's character was seen to take it (seeName, decision 0003).
+-- Ask with a GUID the game gave or a character told of itself, never one a
+-- peer passed on: a peer's word on another character's GUID is no proof.
 function Self:owns(name, guid)
 	local character = self.characters[name]
-	return character ~= nil and not (guid and character.guid and guid ~= character.guid)
+	if not character then
+		return false
+	elseif guid and character.guid then
+		return guid == character.guid
+	end
+	return not character.taken
 end
 
 -- A character's state: "notAsked", "registered", "anonymous" or "unregistered".
