@@ -611,6 +611,7 @@ function handlers.ADDON_LOADED(name)
 		version = function()
 			return Client.VERSION
 		end,
+		paused = Client.isPaused,
 	})
 	ns.recognition = ns.Recognition.new(ns.memory, db.settings, ns.L, GetServerTime, ns.characters, ns.professions)
 	-- The debug report (src/core/Report.lua): its events, the caught errors, and
@@ -644,7 +645,8 @@ function handlers.PLAYER_LOGIN()
 	recheckRecipes()
 	redraw(findRecipes())
 	C_Timer.NewTicker(SYNC_TICK, function()
-		sendSync(ns.sync:tick())
+		-- In combat or lockdown it only cuts: the waiting syncs start after.
+		sendSync(ns.sync:tick(Client.isPaused()))
 	end)
 	C_Timer.NewTicker(NEWS_TICK, postNews)
 	for _, channel in ipairs({ "GUILD", "GROUP" }) do

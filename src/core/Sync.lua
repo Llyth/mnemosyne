@@ -370,13 +370,14 @@ local function startWaiting(self, now)
 end
 
 -- Asks for a sync with a peer, heard at the time heard (it orders the waiting
--- list). Returns what to send, and whether the sync started or waits.
-function Sync:request(peer, heard)
+-- list). Returns what to send, and whether the sync started or waits. While
+-- paused (combat or lockdown, when nothing would go out), it waits.
+function Sync:request(peer, heard, paused)
 	local now = self.clock()
 	if self.sessions[peer] or refuses(self, peer, now) then
 		return {}, false
 	end
-	if running(self) >= Sync.MAX_RUNNING then
+	if paused or running(self) >= Sync.MAX_RUNNING then
 		return {}, wait(self, peer, heard)
 	end
 	local outgoing = {}
@@ -498,8 +499,10 @@ function Sync:receive(peer, message)
 end
 
 -- Cuts the syncs whose peer went quiet or that last too long, and starts
--- waiting ones. Returns what to send. Client calls it every few seconds.
-function Sync:tick()
+-- waiting ones, but not while paused (combat or lockdown: what they send
+-- would wait, and starting one costs). Returns what to send. Client calls it
+-- every few seconds.
+function Sync:tick(paused)
 	local now = self.clock()
 	for peer, session in pairs(self.sessions) do
 		if now - session.active >= Sync.TIMEOUT or now - session.started >= Sync.MAX_DURATION then
@@ -520,6 +523,9 @@ function Sync:tick()
 		if now - ended.at >= Sync.TIMEOUT then
 			self.endedAt[peer] = nil
 		end
+	end
+	if paused then
+		return {}
 	end
 	return whole(self, startWaiting(self, now))
 end
