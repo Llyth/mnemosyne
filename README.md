@@ -153,8 +153,8 @@ the minimap and `/mnemosyne settings` open it too. It has:
   Unregister and Keep anonymous, working like the commands and the first-login
   question. A trial account sees why it cannot register.
 - **Options**, the switches: **Show on tooltips**, **Show in chat**, **Show
-  second-hand**, **Pass on what I know**, **Share my professions**, **Ask
-  strangers** and **Offer a report after an error**, on until you turn them off, and **Talk with everyone**, off
+  second-hand**, **Pass on what I know**, **Share my professions**, **Share my
+  progress**, **Ask strangers** and **Offer a report after an error**, on until you turn them off, and **Talk with everyone**, off
   until you turn it on (see [Privacy](#privacy)). Each is saved for all your characters and applies at
   once.
 - **Status**: what `/mnemosyne status` says, and a **Report a bug** button that
@@ -240,6 +240,12 @@ within an hour (a guildmate) or 6 hours of the last one, so professions don't wa
 friends' only, dropped once a character has gone 30 days unseen on your roster
 or online as a friend's. The **Professions** tab of Mnemosyne's window shows
 them (see [Using it](#using-it)).
+
+Mnemosyne also shares each registered character's progress (its attunements,
+entrance keys and summoning items) with your guildmates and friends who have
+Mnemosyne, shown in the **Progress** tab of Mnemosyne's window. **Share my
+progress**, on by default for all your characters, shares it the way **Share my
+professions** shares professions; off, other players forget it.
 
 Forgetting a character (`/mnemosyne forget`) removes it from the memory of the
 character you play and keeps what other players pass on about it out until you

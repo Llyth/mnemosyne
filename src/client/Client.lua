@@ -351,6 +351,7 @@ local DEFAULTS = {
 	everyone = false, -- "Talk with everyone": off, only friends and guildmates (decision 0007)
 	offerReport = true, -- offer the debug report after an error
 	shareProfessions = true, -- "Share my professions" (decision 0008)
+	shareProgress = true, -- "Share my progress" (decision 0009)
 }
 Client.DEFAULTS = DEFAULTS
 

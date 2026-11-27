@@ -127,6 +127,9 @@ ns.L = {
 	PANEL_SHARE_PROFESSIONS = "Share my professions",
 	PANEL_SHARE_PROFESSIONS_HELP = "Share your registered characters' professions (skill levels and learned recipes) "
 		.. "with the players who have Mnemosyne in your guild and among your friends. Off, they forget them.",
+	PANEL_SHARE_PROGRESS = "Share my progress",
+	PANEL_SHARE_PROGRESS_HELP = "Share your registered characters' progress (attunements, entrance keys and summoning "
+		.. "items) with the players who have Mnemosyne in your guild and among your friends. Off, they forget it.",
 	PANEL_EVERYONE = "Talk with everyone",
 	PANEL_EVERYONE_HELP = "Off, Mnemosyne talks only with your friends (your friend list and your Battle.net "
 		.. "friends) and your guild. On, also with your groups and with anyone you hover or target.",
