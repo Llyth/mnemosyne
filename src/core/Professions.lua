@@ -351,14 +351,16 @@ function Professions:prepare()
 	self:prune()
 end
 
--- Whether a character's professions go to a peer: this account's characters'
--- to a peer seen lately (on the roster or a friend), which keeps them; to a
--- guildmate, also the roster's while passing on is on.
+-- Whether a character's professions go to a peer, or come from it: this
+-- account's characters' to a peer seen lately (on the roster or a friend),
+-- which keeps them; to a guildmate, also the roster's. Passing on is left
+-- aside, so both sides' digests compare the same set: Professions:answer
+-- leaves the roster's out while it is off.
 local function goesTo(self, peer, name, character, now)
 	if character.own then
 		return seenLately(self, peer, now)
 	end
-	return (self.settings.passOn and self.roster[peer] and self.roster[name]) or false
+	return (self.roster[peer] and self.roster[name]) or false
 end
 
 local function bucketOf(name)
@@ -401,7 +403,8 @@ function Professions:digest(peer)
 end
 
 -- What to pass on to a peer, from its digest: the professions that go to it,
--- in buckets whose digest differs, never a disputed or stale one; at most
+-- in buckets whose digest differs, never a disputed or stale one, and only
+-- this account's characters' while passing on is off; at most
 -- 100 KB, the first-hand ones changed in the past day first, the latest
 -- first, then the rest from a point that moves with the clock. Each is
 -- { name, skillLine, revision, level, maxLevel, recipes, guid }, a removal
@@ -416,8 +419,9 @@ function Professions:answer(peer, digest)
 		if mine:sub(first, last) ~= digest:sub(first, last) then
 			for _, name in ipairs(names[bucket]) do
 				local character = self.held[name]
+				local passes = character.own or self.settings.passOn
 				for skillLine, profession in pairs(character.skills) do
-					if not profession.disputed and not profession.stale then
+					if passes and not profession.disputed and not profession.stale then
 						local passed = {
 							name = name,
 							skillLine = skillLine,
