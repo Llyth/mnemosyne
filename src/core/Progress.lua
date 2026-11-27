@@ -13,6 +13,7 @@ local _, ns = ...
 
 local Copies = ns.Copies
 local Milestones = ns.Milestones
+local Protocol = ns.Protocol
 
 local Progress = setmetatable({}, { __index = Copies })
 Progress.__index = Progress
@@ -28,24 +29,13 @@ for _, milestone in ipairs(Milestones.LIST) do
 end
 Progress.KEY = "milestone"
 Progress.FIELDS = { "state", "item", "quest", "gems" } -- a removal has no state
+Progress.write = Protocol.writeMilestone
 
 -- saved: the table Progress keeps its milestones in
 -- (MnemosyneCharacterDB.progress).
 -- clock, memory, characters, settings, scope, playerName: as Copies.new takes them.
 function Progress.new(saved, clock, memory, characters, settings, scope, playerName)
 	return Copies.new(Progress, saved, clock, memory, characters, settings, scope, playerName)
-end
-
--- shortcut: the text a milestone passed on takes, for its size in an answer,
--- until Protocol writes progress; then Protocol's writer replaces it.
-function Progress.write(passed)
-	local text = passed.revision .. ":" .. passed.name .. ":" .. passed.milestone
-	if passed.state then
-		text = text
-			.. ":"
-			.. table.concat({ passed.state, passed.item or "", passed.quest or "", passed.gems or "" }, ":")
-	end
-	return text .. (passed.guid and "\nG:" .. passed.guid or "")
 end
 
 -- This account's characters' progress, as Self reads it (Copies' hooks):

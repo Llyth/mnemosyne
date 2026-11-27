@@ -1,7 +1,17 @@
-local ns =
-	require("spec.helpers.addon")("Protocol", "Digest", "Memory", "Self", "Scope", "Copies", "Professions", "Sync")
-local Memory, Professions, Protocol, Scope, Self, Sync =
-	ns.Memory, ns.Professions, ns.Protocol, ns.Scope, ns.Self, ns.Sync
+local ns = require("spec.helpers.addon")(
+	"Protocol",
+	"Digest",
+	"Memory",
+	"Self",
+	"Scope",
+	"Copies",
+	"Professions",
+	"Milestones",
+	"Progress",
+	"Sync"
+)
+local Memory, Professions, Progress, Protocol, Scope, Self, Sync =
+	ns.Memory, ns.Professions, ns.Progress, ns.Protocol, ns.Scope, ns.Self, ns.Sync
 
 describe("Sync", function()
 	local HOUR = 60 * 60
@@ -24,7 +34,7 @@ describe("Sync", function()
 		settings = { passOn = true }
 		characters = Self.new({}, clock)
 		played = "Bea Bop"
-		sync = Sync.new(saved, clock, memory, settings, nil, nil, playing)
+		sync = Sync.new(saved, clock, memory, settings, nil, nil, nil, playing)
 	end)
 
 	-- Reads what Sync sends the way the peer gets it, chunks put together.
@@ -156,7 +166,7 @@ describe("Sync", function()
 
 	describe("answering lazily", function()
 		local function lazySync()
-			return Sync.new({}, clock, memory, settings, nil, nil, playing, nil, true)
+			return Sync.new({}, clock, memory, settings, nil, nil, nil, playing, nil, true)
 		end
 
 		-- Asks each lazy answer for its messages until it is over, as the queue
@@ -517,7 +527,7 @@ describe("Sync", function()
 	it("syncs with a guildmate again after an hour, without professions too", function()
 		local scope = Scope.new({})
 		scope:see({}, { "Barb Dwyer" })
-		sync = Sync.new(saved, clock, memory, settings, nil, nil, playing, scope)
+		sync = Sync.new(saved, clock, memory, settings, nil, nil, nil, playing, scope)
 		syncWith("Barb Dwyer")
 		now = now + HOUR - 1
 		assert.same({ {}, false }, { sync:request("Barb Dwyer", now) })
@@ -527,7 +537,7 @@ describe("Sync", function()
 
 	it("remembers when it synced with a peer across a reload", function()
 		syncWith("Barb Dwyer")
-		sync = Sync.new(saved, clock, memory, settings, nil, nil, playing)
+		sync = Sync.new(saved, clock, memory, settings, nil, nil, nil, playing)
 		assert.same({}, sync:request("Barb Dwyer", now))
 	end)
 
@@ -566,7 +576,7 @@ describe("Sync", function()
 	it("lets go at load the syncs saved before each character kept its own, at most one more sync each", function()
 		saved["Barb Dwyer"] = now - 60
 		local early = { ["Barb Dwyer"] = "synced" }
-		sync = Sync.new(saved, clock, memory, settings, nil, early, playing)
+		sync = Sync.new(saved, clock, memory, settings, nil, nil, early, playing)
 		assert.same({ {}, {} }, { saved, early })
 		local _, accepted = sync:request("Barb Dwyer", now)
 		assert.is_true(accepted)
@@ -839,7 +849,7 @@ describe("Sync", function()
 
 	it("leaves the early syncs alone when the cooldowns are reset", function()
 		local early = { ["Bea Bop"] = { ["Barb Dwyer"] = "synced" } }
-		sync = Sync.new(saved, clock, memory, settings, nil, early, playing)
+		sync = Sync.new(saved, clock, memory, settings, nil, nil, early, playing)
 		sync:resetCooldowns()
 		assert.same({ ["Bea Bop"] = { ["Barb Dwyer"] = "synced" } }, early)
 	end)
@@ -878,7 +888,7 @@ describe("Sync", function()
 			scope:see({}, { "Barb Dwyer", "Hugh Jass" })
 			professions:seeLists()
 			early = {}
-			sync = Sync.new(saved, clock, memory, settings, professions, early, playing, scope)
+			sync = Sync.new(saved, clock, memory, settings, professions, nil, early, playing, scope)
 		end)
 
 		it("sends the digest of its professions just before its digest, its own stamped first", function()
@@ -1162,10 +1172,188 @@ describe("Sync", function()
 					assert.is_true(#outgoing > 1)
 					sync:receive("Barb Dwyer", { kind = "done" })
 					now = now + HOUR / 2
-					sync = Sync.new(saved, clock, memory, settings, professions, early, playing, scope)
+					sync = Sync.new(saved, clock, memory, settings, professions, nil, early, playing, scope)
 					assert.same({ {}, false }, { sync:request("Barb Dwyer", now) })
 					outgoing = sync:receive("Barb Dwyer", { kind = "digest", digest = emptyDigest() })
 					assert.same({ "Barb Dwyer done" }, sent(outgoing))
+				end
+			)
+		end)
+	end)
+
+	describe("with progress", function()
+		local scope, professions, progress, early
+		local NONE = string.rep("0", Protocol.DIGEST_LENGTH)
+		local direMaul = { name = "Hugh Jass", milestone = 4, revision = 900, state = "done", item = 18249 }
+
+		before_each(function()
+			characters = Self.new({}, clock, {})
+			characters:register("Dee Zaster", "Dee")
+			characters:seeProfessions("Dee Zaster", { { skillLine = 171, level = 5, maxLevel = 75 } })
+			characters:seeProgress("Dee Zaster", { [4] = { state = "done", item = 18249 } })
+			scope = Scope.new(settings)
+			professions = Professions.new({}, clock, memory, characters, settings, scope)
+			progress = Progress.new({}, clock, memory, characters, settings, scope)
+			scope:see({}, { "Barb Dwyer", "Hugh Jass" })
+			professions:seeLists()
+			progress:seeLists()
+			early = {}
+			sync = Sync.new(saved, clock, memory, settings, professions, progress, early, playing, scope)
+		end)
+
+		local function hasMilestone(name)
+			for _, milestone in ipairs(progress:list()) do
+				if milestone.name == name then
+					return true
+				end
+			end
+			return false
+		end
+
+		it("sends the digest of its progress after that of its professions, just before its digest", function()
+			assert.same(
+				{ "Barb Dwyer professionDigest", "Barb Dwyer progressDigest", "Barb Dwyer digest" },
+				sent(sync:request("Barb Dwyer", now))
+			)
+		end)
+
+		it("passes on the progress the peer lacks after the professions, then the end of its part", function()
+			progress:hear("Cole Slaw", direMaul)
+			sync:receive("Barb Dwyer", { kind = "professionDigest", digest = NONE })
+			sync:receive("Barb Dwyer", { kind = "progressDigest", digest = NONE })
+			local outgoing = sync:receive("Barb Dwyer", { kind = "digest", digest = emptyDigest() })
+			assert.same({
+				"Barb Dwyer professionDigest",
+				"Barb Dwyer progressDigest",
+				"Barb Dwyer digest",
+				"Barb Dwyer identities",
+				"Barb Dwyer professions",
+				"Barb Dwyer progress",
+				"Barb Dwyer done",
+			}, sent(outgoing))
+			local names = {}
+			for _, passed in ipairs(decode(outgoing[6].text).progress) do
+				names[passed.name] = true
+			end
+			assert.same({ ["Dee Zaster"] = true, ["Hugh Jass"] = true }, names)
+		end)
+
+		it("passes on identities and professions only to an older peer, which sends no digest of progress", function()
+			progress:hear("Cole Slaw", direMaul)
+			sync:receive("Barb Dwyer", { kind = "professionDigest", digest = NONE })
+			local outgoing = sync:receive("Barb Dwyer", { kind = "digest", digest = emptyDigest() })
+			assert.same({
+				"Barb Dwyer professionDigest",
+				"Barb Dwyer progressDigest",
+				"Barb Dwyer digest",
+				"Barb Dwyer identities",
+				"Barb Dwyer professions",
+				"Barb Dwyer done",
+			}, sent(outgoing))
+			assert.same({}, sent(sync:receive("Barb Dwyer", { kind = "done" })))
+		end)
+
+		it("passes on progress when the peer's digest of progress comes after its digest, once", function()
+			progress:hear("Cole Slaw", direMaul)
+			sync:receive("Barb Dwyer", { kind = "digest", digest = emptyDigest() })
+			local outgoing = sync:receive("Barb Dwyer", { kind = "progressDigest", digest = NONE })
+			assert.same({ "Barb Dwyer progress" }, sent(outgoing))
+			assert.same({}, sent(sync:receive("Barb Dwyer", { kind = "progressDigest", digest = NONE })))
+		end)
+
+		it("learns progress second-hand only inside a sync with the peer, and within 2 minutes of its done", function()
+			local message = { kind = "progress", progress = { direMaul } }
+			sync:receive("Barb Dwyer", message)
+			assert.is_false(hasMilestone("Hugh Jass"))
+			sync:request("Barb Dwyer", now)
+			sync:receive("Barb Dwyer", { kind = "digest", digest = emptyDigest() })
+			sync:receive("Barb Dwyer", { kind = "done" })
+			sync:receive("Barb Dwyer", message)
+			assert.is_true(hasMilestone("Hugh Jass"))
+			assert.equal("Barb Dwyer", progress:list()[2].source)
+			now = now + Sync.TIMEOUT
+			sync:tick()
+			sync:receive("Barb Dwyer", {
+				kind = "progress",
+				progress = { { name = "Hugh Jass", milestone = 7, revision = 900, state = "done" } },
+			})
+			assert.equal(2, #progress:list())
+		end)
+
+		it("forgets a digest of progress whose digest did not follow within 2 minutes", function()
+			progress:hear("Cole Slaw", direMaul)
+			sync:receive("Barb Dwyer", { kind = "progressDigest", digest = NONE })
+			now = now + Sync.TIMEOUT
+			sync:tick()
+			local outgoing = sync:receive("Barb Dwyer", { kind = "digest", digest = emptyDigest() })
+			assert.is_false(sent(outgoing)[5] == "Barb Dwyer progress")
+		end)
+
+		it("ignores progress and its digest without Progress, as an older version would", function()
+			sync = Sync.new(saved, clock, memory, settings, professions, nil, early, playing, scope)
+			assert.same({}, sync:receive("Barb Dwyer", { kind = "progressDigest", digest = NONE }))
+			local outgoing = sync:receive("Barb Dwyer", { kind = "digest", digest = emptyDigest() })
+			assert.same({
+				"Barb Dwyer professionDigest",
+				"Barb Dwyer digest",
+				"Barb Dwyer identities",
+				"Barb Dwyer done",
+			}, sent(outgoing))
+			sync:receive("Barb Dwyer", { kind = "progress", progress = { direMaul } })
+			assert.is_false(hasMilestone("Hugh Jass"))
+		end)
+
+		describe("with a peer it synced with lately", function()
+			before_each(function()
+				saved[played] = { ["Barb Dwyer"] = now - HOUR / 2 }
+			end)
+
+			it("syncs once more early with a peer whose professions it heard, but never its progress", function()
+				early[played] = { ["Barb Dwyer"] = "heard" } -- saved before this side shared progress
+				local outgoing, accepted = sync:request("Barb Dwyer", now)
+				assert.is_true(accepted)
+				assert.same(
+					{ "Barb Dwyer professionDigest", "Barb Dwyer progressDigest", "Barb Dwyer digest" },
+					sent(outgoing)
+				)
+				sync:receive("Barb Dwyer", { kind = "professionDigest", digest = NONE })
+				sync:receive("Barb Dwyer", { kind = "digest", digest = emptyDigest() })
+				sync:receive("Barb Dwyer", { kind = "done" })
+				now = now + HOUR / 4
+				assert.same({ {}, false }, { sync:request("Barb Dwyer", now) })
+			end)
+
+			it("keeps the cooldown with a peer a later version marked, as one whose progress it heard", function()
+				early[played] = { ["Barb Dwyer"] = "achievements" } -- a later release's mark, then a downgrade
+				assert.same({ {}, false }, { sync:request("Barb Dwyer", now) })
+			end)
+
+			it("keeps the cooldown with a peer whose progress it heard", function()
+				saved[played] = nil
+				sync:request("Barb Dwyer", now)
+				sync:receive("Barb Dwyer", { kind = "progressDigest", digest = NONE })
+				sync:receive("Barb Dwyer", { kind = "digest", digest = emptyDigest() })
+				sync:receive("Barb Dwyer", { kind = "done" })
+				assert.equal("progress", early[played]["Barb Dwyer"])
+				now = now + HOUR / 2
+				assert.same({ {}, false }, { sync:request("Barb Dwyer", now) })
+			end)
+
+			it(
+				"syncs early only once with an older peer, which sends its professions but never its progress",
+				function()
+					saved[played] = nil
+					sync:request("Barb Dwyer", now)
+					sync:receive("Barb Dwyer", { kind = "professionDigest", digest = NONE })
+					sync:receive("Barb Dwyer", { kind = "digest", digest = emptyDigest() })
+					sync:receive("Barb Dwyer", { kind = "done" })
+					now = now + HOUR / 4
+					assert.is_true(select(2, sync:request("Barb Dwyer", now)))
+					sync:receive("Barb Dwyer", { kind = "professionDigest", digest = NONE })
+					sync:receive("Barb Dwyer", { kind = "digest", digest = emptyDigest() })
+					sync:receive("Barb Dwyer", { kind = "done" })
+					now = now + HOUR / 4
+					assert.same({ {}, false }, { sync:request("Barb Dwyer", now) })
 				end
 			)
 		end)

@@ -919,3 +919,159 @@ describe("Protocol for professions", function()
 		end)
 	end)
 end)
+
+describe("Protocol for progress", function()
+	local function readWhole(text)
+		local reader = Protocol.newReader(function()
+			return 0
+		end)
+		local message, why
+		for _, chunk in ipairs(Protocol.newWriter():split(text)) do
+			message, why = reader:read("Anna Conda", chunk)
+		end
+		return message, why
+	end
+
+	it("carries a digest of progress", function()
+		local digest = string.rep("0123456789abcdef", Protocol.DIGEST_LENGTH / 16)
+		local message = { kind = "progressDigest", digest = digest }
+		assert.same(message, readWhole(Protocol.write(message)))
+		assert.equal("2:O:", Protocol.write(message):sub(1, 4))
+	end)
+
+	it("carries milestones, a removal and one in progress included, with a GUID", function()
+		local message = {
+			kind = "progress",
+			progress = {
+				{ name = "Hugh Jass", milestone = 4, revision = 1731500000, state = "done", item = 18249 },
+				{
+					name = "Anna Conda",
+					milestone = 6,
+					revision = 7,
+					state = "progress",
+					item = 12219,
+					quest = 4742,
+					gems = 5,
+				},
+				{ name = "Cole Slaw", milestone = 1, revision = 8, state = "progress", guid = "Player-1-0000ABCD" },
+				{ name = "Dee Zaster", milestone = 3, revision = 9 },
+			},
+		}
+		assert.same(message, readWhole(Protocol.write(message)))
+	end)
+
+	it("writes a milestone with each field of its cell, empty when it has none", function()
+		assert.equal(
+			"7:Anna Conda:6:progress::4742:0\nG:Player-1-0000ABCD",
+			Protocol.writeMilestone({
+				name = "Anna Conda",
+				milestone = 6,
+				revision = 7,
+				state = "progress",
+				quest = 4742,
+				gems = 0,
+				guid = "Player-1-0000ABCD",
+			})
+		)
+		assert.equal("9:Dee Zaster:3", Protocol.writeMilestone({ name = "Dee Zaster", milestone = 3, revision = 9 }))
+	end)
+
+	it("passes on a milestone it does not know, for Progress to drop", function()
+		assert.same(
+			{ { name = "Hugh Jass", milestone = 999, revision = 1, state = "done", item = 123456 } },
+			readWhole("2:M:1:Hugh Jass:999:done:123456::").progress
+		)
+	end)
+
+	it("batches milestones in messages a peer reads whole", function()
+		local list = {}
+		for i = 1, 200 do
+			list[i] = {
+				name = "Name Number" .. i,
+				milestone = 6,
+				revision = 1731500000,
+				state = "progress",
+				item = 12219,
+				quest = 4742,
+				gems = 7,
+				guid = "Player-1-0000ABCD",
+			}
+		end
+		local count = 0
+		for _, batch in ipairs(Protocol.batchProgress(list)) do
+			local text = Protocol.write({ kind = "progress", progress = batch })
+			assert.is_true(#text <= Protocol.MAX_CHUNKED_BYTES)
+			count = count + #readWhole(text).progress
+		end
+		assert.equal(200, count)
+	end)
+
+	describe("drops what it cannot trust", function()
+		local function kept(line)
+			local message = readWhole("2:M:" .. line .. "\n1:Anna Conda:4")
+			return message and #message.progress == 2
+		end
+
+		it("keeps a well-formed line", function()
+			assert.is_true(kept("1:Hugh Jass:6:progress:12219:4742:7"))
+			assert.is_true(kept("1:Hugh Jass:4:done:::"))
+		end)
+
+		it("drops a line that does not parse, and keeps the others", function()
+			for _, line in ipairs({
+				"",
+				"1:Hugh Jass",
+				"0:Hugh Jass:4",
+				"01:Hugh Jass:4",
+				"1:Hugh:4",
+				"1:Hugh Jass:0",
+				"1:Hugh Jass:04",
+				"1:Hugh Jass:-4",
+				"1:Hugh Jass:1234567",
+				"1:Hugh Jass:4:",
+				"1:Hugh Jass:4:done",
+				"1:Hugh Jass:4:done::",
+				"1:Hugh Jass:4:done::::",
+				"1:Hugh Jass:4:Done:::",
+				"1:Hugh Jass:4:held:::",
+				"1:Hugh Jass:4::::",
+				"1:Hugh Jass:4:done:0::",
+				"1:Hugh Jass:4:done:018249::",
+				"1:Hugh Jass:4:done:2147483648::",
+				"1:Hugh Jass:4:done:18249.5::",
+				"1:Hugh Jass:4:done:1e5::",
+				"1:Hugh Jass:6:progress::4742:x",
+				"1:Hugh Jass:6:progress::4742:1.5",
+				"1:Hugh Jass:6:progress::4742:-1",
+				"1:Hugh Jass:6:progress::4742:8",
+				"1:Hugh Jass:6:progress::4742:07",
+				"1:Hugh Jass:6:progress::0:",
+				"1:Hugh|cff Jass:4",
+				"1:Hugh\1 Jass:4",
+				"1:Hugh Jass:4\r",
+				"1:Hugh Jass:4:done:::\r",
+				"F",
+			}) do
+				assert.is_false(kept(line), line)
+			end
+		end)
+
+		it("drops a GUID that is not a character's, and keeps its milestone", function()
+			local message = readWhole("2:M:1:Hugh Jass:4\nG:Creature-1-2")
+			assert.same({ { name = "Hugh Jass", milestone = 4, revision = 1 } }, message.progress)
+		end)
+
+		it(
+			"drops a message with no milestone it can read, longer than a chunked message, or of another version",
+			function()
+				assert.is_nil(readWhole("2:M"))
+				assert.is_nil(readWhole("2:M:"))
+				assert.is_nil(readWhole("2:M:G:Player-1-2"))
+				assert.is_nil(Protocol.read("2:O:" .. string.rep("0", Protocol.DIGEST_LENGTH - 1)))
+				assert.is_nil(readWhole("2:M:" .. string.rep("1:Hugh Jass:4:done:18249::\n", 200)))
+				assert.same({ nil, "version" }, { Protocol.read("1:M:1:Hugh Jass:4") })
+				assert.same({ nil, "newer" }, { Protocol.read("3:M:1:Hugh Jass:4") })
+			end
+		)
+	end)
+end)

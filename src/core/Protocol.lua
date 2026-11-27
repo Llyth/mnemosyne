@@ -38,6 +38,16 @@
 --                               (the first ID, then each minus the one before),
 --                               comma-separated; followed by a line G:<guid>
 --                               when its character's GUID is known
+--   2:O:<digest>                the sender's progress hashed in buckets, as
+--                               2:D (decision 0009), sent before it
+--   2:M:<milestone>[\n<milestone>...]
+--                               milestones passed on, after the professions,
+--                               each <revision>:<name>:<milestone ID>, then
+--                               :<state>:<item>:<quest>:<gems> unless it is a
+--                               removal: the state "done" or "progress", the
+--                               others empty or a number (Milestones); followed
+--                               by a line G:<guid> when its character's GUID is
+--                               known
 --   2:E                         the sender has sent all it had to send
 --
 -- News (decision 0002) adds, on the guild channel:
@@ -108,6 +118,8 @@ local KIND_LETTER = {
 	news = "P", -- posted; G is a GUID's line, inside identities
 	professionDigest = "H", -- hashed
 	professions = "K",
+	progressDigest = "O", -- prOgress
+	progress = "M", -- milestones
 	version = "V",
 }
 local MAX_VERSION_BYTES = 20
@@ -276,6 +288,12 @@ function Protocol.write(message)
 			lines[i] = Protocol.writeProfession(profession)
 		end
 		return text .. ":" .. table.concat(lines, "\n")
+	elseif message.progress then
+		local lines = {}
+		for i, milestone in ipairs(message.progress) do
+			lines[i] = Protocol.writeMilestone(milestone)
+		end
+		return text .. ":" .. table.concat(lines, "\n")
 	end
 	if message.revision then
 		text = text .. ":" .. tostring(message.revision)
@@ -355,27 +373,50 @@ function Protocol.writeProfession(profession)
 	return text
 end
 
--- Splits professions into batches, each the professions of one message that a
+-- Writes a milestone passed on ({ name, milestone, revision, state, item,
+-- quest, gems, guid }, a removal without a state), and its GUID on a line of
+-- its own when known. Trusts its input: a cell from Self or normalized.
+function Protocol.writeMilestone(passed)
+	local text = passed.revision .. ":" .. passed.name .. ":" .. passed.milestone
+	if passed.state then
+		text = text
+			.. ":"
+			.. table.concat({ passed.state, passed.item or "", passed.quest or "", passed.gems or "" }, ":")
+	end
+	return text .. (passed.guid and "\nG:" .. passed.guid or "")
+end
+
+-- Splits what write writes into batches, each the lines of one message that a
 -- peer reads whole (at most MAX_CHUNKED_BYTES). One that could never fit is
 -- left out.
--- shortcut: a profession past about 4 KB (over 1,000 recipes) never goes; split
--- its recipes over lines if professions ever grow that large.
-function Protocol.batchProfessions(professions)
+local function batchBytes(list, write)
 	local limit = Protocol.MAX_CHUNKED_BYTES - #"2:K:"
 	local batches, bytes = {}, limit
-	for _, profession in ipairs(professions) do
-		local cost = #Protocol.writeProfession(profession) + 1
+	for _, passed in ipairs(list) do
+		local cost = #write(passed) + 1
 		if cost <= limit then
 			if bytes + cost > limit then
 				batches[#batches + 1] = {}
 				bytes = 0
 			end
 			local batch = batches[#batches]
-			batch[#batch + 1] = profession
+			batch[#batch + 1] = passed
 			bytes = bytes + cost
 		end
 	end
 	return batches
+end
+
+-- Splits professions into batches of one message each.
+-- shortcut: a profession past about 4 KB (over 1,000 recipes) never goes; split
+-- its recipes over lines if professions ever grow that large.
+function Protocol.batchProfessions(professions)
+	return batchBytes(professions, Protocol.writeProfession)
+end
+
+-- Splits milestones into batches of one message each.
+function Protocol.batchProgress(milestones)
+	return batchBytes(milestones, Protocol.writeMilestone)
 end
 
 -- Reads a decimal number of at most maxDigits digits, without leading zeros.
@@ -434,6 +475,45 @@ local function readProfession(line)
 	return profession
 end
 
+-- Reads an item or quest ID: empty for none, else 1 to MAX_RECIPE_ID (the
+-- game's IDs fit a signed 32-bit integer). Returns it or false, or nil when
+-- it is malformed.
+local function readGameID(text)
+	if text == "" then
+		return false
+	end
+	local id = readNumber(text, 10)
+	if id and id > 0 and id <= MAX_RECIPE_ID then
+		return id
+	end
+end
+
+-- Reads one milestone passed on (writeMilestone's line). Returns it, or nil.
+-- A milestone ID it does not know is kept: Progress drops it (a later
+-- version's milestone).
+local function readMilestone(line)
+	local revisionText, name, idText, cellText = line:match("^([^:]*):([^:]*):([^:]*)(.*)$")
+	local revision, id = readRevision(revisionText), readNumber(idText, 6)
+	if not revision or not isFullName(name) or not id or id == 0 then
+		return nil
+	end
+	local milestone = { name = name, milestone = id, revision = revision }
+	if cellText == "" then
+		return milestone
+	end
+	local state, itemText, questText, gemsText = cellText:match("^:(%l+):([^:]*):([^:]*):([^:]*)$")
+	local item, quest = readGameID(itemText), readGameID(questText)
+	if (state ~= "done" and state ~= "progress") or item == nil or quest == nil then
+		return nil
+	end
+	if gemsText ~= "" and not gemsText:find("^[0-7]$") then
+		return nil
+	end
+	milestone.state, milestone.item, milestone.quest = state, item or nil, quest or nil
+	milestone.gems = tonumber(gemsText)
+	return milestone
+end
+
 -- Reads a GUID passed on with an identity. Returns it, or nil when it is not a
 -- character's.
 local function readGuid(text)
@@ -489,7 +569,7 @@ local function readWhole(text, maxBytes)
 		return nil, rest
 	end
 	local kind = KIND_NAME[letter]
-	if kind == "digest" or kind == "professionDigest" then
+	if kind == "digest" or kind == "professionDigest" or kind == "progressDigest" then
 		local digest = rest:match("^:(%x+)$")
 		if not digest or #digest ~= Protocol.DIGEST_LENGTH or digest:find("%u") then
 			return nil, "malformed"
@@ -532,14 +612,15 @@ local function readWhole(text, maxBytes)
 			return nil, reason or "malformed"
 		end
 		return { kind = kind, identities = identities }
-	elseif kind == "professions" then
+	elseif kind == "professions" or kind == "progress" then
 		if rest:sub(1, 1) ~= ":" then
 			return nil, "malformed"
 		end
-		-- Each profession stands alone, as an identity does: one that does not
-		-- parse is dropped, the others kept; a GUID goes with the profession on
-		-- the line just before it.
-		local professions, last = {}, nil
+		-- Each profession or milestone stands alone, as an identity does: one
+		-- that does not parse is dropped, the others kept; a GUID goes with the
+		-- one on the line just before it.
+		local readLine = kind == "professions" and readProfession or readMilestone
+		local passed, last = {}, nil
 		for line in (rest:sub(2) .. "\n"):gmatch("([^\n]*)\n") do
 			local guid = line:match("^G:(.*)$")
 			if guid then
@@ -548,14 +629,14 @@ local function readWhole(text, maxBytes)
 				end
 				last = nil
 			else
-				last = readProfession(line)
-				professions[#professions + 1] = last
+				last = readLine(line)
+				passed[#passed + 1] = last
 			end
 		end
-		if not professions[1] then
+		if not passed[1] then
 			return nil, "malformed"
 		end
-		return { kind = kind, professions = professions }
+		return { kind = kind, [kind] = passed }
 	elseif kind == "news" then
 		if rest:sub(1, 1) ~= ":" then
 			return nil, "malformed"
