@@ -181,14 +181,34 @@ local function checkText(text, maxCharacters)
 		elseif
 			codePoint < 0x20
 			or (codePoint >= 0x7F and codePoint <= 0x9F)
-			-- Invisible and direction characters: soft hyphen, zero-width and
-			-- joiner, bidi marks, line and paragraph separators, embeddings and
-			-- overrides, word joiner and isolates, zero-width no-break space.
+			-- Invisible and direction characters: soft hyphen, combining
+			-- grapheme joiner, Arabic letter mark, Hangul fillers (not the
+			-- syllables Korean names are written in), Khmer inherent vowels,
+			-- Mongolian variation selectors and vowel separator, zero-width
+			-- and joiner, bidi marks, line and paragraph separators,
+			-- embeddings and overrides, word joiner and isolates, Braille blank,
+			-- variation selectors, zero-width no-break space, interlinear
+			-- annotations, musical formatting, tags. Spaces that have a width
+			-- (no-break, en, em, ideographic...) show, and pass.
 			or codePoint == 0xAD
+			or codePoint == 0x34F
+			or codePoint == 0x61C
+			or codePoint == 0x115F
+			or codePoint == 0x1160
+			or (codePoint >= 0x17B4 and codePoint <= 0x17B5)
+			or (codePoint >= 0x180B and codePoint <= 0x180F)
 			or (codePoint >= 0x200B and codePoint <= 0x200F)
 			or (codePoint >= 0x2028 and codePoint <= 0x202E)
 			or (codePoint >= 0x2060 and codePoint <= 0x206F)
+			or codePoint == 0x2800
+			or codePoint == 0x3164
+			or (codePoint >= 0xFE00 and codePoint <= 0xFE0F)
 			or codePoint == 0xFEFF
+			or codePoint == 0xFFA0
+			or (codePoint >= 0xFFF9 and codePoint <= 0xFFFB)
+			or (codePoint >= 0x1D173 and codePoint <= 0x1D17A)
+			or (codePoint >= 0xE0000 and codePoint <= 0xE007F)
+			or (codePoint >= 0xE0100 and codePoint <= 0xE01EF)
 		then
 			return false, "control"
 		end

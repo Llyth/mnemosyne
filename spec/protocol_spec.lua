@@ -221,6 +221,13 @@ describe("Protocol", function()
 			end
 		end)
 
+		it("accepts the spaces that show, which have a width", function()
+			-- No-break, en quad, hair and ideographic spaces.
+			for _, space in ipairs({ "\194\160", "\226\128\128", "\226\128\138", "\227\128\128" }) do
+				assert.is_true(Protocol.checkNickname("To" .. space .. "ny"))
+			end
+		end)
+
 		it("says why it refuses a nickname", function()
 			local cases = {
 				[""] = "empty",
@@ -231,6 +238,30 @@ describe("Protocol", function()
 				["To\194\173ny"] = "control", -- soft hyphen
 				["To\239\187\191ny"] = "control", -- zero-width no-break space
 				["To\226\129\166ny"] = "control", -- left-to-right isolate
+				["To\216\156ny"] = "control", -- Arabic letter mark
+				["To\225\160\142ny"] = "control", -- Mongolian vowel separator
+				["To\225\133\159ny"] = "control", -- Hangul choseong filler
+				["To\225\133\160ny"] = "control", -- Hangul jungseong filler
+				["To\227\133\164ny"] = "control", -- Hangul filler
+				["To\239\190\160ny"] = "control", -- halfwidth Hangul filler
+				["To\205\143ny"] = "control", -- combining grapheme joiner
+				["To\239\184\128ny"] = "control", -- variation selector-1
+				["To\239\184\143ny"] = "control", -- variation selector-16
+				["To\243\160\128\128ny"] = "control", -- first tag
+				["To\243\160\129\129ny"] = "control", -- tag latin capital letter A
+				["To\243\160\129\191ny"] = "control", -- cancel tag
+				["To\239\191\185ny"] = "control", -- interlinear annotation anchor
+				["To\239\191\187ny"] = "control", -- interlinear annotation terminator
+				["To\226\160\128ny"] = "control", -- Braille pattern blank
+				["To\225\158\180ny"] = "control", -- Khmer vowel inherent aq
+				["To\225\158\181ny"] = "control", -- Khmer vowel inherent aa
+				["To\225\160\139ny"] = "control", -- Mongolian free variation selector one
+				["To\225\160\141ny"] = "control", -- Mongolian free variation selector three
+				["To\225\160\143ny"] = "control", -- Mongolian free variation selector four
+				["To\240\157\133\179ny"] = "control", -- musical symbol begin beam
+				["To\240\157\133\186ny"] = "control", -- musical symbol end phrase
+				["To\243\160\132\128ny"] = "control", -- variation selector-17
+				["To\243\160\135\175ny"] = "control", -- variation selector-256
 			}
 			for nickname, reason in pairs(cases) do
 				local ok, why = Protocol.checkNickname(nickname)
@@ -465,8 +496,18 @@ describe("Protocol for syncs", function()
 				"Hugh\0 Jass",
 				"Hugh \255Jass",
 				"Hugh " .. string.rep("a", 60),
+				"Hugh\227\133\164 Jass", -- a Hangul filler: a look-alike of Hugh Jass
 			}) do
 				assertDropped("2:I:900:" .. name .. ":Tony", "malformed")
+			end
+		end)
+
+		it("keeps an identity whose character's name is in Hangul or in Chinese characters", function()
+			for _, name in ipairs({ "민준 김", "東京 太郎" }) do
+				assert.same(
+					{ kind = "identities", identities = { { name = name, nickname = "Tony", revision = 900 } } },
+					Protocol.read("2:I:900:" .. name .. ":Tony")
+				)
 			end
 		end)
 
