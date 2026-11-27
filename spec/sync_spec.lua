@@ -232,6 +232,56 @@ describe("Sync", function()
 			sync:receive("Barb Dwyer", { kind = "done" })
 			assert.same({ "Barb Dwyer digest", "Barb Dwyer identities", "Barb Dwyer done" }, sent(produced(outgoing)))
 		end)
+
+		it("keeps a sync's place while its answer is still made after the peer's done", function()
+			sync = lazySync()
+			local digest = { kind = "digest", digest = emptyDigest() }
+			local answer = sync:receive("Anna Conda", digest)
+			sync:receive("Anna Conda", { kind = "done" })
+			sync:receive("Barb Dwyer", digest)
+			sync:receive("Barb Dwyer", { kind = "done" })
+			assert.same({}, sync:receive("Cole Slaw", digest))
+			assert.same({}, sync:tick())
+			produced(answer)
+			assert.same({ "Cole Slaw digest" }, sent({ sync:tick()[1] }))
+		end)
+
+		it("starts no other sync with a peer while its answer still goes out", function()
+			for i = 1, 3000 do
+				memory:hear("Anna Conda" .. i, { nickname = "Ann", revision = 900 })
+			end
+			local scope = Scope.new({})
+			scope:see({}, { "Mallory Knox" })
+			sync = Sync.new({}, clock, memory, settings, nil, nil, nil, playing, scope, true)
+			local digest = { kind = "digest", digest = emptyDigest() }
+			local answer = sync:receive("Mallory Knox", digest)[2].produce
+			sync:receive("Mallory Knox", { kind = "done" })
+			for _ = 1, LISTED / 60 do
+				now = now + 60
+				local message = answer()
+				while message == false do
+					message = answer()
+				end
+				assert.is_table(message)
+				sync:tick()
+			end
+			assert.same({}, sync:receive("Mallory Knox", digest))
+			assert.same({ {}, false }, { sync:request("Mallory Knox", now) })
+		end)
+
+		it("frees the place of an answer the queue stopped asking for, 2 minutes after", function()
+			sync = lazySync()
+			local digest = { kind = "digest", digest = emptyDigest() }
+			sync:receive("Anna Conda", digest)
+			sync:receive("Anna Conda", { kind = "done" })
+			sync:receive("Barb Dwyer", digest)
+			sync:receive("Barb Dwyer", { kind = "done" })
+			sync:receive("Cole Slaw", digest)
+			now = now + Sync.TIMEOUT - 1
+			assert.same({}, sync:tick())
+			now = now + 1
+			assert.same({ "Cole Slaw digest" }, sent({ sync:tick()[1] }))
+		end)
 	end)
 
 	it("sends many identities in batches that each fit a chunked message", function()
