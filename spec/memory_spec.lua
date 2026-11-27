@@ -1192,6 +1192,22 @@ describe("Memory, copied", function()
 		assert.is_true(hearFrom(copied, "Mallory Knox", "Hugh Jass", "Tony", 900))
 	end)
 
+	it(
+		"empties, as a character new since the update starts: no identity, forgotten character or daily count",
+		function()
+			local copied = Memory.new(Memory.copy(saved), clock, { ["Cole Slaw"] = true })
+			hearFrom(copied, "Mallory Knox", "Hugh Jass", "Tony", 900)
+			copied:hear("Anna Conda", { nickname = "Ann", revision = 900 })
+			copied:empty()
+			assert.same({}, copied:search(""))
+			assert.same({}, copied:forgotten())
+			assert.equal(Memory.new({}, clock):digest(), copied:digest())
+			for i = 1, Memory.MAX_CHANGES_PER_PEER do
+				assert.is_true(hearFrom(copied, "Mallory Knox", "Fake Name" .. i, "Mallory", 900))
+			end
+		end
+	)
+
 	it("leaves the source alone when the copy changes", function()
 		source:hear("Anna Conda", { nickname = "Ann", revision = 900, source = "Barb Dwyer", guid = "Player-1-A" })
 		local copied = Memory.new(Memory.copy(saved), clock)

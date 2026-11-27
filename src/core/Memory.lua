@@ -708,6 +708,22 @@ function Memory:forget(name)
 	return true
 end
 
+-- Drops every identity, every forgotten character and every peer's daily
+-- count: a character new since the update starts empty, not from the copy
+-- of the account's memory it was given before its name was known (Seed).
+function Memory:empty()
+	for name in pairs(self.identities) do
+		store(self, name, nil)
+	end
+	for _, saved in ipairs({ self.forgottenNames, self.newFrom }) do
+		for key in pairs(saved) do
+			saved[key] = nil
+		end
+	end
+	self.folded, self.secondHand = {}, 0
+	self.queue, self.queueStart, self.queueEnd = {}, 1, 0
+end
+
 -- Lets a forgotten character's second-hand copies in again. Returns false
 -- when it was not forgotten.
 function Memory:unforget(name)

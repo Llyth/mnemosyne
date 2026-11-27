@@ -1015,6 +1015,15 @@ describe("Professions", function()
 			end)
 		end
 
+		it("empties, as a character new since the update starts: nothing held or seen, no daily count", function()
+			local copy = Professions.copy(saved)
+			copy.newFrom = { ["Anna Conda"] = { since = now, count = Professions.MAX_CHANGES_PER_PEER } }
+			local copied = load(copy)
+			copied:empty()
+			assert.same({}, copied:list())
+			assert.same({ held = {}, seen = {}, newFrom = {} }, copy)
+		end)
+
 		it("copies the professions held, this account's characters' too, and when each was seen", function()
 			local copy = Professions.copy(saved)
 			assert.same(saved.held["Hugh Jass"], copy.held["Hugh Jass"])
