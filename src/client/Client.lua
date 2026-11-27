@@ -908,8 +908,8 @@ local function park(text, channel, sender)
 end
 
 -- A message from a peer goes to Inbox once known to hold no secret value
--- (comparing one raises an error); a whisper waits while paused, or while
--- others wait (park).
+-- (comparing one raises an error); a whisper in scope waits while paused, or
+-- while others wait (park).
 function handlers.CHAT_MSG_ADDON(prefix, text, channel, sender)
 	local isKnown = Client.isKnown
 	if not isKnown(prefix) or prefix ~= Protocol.PREFIX then
@@ -920,7 +920,13 @@ function handlers.CHAT_MSG_ADDON(prefix, text, channel, sender)
 		return
 	end
 	if channel == "WHISPER" and (replayTicker or Client.isPaused()) then
-		park(text, channel, sender)
+		-- Checked before it waits, as Inbox would: anyone's whispers would
+		-- otherwise fill the 1,000 places and drop the syncs in scope.
+		if Client.inScope(sender) then
+			park(text, channel, sender)
+		else
+			Debug.dropped(sender, "scope", text)
+		end
 		return
 	end
 	receive(text, channel, sender)
