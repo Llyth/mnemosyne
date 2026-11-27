@@ -7,7 +7,7 @@ local Memory, Progress, Scope, Self = ns.Memory, ns.Progress, ns.Scope, ns.Self
 -- progress read and stamped by the real Self.
 describe("Progress", function()
 	local DAY = 24 * 60 * 60
-	local ONYXIA, MOLTEN_CORE, DIRE_MAUL, THELDREN = 1, 2, 4, 8
+	local ONYXIA, MOLTEN_CORE, DIRE_MAUL, STRATHOLME, THELDREN = 1, 2, 4, 7, 8
 	local now, saved, memory, characters, settings, scope, progress, played
 
 	local function clock()
@@ -183,6 +183,33 @@ describe("Progress", function()
 		assert.same({
 			{ name = "Dee Zaster", milestone = DIRE_MAUL, state = "done", item = 18249, firstHand = true, own = true },
 		}, progress:list())
+	end)
+
+	it("shows the player's character that took a name, not this account's deleted one's progress", function()
+		-- This account's character, read with the Crescent Key, deleted since.
+		characters:register("Hugh Jass", "Tony")
+		characters:see("Hugh Jass", "Player-1-0000000A")
+		characters:seeProgress("Hugh Jass", { [DIRE_MAUL] = { state = "done", item = 18249 } })
+		progress:prepare()
+		assert.is_true(progress:hear("Hugh Jass", {
+			name = "Hugh Jass",
+			milestone = STRATHOLME,
+			revision = now - 10,
+			state = "done",
+			item = 12382,
+			guid = "Player-1-0000000B",
+		}))
+		assert.same({
+			{
+				name = "Hugh Jass",
+				milestone = STRATHOLME,
+				state = "done",
+				item = 12382,
+				revision = now - 10,
+				firstHand = true,
+				heard = now,
+			},
+		}, shown("Hugh Jass"))
 	end)
 
 	describe("in a sync", function()
