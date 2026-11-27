@@ -81,8 +81,24 @@ local function button(parent, label, x, top, width, onClick)
 	return frame
 end
 
+-- Runs onSearch 0.2 seconds after the last change to a search box's text, so
+-- typing a word searches once, not at each key.
+local SEARCH_WAIT = 0.2
+local function onSearch(box, search)
+	local due
+	box:HookScript("OnTextChanged", function()
+		if due then
+			due:Cancel()
+		end
+		due = C_Timer.NewTimer(SEARCH_WAIT, function()
+			due = nil
+			search()
+		end)
+	end)
+end
+
 -- Shared with Mnemosyne's window, which loads after this file.
-ns.widgets = { text = text, fit = fit, button = button }
+ns.widgets = { text = text, fit = fit, button = button, onSearch = onSearch }
 
 local title = text(content, "GameFontHighlightHuge", 7, 0, WIDTH)
 title:SetText(addonName)

@@ -340,11 +340,11 @@ local handlers = {}
 -- This character's professions (decision 0008), read into Self as they change;
 -- peers get them only once a sync stamps them.
 
--- Redraws the window's open tab once this character's professions changed:
--- the Professions tab shows them as read now.
+-- Redraws the professions' views that show once this character's professions
+-- changed: they show them as read now.
 local function redraw(changed)
 	if changed and ns.Window then
-		ns.Window.refresh()
+		ns.Window.refresh("professions")
 	end
 end
 
@@ -673,6 +673,7 @@ end
 handlers.BN_FRIEND_INFO_CHANGED = listsChanged
 handlers.GUILD_ROSTER_UPDATE = listsChanged
 
+local REDRAW_EVERY = 2 -- seconds: at most one redraw this often while a sync brings professions
 local redrawPending -- a redraw for professions a sync brought, due soon
 
 -- The look for this character's recipes (findRecipes) after a sync brought
@@ -721,13 +722,12 @@ function handlers.CHAT_MSG_ADDON(prefix, text, channel, sender)
 		findRecipesSoon()
 	end
 	if ns.professions.changes ~= changes and not redrawPending then
-		-- A sync brought professions: one redraw for a burst of messages.
+		-- A sync brought professions: one redraw of the professions' views for
+		-- what came in the next 2 seconds.
 		redrawPending = true
-		C_Timer.After(0.5, function()
+		C_Timer.After(REDRAW_EVERY, function()
 			redrawPending = false
-			if ns.Window then
-				ns.Window.refresh()
-			end
+			redraw(true)
 		end)
 	end
 end

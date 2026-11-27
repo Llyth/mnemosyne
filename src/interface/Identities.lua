@@ -44,7 +44,7 @@ local function newView(content, viewWidth)
 	search:SetSize(240, 20)
 	search:SetPoint("TOPLEFT", 12, -4)
 	search.Instructions:SetText(L.PANEL_SEARCH)
-	search:HookScript("OnTextChanged", function()
+	ns.widgets.onSearch(search, function()
 		refresh()
 	end)
 	for _, column in ipairs(COLUMNS) do
