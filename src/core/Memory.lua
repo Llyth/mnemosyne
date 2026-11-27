@@ -428,6 +428,13 @@ function Memory:see(name, guid)
 	end
 end
 
+-- The GUID an identity's character was last seen or passed on with, or nil
+-- when unknown.
+function Memory:guid(name)
+	local known = self.identities[name]
+	return known and known.guid
+end
+
 -- Whether an identity is passed on (and shows, with a nickname): neither
 -- disputed nor stale.
 local function passesOn(known)

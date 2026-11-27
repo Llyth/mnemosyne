@@ -568,6 +568,11 @@ end
 
 function handlers.PLAYER_LOGIN()
 	playerName = GetUnitName("player")
+	-- Its full name can come back on another player's character (Recognition:recall).
+	local guid = UnitGUID("player")
+	if Client.isKnown(guid) then
+		ns.characters:see(playerName, guid)
+	end
 	forgetEcho() -- left by a session that ended with the echo peer on
 	groupSize = GetNumGroupMembers()
 	inGuild = IsInGuild()

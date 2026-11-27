@@ -70,7 +70,9 @@ in its tooltip. When players pass along different nicknames for the same
 character, it shows none until the character says who plays it. When a
 character is deleted or renamed and another one takes its name, Mnemosyne
 notices the new character in chat or in your group and stops showing the old
-nickname until the new character says who plays it. You keep at
+nickname until the new character says who plays it. The same goes for a name
+one of your own characters had: once another player's character takes it, it
+shows that player's nickname, not yours. You keep at
 most 20,000 second-hand nicknames, and take at most 1,000 changes a day (new
 nicknames, newer ones, removed ones and disputed ones) from any one player,
 plus up to 5,000 that player says it heard from the characters themselves in
