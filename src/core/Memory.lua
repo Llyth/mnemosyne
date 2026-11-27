@@ -780,7 +780,8 @@ end
 
 -- Whether the player forgot the character.
 function Memory:isForgotten(name)
-	return self.folded[fold(name)] ~= nil
+	-- Most players forget no one: skip folding the name, asked for every copy listed or pruned.
+	return next(self.folded) ~= nil and self.folded[fold(name)] ~= nil
 end
 
 -- The forgotten characters' full names, sorted.
