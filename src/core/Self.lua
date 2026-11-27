@@ -113,6 +113,21 @@ function Self:registration(name)
 		and { nickname = character.nickname, anonymous = character.anonymous, revision = character.revision }
 end
 
+-- Remembers the GUID of a character as it is played: its full name can come
+-- back on another player's character once it is deleted or renamed (decision
+-- 0003). A character saved before Mnemosyne kept it has none until played.
+function Self:see(name, guid)
+	local character = self.characters[name] or {}
+	self.characters[name] = character
+	character.guid = guid
+end
+
+-- The GUID a character had when last played, or nil when unknown.
+function Self:guid(name)
+	local character = self.characters[name]
+	return character and character.guid
+end
+
 -- A character's state: "notAsked", "registered", "anonymous" or "unregistered".
 function Self:state(name)
 	local character = self.characters[name]

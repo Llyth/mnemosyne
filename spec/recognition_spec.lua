@@ -442,6 +442,36 @@ describe("Recognition", function()
 			assert.same({ "Llyth", ns.L.HEARD:format("2 |4hour:hours; ago") }, { tooltip.nickname, tooltip.heard })
 		end)
 
+		describe("whose name another player's character took", function()
+			local OTHER = "Player-1-00000002"
+
+			before_each(function()
+				characters:register("Zed Zulu", "Llyth")
+				characters:see("Zed Zulu", GUID)
+			end)
+
+			it("shows the other character's first-hand nickname, not its registration", function()
+				memory:hear("Zed Zulu", { nickname = "Bob", revision = 2000 })
+				recognition:learn(OTHER, "Zed Zulu")
+				settings.tooltip = true
+				assert.equal("Zed Zulu (Bob)", recognition:chatName("Zed Zulu", "Zed Zulu"))
+				assert.equal("Zed Zulu (Bob)", recognition:chatName("Zed Zulu", "Zed Zulu", OTHER))
+				assert.equal("Bob", recognition:tooltip("Zed Zulu", OTHER).nickname)
+			end)
+
+			it("shows nothing of its registration on the other character, a stranger", function()
+				assert.is_nil(recognition:recall("Zed Zulu", OTHER))
+			end)
+
+			it("still shows its registration where the GUID is its own or unknown", function()
+				memory:hear("Zed Zulu", { nickname = "Bob", revision = 2000 }) -- no GUID seen yet
+				assert.equal("Llyth", recognition:recall("Zed Zulu").nickname)
+				assert.equal("Llyth", recognition:recall("Zed Zulu", GUID).nickname)
+				characters:register("Yan Yak", "Llyth") -- saved before GUIDs were: none
+				assert.equal("Llyth", recognition:recall("Yan Yak", OTHER).nickname)
+			end)
+		end)
+
 		it("shows nothing for one kept anonymous or unregistered", function()
 			characters:keepAnonymous("Hugh Jass")
 			assert.is_nil(recognition:recall("Hugh Jass"))

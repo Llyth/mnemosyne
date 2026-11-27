@@ -59,12 +59,21 @@ end
 -- finds the full name learned for the GUID. Nil when its player's nickname is
 -- not known, or known only second-hand while second-hand identities are off.
 -- One of this account's characters shows its own registration, whatever peers
--- say.
+-- say, unless another player's character has taken its full name (decision
+-- 0003): the GUID seen for the name (the one shown, else the one a first-hand
+-- identity holds) is not the one it had when last played. Then the name is the
+-- other character's, a stranger until it speaks first-hand. With either GUID
+-- unknown, the registration shows.
 function Recognition:recall(name, guid)
 	if not name:find(" ", 1, true) and guid then
 		name = self.fullNames[guid] or name
 	end
 	local own = self.characters and self.characters:registration(name)
+	local mine = own and self.characters:guid(name)
+	local seen = guid or (self.memory:knows(name) and self.memory:guid(name))
+	if mine and seen and seen ~= mine then
+		own = nil
+	end
 	if own then
 		-- Heard when it registered: its revision is the server time of the change.
 		return own.nickname and { name = name, nickname = own.nickname, revision = own.revision, heard = own.revision }
