@@ -1,4 +1,4 @@
-local ns = require("spec.helpers.addon")("Protocol", "Memory", "Self", "Sync", "News", "Outbox", "Inbox")
+local ns = require("spec.helpers.addon")("Protocol", "Memory", "Sync", "News", "Outbox", "Inbox")
 local Protocol, Inbox = ns.Protocol, ns.Inbox
 
 describe("Inbox", function()
@@ -14,19 +14,18 @@ describe("Inbox", function()
 			return name ~= "Mallory Knox"
 		end
 		local settings = { passOn = true }
-		local characters = ns.Self.new({}, clock)
 		memory = ns.Memory.new({}, clock)
 		outbox = ns.Outbox.new(clock, function()
 			return true
 		end)
 		guildNews = ns.News.new(clock, function()
 			return 0
-		end, memory, characters, settings)
+		end, memory, settings)
 		inbox = Inbox.new({
 			clock = clock,
 			serverClock = clock,
 			memory = memory,
-			sync = ns.Sync.new({}, clock, memory, settings, characters),
+			sync = ns.Sync.new({}, clock, memory, settings),
 			news = guildNews,
 			reader = Protocol.newReader(clock),
 			outbox = outbox,

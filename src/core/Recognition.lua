@@ -101,21 +101,34 @@ function Recognition:tooltip(name, guid)
 	return self:recall(name, guid)
 end
 
+-- Whether a character is one of this account's whose player decided
+-- (registered, anonymous or unregistered). The memory holds what peers say
+-- about it as anyone's (decision 0001), never shown as someone else's.
+local function isOwn(self, name)
+	return self.characters ~= nil and self.characters:registration(name) ~= nil
+end
+
 -- Finds the identities whose character name or nickname contains the text
--- (Memory:search), leaving out those that do not show.
+-- (Memory:search), leaving out those that do not show and this account's own
+-- characters.
 function Recognition:search(text)
 	local found = {}
 	for _, identity in ipairs(self.memory:search(text)) do
-		if self:shows(identity) then
+		if self:shows(identity) and not isOwn(self, identity.name) then
 			found[#found + 1] = identity
 		end
 	end
 	return found
 end
 
--- How many identities show (Recognition:shows).
+-- How many identities show (Recognition:shows), this account's own
+-- characters left out.
 function Recognition:count()
-	return self.memory:count(not self.settings.showSecondHand)
+	-- No row wanted (max 0): Memory:list only counts those kept.
+	local _, total = self.memory:list("", 0, function(name, identity)
+		return identity ~= nil and not identity.disputed and self:shows(identity) and not isOwn(self, name)
+	end)
+	return total
 end
 
 -- An identity's nickname as shown: marked with ~ when heard second-hand.
@@ -231,14 +244,14 @@ end
 -- The window's rows for the identities whose name or nickname contains the
 -- text (Memory:list), sorted by nickname: { name, nickname, heard, ago,
 -- forgotten }, where heard says first-hand or from whom. This account's own
--- characters come first, marked own (Self:list). A disputed identity
+-- characters come first, marked own (Self:list), and what peers say about them
+-- is left out. A disputed identity
 -- shows as disputed, a forgotten character without an identity as forgotten;
 -- second-hand identities are left out while they do not show, forgotten
 -- characters never. Returns at most max rows, and how many were found.
 function Recognition:rows(text, max)
-	local L, rows, total, mine = self.L, {}, 0, {}
+	local L, rows, total = self.L, {}, 0
 	for _, own in ipairs(self.characters and self.characters:list(text) or {}) do
-		mine[own.name] = true
 		total = total + 1
 		if total <= max then
 			local nickname = own.nickname or L.PANEL_ANONYMOUS
@@ -246,7 +259,7 @@ function Recognition:rows(text, max)
 		end
 	end
 	local entries, found = self.memory:list(text, math.max(max - total, 0), function(name, identity, forgotten)
-		return not mine[name] and (forgotten or self:shows(identity))
+		return not isOwn(self, name) and (forgotten or self:shows(identity))
 	end)
 	for _, entry in ipairs(entries) do
 		local nickname, heard = entry.nickname or L.PANEL_FORGOTTEN, ""

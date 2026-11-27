@@ -1,13 +1,14 @@
 -- News: an identity a sync brought new or at a later revision, posted once to
 -- the guild so the whole guild learns a change in seconds (decision 0002), and
 -- the news heard from guildmates. Pure: it takes the clock, the randomness,
--- the memory, the player's characters and the settings as arguments (decision
--- 0004); Client posts what it returns on the guild channel.
+-- the memory and the settings as arguments (decision 0004); Client posts what
+-- it returns on the guild channel.
 --
 -- Each identity is posted after a random delay of 0 to 30 seconds, and not at
 -- all if a guildmate posted it, or a later revision, meanwhile: the guild
 -- hears it once. News heard is second-hand, with the guildmate as source, under
--- Memory's rules, and is never posted again.
+-- Memory's rules, and is never posted again; news of this account's own
+-- characters too, as anyone's (decision 0001).
 local _, ns = ...
 
 local News = {}
@@ -22,15 +23,12 @@ News.MAX_WAITING = 30
 -- clock: returns the time, in seconds.
 -- random: as math.random, random(0, MAX_DELAY) a whole number of seconds.
 -- memory: the Memory that learned the news, and learns the guild's.
--- characters: the Self of this account's characters, whose identities are
--- never learned from others (decision 0001).
 -- settings: the saved settings; settings.passOn switches posting news.
-function News.new(clock, random, memory, characters, settings)
+function News.new(clock, random, memory, settings)
 	return setmetatable({
 		clock = clock,
 		random = random,
 		memory = memory,
-		characters = characters,
 		settings = settings,
 		waiting = {}, -- name -> { identity, at }
 	}, News)
@@ -67,13 +65,12 @@ end
 -- later revision, or a dispute): news the memory drops (too far ahead, past
 -- the guildmate's changes of the day) cancels nothing.
 function News:receive(peer, identity)
-	local learned = not self.characters:registration(identity.name)
-		and self.memory:hear(identity.name, {
-			nickname = identity.nickname,
-			revision = identity.revision,
-			source = peer,
-			guid = identity.guid,
-		})
+	local learned = self.memory:hear(identity.name, {
+		nickname = identity.nickname,
+		revision = identity.revision,
+		source = peer,
+		guid = identity.guid,
+	})
 	local waiting = self.waiting[identity.name]
 	if
 		waiting
