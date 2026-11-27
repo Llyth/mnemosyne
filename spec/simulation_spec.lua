@@ -10,11 +10,13 @@ local ns = require("spec.helpers.addon")(
 	"Scope",
 	"Copies",
 	"Professions",
+	"Milestones",
+	"Progress",
 	"Sync",
 	"News"
 )
-local Memory, News, Professions, Protocol, Scope, Self, Sync =
-	ns.Memory, ns.News, ns.Professions, ns.Protocol, ns.Scope, ns.Self, ns.Sync
+local Memory, News, Professions, Progress, Protocol, Scope, Self, Sync =
+	ns.Memory, ns.News, ns.Professions, ns.Progress, ns.Protocol, ns.Scope, ns.Self, ns.Sync
 
 describe("Several peers", function()
 	local HOUR, DAY = 60 * 60, 24 * 60 * 60
@@ -30,7 +32,15 @@ describe("Several peers", function()
 		inFlight = {}
 	end)
 
-	local SYNC_KINDS = { digest = true, identities = true, done = true, professionDigest = true, professions = true }
+	local SYNC_KINDS = {
+		digest = true,
+		identities = true,
+		done = true,
+		professionDigest = true,
+		professions = true,
+		progressDigest = true,
+		progress = true,
+	}
 
 	local function post(from, outgoing)
 		for _, out in ipairs(outgoing) do
@@ -68,13 +78,15 @@ describe("Several peers", function()
 		local memory = Memory.new(savedMemory or {}, clock, {}, characters)
 		local scope = Scope.new({})
 		local professions = Professions.new({}, clock, memory, characters, { passOn = true }, scope)
+		local progress = Progress.new({}, clock, memory, characters, { passOn = true }, scope)
 		local peer = {
 			name = name,
 			memory = memory,
 			characters = characters,
 			scope = scope,
 			professions = professions,
-			sync = Sync.new({}, clock, memory, { passOn = true }, professions, nil, nil, scope),
+			progress = progress,
+			sync = Sync.new({}, clock, memory, { passOn = true }, professions, progress, nil, nil, scope),
 			reader = Protocol.newReader(clock),
 			writer = Protocol.newWriter(),
 			delay = 0, -- what its randomness draws for each news delay
@@ -528,6 +540,7 @@ describe("Several peers", function()
 					peer.memory,
 					{ passOn = true },
 					peer.professions,
+					nil,
 					peer.early,
 					nil,
 					peer.scope
@@ -559,6 +572,124 @@ describe("Several peers", function()
 			now = now + DAY
 			sync(mallory, d)
 			assert.equal(Professions.MAX_CHANGES_PER_PEER + 100, #d.professions:list())
+		end)
+	end)
+
+	describe("sharing progress", function()
+		local DIRE_MAUL, CRESCENT_KEY = 4, 18249
+		local mallory
+
+		-- Every peer given is on every one's guild roster.
+		local function guild(...)
+			local roster = {}
+			for _, peer in ipairs({ ... }) do
+				roster[#roster + 1] = peer.name
+			end
+			for _, peer in ipairs({ ... }) do
+				peer.scope:see({}, roster)
+				peer.professions:seeLists()
+				peer.progress:seeLists()
+			end
+		end
+
+		-- The milestone a peer shows for a character, if any.
+		local function shown(peer, name)
+			for _, milestone in ipairs(peer.progress:list()) do
+				if milestone.name == (name or a.name) then
+					return milestone
+				end
+			end
+		end
+
+		before_each(function()
+			mallory = newPeer("Mallory Knox")
+			guild(a, b, c, d, mallory)
+			a.characters:seeProgress(a.name, { [DIRE_MAUL] = { state = "done", item = CRESCENT_KEY } })
+		end)
+
+		it("lets D learn A's milestone through B and C, second-hand, with its source", function()
+			sync(a, b)
+			assert.is_true(shown(b).firstHand)
+			sync(b, c)
+			sync(c, d)
+			local milestone = shown(d)
+			assert.equal(DIRE_MAUL, milestone.milestone)
+			assert.equal("done", milestone.state)
+			assert.equal(CRESCENT_KEY, milestone.item)
+			assert.is_false(milestone.firstHand)
+			assert.equal(c.name, milestone.source)
+			assert.equal(b.name, shown(c).source)
+		end)
+
+		it("lets a first-hand milestone override a forged copy", function()
+			mallory.progress:hear(
+				"Zed Ex",
+				{ name = a.name, milestone = DIRE_MAUL, revision = now + 1000, state = "progress" }
+			)
+			mallory.progress:hear("Zed Ex", { name = a.name, milestone = 7, revision = now + 1000, state = "done" })
+			sync(mallory, d)
+			assert.equal("progress", shown(d).state)
+			assert.equal(2, #d.progress:list())
+			sync(a, d)
+			local list = d.progress:list()
+			assert.equal(1, #list)
+			assert.equal(DIRE_MAUL, list[1].milestone)
+			assert.is_true(list[1].firstHand)
+		end)
+
+		it("carries a milestone's removal to everyone who knew it", function()
+			sync(a, b)
+			sync(b, c)
+			sync(c, d)
+			now = now + 6 * HOUR
+			a.characters:seeProgress(a.name, {}) -- the key is gone
+			sync(a, b)
+			sync(b, c)
+			sync(c, d)
+			assert.is_nil(shown(b))
+			assert.is_nil(shown(c))
+			assert.is_nil(shown(d))
+		end)
+
+		it("takes at most 2,000 second-hand milestones a day from one peer", function()
+			local names = { a, b, c, d, mallory }
+			for i = 1, Progress.MAX_CHANGES_PER_PEER + 100 do
+				names[#names + 1] = {
+					name = "Fake Name" .. i,
+					scope = Scope.new({}),
+					professions = { seeLists = function() end },
+					progress = { seeLists = function() end },
+				}
+			end
+			guild(unpack(names))
+			for i = 1, Progress.MAX_CHANGES_PER_PEER + 100 do
+				local heard = { name = "Fake Name" .. i, milestone = DIRE_MAUL, revision = 900, state = "done" }
+				mallory.progress:hear("Zed Ex" .. i % 2, heard)
+			end
+			sync(mallory, d)
+			assert.equal(Progress.MAX_CHANGES_PER_PEER, #d.progress:list())
+			now = now + DAY
+			sync(mallory, d)
+			assert.equal(Progress.MAX_CHANGES_PER_PEER + 100, #d.progress:list())
+		end)
+
+		it("still syncs identities and professions with an older peer, which has no progress", function()
+			local ALCHEMY = 171
+			a.characters:seeProfessions(a.name, { { skillLine = ALCHEMY, level = 50, maxLevel = 75 } })
+			b.sync = Sync.new({}, clock, b.memory, { passOn = true }, b.professions, nil, nil, nil, b.scope)
+			announce(a, c)
+			sync(a, c)
+			sync(c, b)
+			assert.equal("Tony", b.memory:recall(a.name).nickname)
+			assert.equal(50, b.professions:list()[1].level)
+			assert.is_nil(shown(b))
+			sync(b, d)
+			assert.equal("Tony", d.memory:recall(a.name).nickname)
+			assert.equal(50, d.professions:list()[1].level)
+			assert.is_nil(shown(d))
+			-- Both syncs ended: D starts two more at once.
+			assert.is_not_nil(d.sync:request(c.name, now)[1])
+			assert.is_not_nil(d.sync:request(mallory.name, now)[1])
 		end)
 	end)
 end)

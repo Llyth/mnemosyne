@@ -585,6 +585,7 @@ function handlers.ADDON_LOADED(name)
 		ns.memory,
 		db.settings,
 		ns.professions,
+		nil, -- progress: not read from the game yet
 		db.characterEarlySyncs,
 		Client.playerName,
 		ns.scope,

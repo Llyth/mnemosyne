@@ -218,6 +218,21 @@ describe("Inbox", function()
 		assert.same({ "Anna Conda channel", "Anna Conda channel" }, dropped)
 	end)
 
+	it("takes progress and its digest by whisper only, as other sync messages", function()
+		local digest = Protocol.write({ kind = "progressDigest", digest = string.rep("0", Protocol.DIGEST_LENGTH) })
+		local progress = Protocol.write({
+			kind = "progress",
+			progress = { { name = "Barb Dwyer", milestone = 4, revision = 900 } },
+		})
+		for _, chunk in ipairs(Protocol.newWriter():split(digest)) do
+			inbox:receive("Anna Conda", "GUILD", chunk)
+		end
+		inbox:receive("Anna Conda", "GUILD", progress)
+		assert.same({ "Anna Conda channel", "Anna Conda channel" }, dropped)
+		inbox:receive("Anna Conda", "WHISPER", progress)
+		assert.same({ "Anna Conda channel", "Anna Conda channel" }, dropped)
+	end)
+
 	it("syncs with a group member who is a peer", function()
 		inbox:loggedIn()
 		now = now + Inbox.LOGIN_WINDOW

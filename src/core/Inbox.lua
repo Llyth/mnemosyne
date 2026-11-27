@@ -22,7 +22,15 @@ Inbox.LOGIN_WINDOW, Inbox.LOGIN_SYNCS = 60, 3 -- after login, sync with the firs
 -- The channels of the group: a message there from a peer is a group member's.
 local GROUP_CHANNELS = { PARTY = true, RAID = true, INSTANCE_CHAT = true }
 -- The kinds of a sync's messages, taken by whisper only.
-local SYNC_KINDS = { digest = true, identities = true, done = true, professionDigest = true, professions = true }
+local SYNC_KINDS = {
+	digest = true,
+	identities = true,
+	done = true,
+	professionDigest = true,
+	professions = true,
+	progressDigest = true,
+	progress = true,
+}
 
 -- deps, a table of:
 -- clock: returns the time, in seconds; serverClock: the server time.
