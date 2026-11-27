@@ -202,8 +202,10 @@ Each of your characters has its own memory: what one learns, the others don't
 show or pass on, so another player can't plant something through one and find
 it through another. When you update from 1.4.0 or earlier, each character
 starts, the first time you play it, from a copy of the memory your characters
-shared; a new character, or one you first play more than 30 days after the
-update, starts empty and learns from your guild, group and friends. That shared
+shared; a new character, one you never registered nor kept anonymous before the
+update and whose professions Mnemosyne never read, or one you first play more
+than 30 days after the update, starts empty and learns from your guild, group
+and friends. That shared
 past still links your characters for a while: what another player planted in
 it before the update can be found through each of them until syncs replace it,
 the characters you forgot before the update stay forgotten on each, and for up

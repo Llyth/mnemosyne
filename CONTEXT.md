@@ -73,7 +73,7 @@ An identity or profession as one memory holds it: peers hold copies of the same 
 _Avoid_: replica, mirror
 
 **Seed**:
-The account's memory as Mnemosyne 1.4.x left it, which all its characters shared. Each character played since the update starts from it, copied whole, at its first login, unless it was created since (then it starts empty). Never written again, and dropped 30 days after the first login since the update.
+The account's memory as Mnemosyne 1.4.x left it, which all its characters shared. Each character played since the update starts from it at its first login (its identities, professions and forgotten characters, without disputes and daily counts), unless it was created since, or 1.4.x never knew it (never registered nor kept anonymous, its professions never read): then it starts empty. Never written again, and dropped 30 days after the first login since the update.
 _Avoid_: legacy memory, account memory, migration, the copy
 
 **Revision**:

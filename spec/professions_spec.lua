@@ -320,7 +320,7 @@ describe("Professions", function()
 		assert.equal(1, #shown("Hugh Jass"))
 	end)
 
-	it("hides a reused name's professions until the character that took it shares first-hand", function()
+	it("hides the professions held under a name another character took, until it shares first-hand", function()
 		professions:hear("Anna Conda", alchemy())
 		professions:see("Hugh Jass", "Player-1-00000001")
 		assert.equal(1, #shown("Hugh Jass"))
@@ -1117,7 +1117,7 @@ describe("Professions", function()
 			assert.is_true(load(copy):hear("Cole Slaw", tailoring("Anna Conda", 900)))
 		end)
 
-		it("leaves the source alone when the copy changes", function()
+		it("leaves the source alone when the professions started from it change", function()
 			local copy = Professions.copy(saved)
 			assert.is_not.equal(
 				saved.held["Hugh Jass"].skills[ALCHEMY].recipes,

@@ -1173,7 +1173,7 @@ describe("Memory, copied", function()
 		assert.equal(source:digest(), copied:digest())
 	end)
 
-	it("leaves out disputed identities, so the copy takes the honest copy the source refuses", function()
+	it("leaves out disputed identities, so one starting from it takes the honest copy the source refuses", function()
 		hearFrom(source, "Barb Dwyer", "Hugh Jass", "Tony", 900)
 		hearFrom(source, "Mallory Knox", "Hugh Jass", "Mallory", 900)
 		assert.is_false(hearFrom(source, "Cole Slaw", "Hugh Jass", "Tony", 900))
@@ -1210,7 +1210,7 @@ describe("Memory, copied", function()
 		end
 	)
 
-	it("leaves the source alone when the copy changes", function()
+	it("leaves the source alone when the memory started from it changes", function()
 		source:hear("Anna Conda", { nickname = "Ann", revision = 900, source = "Barb Dwyer", guid = "Player-1-A" })
 		local copied = Memory.new(Memory.copy(saved), clock)
 		copied:see("Anna Conda", "Player-1-B")
