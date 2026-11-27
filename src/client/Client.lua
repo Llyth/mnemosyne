@@ -614,7 +614,7 @@ function handlers.PLAYER_LOGIN()
 	-- A character created since the update starts empty (decision 0001): told
 	-- by its name, read here as everywhere (not at ADDON_LOADED, which copied
 	-- the seed), before Self learns it and before any sync.
-	if seeded and ns.Seed.isNew(MnemosyneDB, playerName, guid) then
+	if seeded and ns.Seed.isNew(ns.characters, playerName, guid) then
 		ns.memory:empty()
 		ns.professions:empty()
 	end

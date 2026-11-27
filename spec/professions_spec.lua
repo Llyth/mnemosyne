@@ -1,5 +1,5 @@
-local ns = require("spec.helpers.addon")("Protocol", "Digest", "Memory", "Scope", "Professions")
-local Memory, Professions, Protocol, Scope = ns.Memory, ns.Professions, ns.Protocol, ns.Scope
+local ns = require("spec.helpers.addon")("Protocol", "Digest", "Memory", "Scope", "Self", "Professions")
+local Memory, Professions, Protocol, Scope, Self = ns.Memory, ns.Professions, ns.Protocol, ns.Scope, ns.Self
 
 describe("Professions", function()
 	local DAY = 24 * 60 * 60
@@ -16,78 +16,45 @@ describe("Professions", function()
 		return now
 	end
 
-	-- This account's characters, as Self gives them (the contract of #91): each
-	-- name's registration (registered with a nickname, anonymous or
-	-- unregistered), its professions as stamped (owned, a removal without a
-	-- level) and as read now (current), the GUID it was played with (guids),
-	-- and the names another player's character has taken (taken).
+	-- This account's characters: the real Self, over a saved table of its own.
+	-- A test sets each character's professions as last stamped (own), so it
+	-- knows the revisions they go with: stamping, which Self's own tests cover,
+	-- only records which characters a sync stamped (stamped).
 	local function newCharacters()
-		local stub = {
-			owned = {},
-			current = {},
-			registered = {},
-			anonymous = {},
-			unregistered = {},
-			stamped = {},
-			guids = {},
-			taken = {},
-		}
-		function stub:guid(name)
-			return self.guids[name]
-		end
-		function stub:owns(name, guid)
-			local mine = self.registered[name] or self.anonymous[name] or self.unregistered[name] or self.guids[name]
-			if mine == nil then
-				return false
-			elseif guid and self.guids[name] then
-				return guid == self.guids[name]
-			end
-			return not self.taken[name]
-		end
-		function stub:seeName(name, guid)
-			if self.guids[name] and guid ~= self.guids[name] then
-				self.taken[name] = true
-			end
-		end
-		function stub:withProfessions()
-			local found = {}
-			for name, list in pairs(self.current) do
-				if list[1] then
-					found[#found + 1] = name
-				end
-			end
-			table.sort(found)
-			return found
-		end
-		function stub:currentProfessions(name)
-			return self.current[name] or {}
-		end
-		function stub:registration(name)
-			if self.registered[name] then
-				return { nickname = self.registered[name], revision = 1 }
-			elseif self.anonymous[name] then
-				return { anonymous = true, revision = 1 }
-			elseif self.unregistered[name] then
-				return { revision = 1 }
-			end
-		end
-		function stub:list()
-			local found = {}
-			for name, nickname in pairs(self.registered) do
-				found[#found + 1] = { name = name, nickname = nickname }
-			end
-			for name in pairs(self.anonymous) do
-				found[#found + 1] = { name = name }
-			end
-			return found
-		end
-		function stub:stampProfessions(name)
+		local account = Self.new({}, clock, settings)
+		account.stamped = {}
+		function account:stampProfessions(name)
 			self.stamped[#self.stamped + 1] = name
 		end
-		function stub:professions(name)
-			return self.owned[name] or {}
+		return account
+	end
+
+	-- Sets one of this account's characters' professions as last stamped: each
+	-- { skillLine, level, maxLevel, revision }, a removal without a level.
+	local function own(name, list)
+		local character = characters.characters[name] or {}
+		characters.characters[name] = character
+		character.professions = {}
+		for _, profession in ipairs(list) do
+			character.professions[profession.skillLine] = {
+				shared = { level = profession.level, maxLevel = profession.maxLevel, revision = profession.revision },
+			}
 		end
-		return stub
+	end
+
+	-- Reads one of this account's characters' professions from the game: each
+	-- { skillLine, level, maxLevel, recipes (learned) }.
+	local function read(name, list)
+		characters:seeProfessions(name, list)
+		for _, profession in ipairs(list) do
+			characters:seeRecipes(name, profession.skillLine, profession.recipes, profession.recipes)
+		end
+	end
+
+	-- Registers one of this account's characters, then withdraws it: unregistered.
+	local function unregistered(name)
+		characters:register(name, "Someone")
+		characters:unregister(name)
 	end
 
 	-- Reads the friends and the guild roster as Client does: into a Professions'
@@ -101,11 +68,11 @@ describe("Professions", function()
 		now = 1000000
 		saved = {}
 		memory = Memory.new({}, clock)
-		characters = newCharacters()
 		settings = { passOn = true }
+		characters = newCharacters()
 		recipeLines = { [2329] = ALCHEMY, [2330] = ALCHEMY, [7421] = ENCHANTING }
 		played = "Bea Bop" -- the character logged on, which syncs: registered, without professions
-		characters.registered[played] = "Bea"
+		characters:register(played, "Bea")
 		scope = Scope.new(settings)
 		professions = Professions.new(saved, clock, memory, characters, settings, scope, recipeSkillLine, function()
 			return played
@@ -249,8 +216,8 @@ describe("Professions", function()
 	end)
 
 	it("refuses the professions of a character that took a name of yours, off every roster and friend list", function()
-		characters.registered["Zed Ex"] = "Tony"
-		characters.guids["Zed Ex"] = "Player-1-0000000A"
+		characters:register("Zed Ex", "Tony")
+		characters:see("Zed Ex", "Player-1-0000000A")
 		assert.is_false(professions:hear("Zed Ex", {
 			name = "Zed Ex",
 			skillLine = ALCHEMY,
@@ -262,8 +229,8 @@ describe("Professions", function()
 	end)
 
 	it("drops a taken name's professions 30 days after the character that took it was last seen", function()
-		characters.registered["Bo Nanza"] = "Tony"
-		characters.guids["Bo Nanza"] = "Player-1-0000000A"
+		characters:register("Bo Nanza", "Tony")
+		characters:see("Bo Nanza", "Player-1-0000000A")
 		professions:hear("Bo Nanza", {
 			name = "Bo Nanza",
 			skillLine = ALCHEMY,
@@ -372,7 +339,7 @@ describe("Professions", function()
 	end)
 
 	it("never adopts what peers say of this account's own characters", function()
-		characters.registered["Hugh Jass"] = "Tony"
+		characters:register("Hugh Jass", "Tony")
 		assert.is_false(professions:hear("Anna Conda", alchemy()))
 	end)
 
@@ -465,7 +432,7 @@ describe("Professions", function()
 
 	it("shows this account's characters' professions before any sync, registered or not", function()
 		settings.shareProfessions = false
-		characters.current["Dee Zaster"] = { { skillLine = ALCHEMY, level = 5, maxLevel = 75, recipes = { 2329 } } }
+		read("Dee Zaster", { { skillLine = ALCHEMY, level = 5, maxLevel = 75, recipes = { 2329 } } })
 		assert.same({
 			{
 				name = "Dee Zaster",
@@ -516,7 +483,7 @@ describe("Professions", function()
 		end
 
 		it("gives the recipes others know of each of a character's professions that it has not learned", function()
-			characters.current["Ann Thrax"] = { { skillLine = TAILORING, level = 10, maxLevel = 75, recipes = { 10 } } }
+			read("Ann Thrax", { { skillLine = TAILORING, level = 10, maxLevel = 75, recipes = { 10 } } })
 			professions:hear("Anna Conda", tailoring("Anna Conda", { 30, 10, 20 }))
 			professions:hear("Cole Slaw", tailoring("Cole Slaw", { 20, 40 }))
 			professions:hear("Hugh Jass", alchemy())
@@ -526,7 +493,7 @@ describe("Professions", function()
 		it("gives none for a character without professions, or when no one knows more", function()
 			professions:hear("Anna Conda", tailoring("Anna Conda", { 10 }))
 			assert.same({}, professions:recipesToFind("Ann Thrax"))
-			characters.current["Ann Thrax"] = { { skillLine = TAILORING, level = 10, maxLevel = 75, recipes = { 10 } } }
+			read("Ann Thrax", { { skillLine = TAILORING, level = 10, maxLevel = 75, recipes = { 10 } } })
 			assert.same({}, professions:recipesToFind("Ann Thrax"))
 		end)
 	end)
@@ -556,11 +523,11 @@ describe("Professions", function()
 		end
 
 		it("stamps and reads this account's characters' professions as first-hand", function()
-			characters.registered["Dee Zaster"] = "Dee"
-			characters.owned["Dee Zaster"] = {
+			characters:register("Dee Zaster", "Dee")
+			own("Dee Zaster", {
 				{ skillLine = ALCHEMY, level = 5, maxLevel = 75, revision = 900 },
 				{ skillLine = TAILORING, revision = 950 },
-			}
+			})
 			professions:prepare()
 			table.sort(characters.stamped)
 			assert.same({ "Bea Bop", "Dee Zaster" }, characters.stamped)
@@ -571,10 +538,10 @@ describe("Professions", function()
 		end)
 
 		it("shows this account's characters' professions as read now, never their stamped copies", function()
-			characters.registered["Dee Zaster"] = "Dee"
-			characters.owned["Dee Zaster"] = { { skillLine = ALCHEMY, level = 5, maxLevel = 75, revision = 900 } }
+			characters:register("Dee Zaster", "Dee")
+			own("Dee Zaster", { { skillLine = ALCHEMY, level = 5, maxLevel = 75, revision = 900 } })
 			professions:prepare()
-			characters.current["Dee Zaster"] = { { skillLine = ALCHEMY, level = 6, maxLevel = 75, recipes = { 7 } } }
+			read("Dee Zaster", { { skillLine = ALCHEMY, level = 6, maxLevel = 75, recipes = { 7 } } })
 			assert.same({
 				{
 					name = "Dee Zaster",
@@ -605,9 +572,9 @@ describe("Professions", function()
 				"Anna Conda",
 				{ name = "Hugh Jass", skillLine = TAILORING, revision = 900, guid = "Player-1-0000000A" }
 			)
-			characters.registered["Hugh Jass"] = "Tony"
-			characters.guids["Hugh Jass"] = "Player-1-0000000B"
-			characters.owned["Hugh Jass"] = { { skillLine = ALCHEMY, level = 100, maxLevel = 150, revision = 1500 } }
+			characters:register("Hugh Jass", "Tony")
+			characters:see("Hugh Jass", "Player-1-0000000B")
+			own("Hugh Jass", { { skillLine = ALCHEMY, level = 100, maxLevel = 150, revision = 1500 } })
 			professions:prepare()
 			professions:see("Hugh Jass", "Player-1-0000000B") -- it speaks in chat
 			professions:prepare()
@@ -631,9 +598,9 @@ describe("Professions", function()
 					},
 				},
 			}
-			characters.registered["Hugh Jass"] = "Tony"
-			characters.guids["Hugh Jass"] = "Player-1-0000000B"
-			characters.owned["Hugh Jass"] = { { skillLine = ALCHEMY, level = 100, maxLevel = 150, revision = 1500 } }
+			characters:register("Hugh Jass", "Tony")
+			characters:see("Hugh Jass", "Player-1-0000000B")
+			own("Hugh Jass", { { skillLine = ALCHEMY, level = 100, maxLevel = 150, revision = 1500 } })
 			professions:prepare()
 			local passed = professions:answer("Anna Conda", other():digest("Barb Dwyer"))
 			assert.same({ "Hugh Jass 171" }, names(passed))
@@ -641,9 +608,9 @@ describe("Professions", function()
 		end)
 
 		it("holds as theirs the professions another player's character tells itself on a name yours had", function()
-			characters.registered["Hugh Jass"] = "Tony"
-			characters.guids["Hugh Jass"] = "Player-1-0000000A"
-			characters.owned["Hugh Jass"] = { { skillLine = ALCHEMY, level = 300, maxLevel = 300, revision = 2000 } }
+			characters:register("Hugh Jass", "Tony")
+			characters:see("Hugh Jass", "Player-1-0000000A")
+			own("Hugh Jass", { { skillLine = ALCHEMY, level = 300, maxLevel = 300, revision = 2000 } })
 			professions:prepare()
 			local told = alchemy(1900)
 			told.guid = "Player-1-0000000B"
@@ -655,9 +622,9 @@ describe("Professions", function()
 		end)
 
 		it("leaves a taken name to the character that took it, though a peer passed on yours first", function()
-			characters.registered["Hugh Jass"] = "Tony" -- deleted since
-			characters.guids["Hugh Jass"] = "Player-1-0000000A"
-			characters.owned["Hugh Jass"] = { { skillLine = ALCHEMY, level = 300, maxLevel = 300, revision = 2000 } }
+			characters:register("Hugh Jass", "Tony") -- deleted since
+			characters:see("Hugh Jass", "Player-1-0000000A")
+			own("Hugh Jass", { { skillLine = ALCHEMY, level = 300, maxLevel = 300, revision = 2000 } })
 			played = "Bo Nanza" -- not registered: your other characters go and come as anyone's
 			local passed = alchemy(1800) -- your character's, from a peer that held it, with its GUID
 			passed.guid = "Player-1-0000000A"
@@ -682,9 +649,9 @@ describe("Professions", function()
 		end)
 
 		it("keeps a taken name the other character's once its professions are dropped", function()
-			characters.registered["Dee Zaster"] = "Dee" -- off the roster: the character that took it too
-			characters.guids["Dee Zaster"] = "Player-1-0000000A"
-			characters.owned["Dee Zaster"] = { { skillLine = ALCHEMY, level = 100, maxLevel = 150, revision = 1500 } }
+			characters:register("Dee Zaster", "Dee") -- off the roster: the character that took it too
+			characters:see("Dee Zaster", "Player-1-0000000A")
+			own("Dee Zaster", { { skillLine = ALCHEMY, level = 100, maxLevel = 150, revision = 1500 } })
 			professions:prepare()
 			professions:see("Dee Zaster", "Player-1-0000000B") -- another player's character, in /say
 			professions:prepare()
@@ -695,9 +662,9 @@ describe("Professions", function()
 		end)
 
 		it("takes peers' copies of the professions of a character that took a name of yours, as anyone's", function()
-			characters.registered["Hugh Jass"] = "Tony"
-			characters.guids["Hugh Jass"] = "Player-1-0000000A"
-			characters.owned["Hugh Jass"] = { { skillLine = ALCHEMY, level = 100, maxLevel = 150, revision = 1500 } }
+			characters:register("Hugh Jass", "Tony")
+			characters:see("Hugh Jass", "Player-1-0000000A")
+			own("Hugh Jass", { { skillLine = ALCHEMY, level = 100, maxLevel = 150, revision = 1500 } })
 			professions:prepare()
 			professions:see("Hugh Jass", "Player-1-0000000B")
 			professions:prepare()
@@ -714,10 +681,9 @@ describe("Professions", function()
 		it(
 			"stops passing on your character's professions once another player's character shows up with its name",
 			function()
-				characters.registered["Hugh Jass"] = "Tony" -- renamed or deleted since: Self keeps it
-				characters.guids["Hugh Jass"] = "Player-1-0000000A"
-				characters.owned["Hugh Jass"] =
-					{ { skillLine = ALCHEMY, level = 100, maxLevel = 150, revision = 1500 } }
+				characters:register("Hugh Jass", "Tony") -- renamed or deleted since: Self keeps it
+				characters:see("Hugh Jass", "Player-1-0000000A")
+				own("Hugh Jass", { { skillLine = ALCHEMY, level = 100, maxLevel = 150, revision = 1500 } })
 				professions:prepare()
 				professions:see("Hugh Jass", "Player-1-0000000B") -- it speaks in chat
 				professions:prepare()
@@ -760,8 +726,8 @@ describe("Professions", function()
 		end)
 
 		it("passes on to a friend outside the guild only this account's characters' professions", function()
-			characters.registered["Dee Zaster"] = "Dee"
-			characters.owned["Dee Zaster"] = { { skillLine = ALCHEMY, level = 5, maxLevel = 75, revision = 900 } }
+			characters:register("Dee Zaster", "Dee")
+			own("Dee Zaster", { { skillLine = ALCHEMY, level = 5, maxLevel = 75, revision = 900 } })
 			professions:hear("Anna Conda", alchemy())
 			professions:prepare()
 			assert.same({ "Dee Zaster 171" }, names(professions:answer("Bo Nanza", other():digest("Bo Nanza"))))
@@ -775,14 +741,14 @@ describe("Professions", function()
 		-- alchemy: Self stamps their professions as removals.
 		local function withdrawTwo()
 			for name, nickname in pairs({ ["Dee Zaster"] = "Dee", ["Ella Vator"] = "Ella" }) do
-				characters.registered[name] = nickname
-				characters.owned[name] = { { skillLine = ALCHEMY, level = 5, maxLevel = 75, revision = 900 } }
+				characters:register(name, nickname)
+				own(name, { { skillLine = ALCHEMY, level = 5, maxLevel = 75, revision = 900 } })
 			end
 			professions:prepare()
-			characters.registered["Dee Zaster"], characters.anonymous["Dee Zaster"] = nil, true
-			characters.registered["Ella Vator"], characters.unregistered["Ella Vator"] = nil, true
+			characters:keepAnonymous("Dee Zaster")
+			characters:unregister("Ella Vator")
 			for _, name in ipairs({ "Dee Zaster", "Ella Vator" }) do
-				characters.owned[name] = { { skillLine = ALCHEMY, revision = 950 } }
+				own(name, { { skillLine = ALCHEMY, revision = 950 } })
 			end
 			professions:prepare()
 		end
@@ -817,16 +783,16 @@ describe("Professions", function()
 		)
 
 		it("takes peers' copies of its anonymous or unregistered characters' professions as anyone's", function()
-			characters.anonymous["Hugh Jass"] = true
-			characters.unregistered["Cole Slaw"] = true
+			characters:keepAnonymous("Hugh Jass")
+			unregistered("Cole Slaw")
 			assert.is_true(professions:hear("Anna Conda", alchemy()))
 			local removal = { name = "Cole Slaw", skillLine = ALCHEMY, revision = 900 }
 			assert.is_true(professions:hear("Anna Conda", removal))
 		end)
 
 		it("makes a peer that heard a character first-hand drop its professions once it syncs anonymous", function()
-			characters.registered["Hugh Jass"] = "Hugh"
-			characters.owned["Hugh Jass"] = { { skillLine = ALCHEMY, level = 75, maxLevel = 150, revision = 900 } }
+			characters:register("Hugh Jass", "Hugh")
+			own("Hugh Jass", { { skillLine = ALCHEMY, level = 75, maxLevel = 150, revision = 900 } })
 			played = "Hugh Jass"
 			professions:prepare()
 			local theirMemory = Memory.new({}, clock)
@@ -845,8 +811,8 @@ describe("Professions", function()
 			assert.equal(1, #theirs:list())
 			-- Kept anonymous while the peer was away: the removal passed on later is
 			-- second-hand, and the first-hand registration wins over it.
-			characters.registered["Hugh Jass"], characters.anonymous["Hugh Jass"] = nil, true
-			characters.owned["Hugh Jass"] = { { skillLine = ALCHEMY, revision = 950 } }
+			characters:keepAnonymous("Hugh Jass")
+			own("Hugh Jass", { { skillLine = ALCHEMY, revision = 950 } })
 			assert.is_false(theirMemory:hear("Hugh Jass", { revision = 2, source = "Cole Slaw" }))
 			professions:prepare()
 			sync()
@@ -859,8 +825,8 @@ describe("Professions", function()
 				{ name = "Hugh Jass", skillLine = 182, revision = 900, level = 200, maxLevel = 300 }
 			)
 			professions:hear("Anna Conda", alchemy(900))
-			characters.registered["Hugh Jass"] = "Hugh"
-			characters.owned["Hugh Jass"] = { { skillLine = ALCHEMY, level = 120, maxLevel = 150, revision = 950 } }
+			characters:register("Hugh Jass", "Hugh")
+			own("Hugh Jass", { { skillLine = ALCHEMY, level = 120, maxLevel = 150, revision = 950 } })
 			professions:prepare()
 			settings.passOn = false
 			local passed = professions:answer("Anna Conda", other():digest("Barb Dwyer"))
@@ -869,15 +835,15 @@ describe("Professions", function()
 		end)
 
 		it("passes on nothing to a peer neither on the roster nor a friend, which would refuse it", function()
-			characters.registered["Dee Zaster"] = "Dee"
-			characters.owned["Dee Zaster"] = { { skillLine = ALCHEMY, level = 5, maxLevel = 75, revision = 900 } }
+			characters:register("Dee Zaster", "Dee")
+			own("Dee Zaster", { { skillLine = ALCHEMY, level = 5, maxLevel = 75, revision = 900 } })
 			professions:prepare()
 			assert.same({}, professions:answer("Barb Dwyer", other():digest("Barb Dwyer")))
 		end)
 
 		it("passes on its own characters' professions, but no other, once passing on is off", function()
-			characters.registered["Dee Zaster"] = "Dee"
-			characters.owned["Dee Zaster"] = { { skillLine = ALCHEMY, level = 5, maxLevel = 75, revision = 900 } }
+			characters:register("Dee Zaster", "Dee")
+			own("Dee Zaster", { { skillLine = ALCHEMY, level = 5, maxLevel = 75, revision = 900 } })
 			professions:hear("Anna Conda", alchemy())
 			professions:prepare()
 			settings.passOn = false
@@ -909,12 +875,12 @@ describe("Professions", function()
 
 			before_each(function()
 				-- Dee Zaster, registered, shared alchemy while it played, off the roster.
-				characters.registered["Dee Zaster"] = "Dee"
-				characters.owned["Dee Zaster"] = { { skillLine = ALCHEMY, level = 5, maxLevel = 75, revision = 900 } }
+				characters:register("Dee Zaster", "Dee")
+				own("Dee Zaster", { { skillLine = ALCHEMY, level = 5, maxLevel = 75, revision = 900 } })
 				played = "Dee Zaster"
 				professions:prepare()
 				played = "Bea Bop"
-				characters.registered[played], characters.anonymous[played] = nil, true
+				characters:keepAnonymous(played)
 				characters.stamped = {}
 			end)
 
@@ -981,8 +947,8 @@ describe("Professions", function()
 				"passes on the account's other characters' professions with the GUID a peer gave, as anyone's",
 				function()
 					seeLists(professions, scope, {}, ROSTER)
-					characters.registered["Cole Slaw"] = "Cole"
-					characters.guids["Cole Slaw"] = "Player-1-0000000C"
+					characters:register("Cole Slaw", "Cole")
+					characters:see("Cole Slaw", "Player-1-0000000C")
 					professions:hear("Anna Conda", {
 						name = "Cole Slaw",
 						skillLine = ALCHEMY,
@@ -999,7 +965,7 @@ describe("Professions", function()
 
 			it("never gives the account's other characters' professions a new revision", function()
 				seeLists(professions, scope, {}, ROSTER)
-				characters.owned["Dee Zaster"] = { { skillLine = ALCHEMY, level = 6, maxLevel = 75, revision = 1000 } }
+				own("Dee Zaster", { { skillLine = ALCHEMY, level = 6, maxLevel = 75, revision = 1000 } })
 				professions:prepare()
 				assert.same({ "Bea Bop" }, characters.stamped)
 				local passed = professions:answer("Anna Conda", other(ROSTER):digest("Barb Dwyer"))
@@ -1113,7 +1079,7 @@ describe("Professions", function()
 			professions:hear("Anna Conda", tailoring("Cole Slaw", 900, { 2387 }))
 			professions:hear("Cole Slaw", tailoring("Anna Conda", 900))
 			professions:hear("Bo Nanza", tailoring("Anna Conda", 900, { 1 }))
-			characters.unregistered["Dee Zaster"] = true
+			unregistered("Dee Zaster")
 			saved.held["Dee Zaster"] = { own = true, skills = { [ALCHEMY] = { revision = 950, firstHand = true } } }
 		end)
 
