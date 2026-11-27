@@ -53,6 +53,38 @@ describe("Self", function()
 		assert.is_true(characters:register("Hugh Jass", "  " .. string.rep("a", 32) .. "  "))
 	end)
 
+	it("registers a nickname without the emoji variation selectors, which show nothing", function()
+		-- U+2764 U+FE0F, the red heart as phones type it, and U+FE0E.
+		assert.is_true(characters:register("Hugh Jass", "Jo\226\157\164\239\184\143"))
+		assert.equal("Jo\226\157\164", characters:registration("Hugh Jass").nickname)
+		assert.is_true(characters:register("Anna Conda", "Ann\226\157\164\239\184\142"))
+		assert.equal("Ann\226\157\164", characters:registration("Anna Conda").nickname)
+	end)
+
+	describe("a saved nickname the rules now refuse", function()
+		it("is repaired at load when removing its emoji variation selectors is enough, with a new revision", function()
+			saved["Hugh Jass"] = { nickname = "Jo\226\157\164\239\184\143", revision = 500 }
+			characters = Self.new(saved, clock, settings)
+			assert.same({ nickname = "Jo\226\157\164", revision = 1000 }, characters:registration("Hugh Jass"))
+		end)
+
+		it("sends the character back to being asked at load otherwise, keeping its professions", function()
+			local professions = { [171] = { level = 50, maxLevel = 75 } }
+			saved["Hugh Jass"] = { nickname = "\227\133\164", revision = 500, professions = professions }
+			characters = Self.new(saved, clock, settings)
+			assert.equal("notAsked", characters:state("Hugh Jass"))
+			assert.is_nil(characters:message("Hugh Jass", "answer"))
+			assert.same({}, characters:prompt("Hugh Jass"))
+			assert.equal(professions, saved["Hugh Jass"].professions)
+		end)
+
+		it("leaves a saved nickname the rules still take as it was", function()
+			saved["Hugh Jass"] = { nickname = "Tony", revision = 500 }
+			characters = Self.new(saved, clock, settings)
+			assert.same({ nickname = "Tony", revision = 500 }, characters:registration("Hugh Jass"))
+		end)
+	end)
+
 	it("changes the nickname with a later revision", function()
 		characters:register("Hugh Jass", "Tony")
 		now = 2000
