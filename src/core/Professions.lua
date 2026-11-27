@@ -9,7 +9,8 @@
 -- wins; the same revision with other content is disputed and hidden; a
 -- removal (no level) is a revision too. It goes stale when its full name
 -- shows up with another GUID, hidden until the character shares first-hand;
--- never this account's characters', which take their GUID from Self.
+-- this account's characters', which take their GUID from Self, only once
+-- the GUID seen is not Self's (another player's character took the name).
 -- Kept only for this account's characters (not while they come as anyone's,
 -- nor a name another player's character has taken), and for characters seen
 -- on a guild roster or online as a friend's in the last 30 days; others are dropped
@@ -202,7 +203,8 @@ end
 
 -- Whether another player's character has taken the name of one of this
 -- account's: it told its professions itself (first-hand) under a GUID that is
--- not this account's character's.
+-- not this account's character's, or the game showed it under the name (see),
+-- which left this account's character's, first-hand, stale under its GUID.
 local function isTaken(self, name)
 	local character = self.held[name]
 	if not character or character.own then
@@ -331,11 +333,11 @@ function Professions:hear(peer, heard)
 		character = { skills = {} }
 		self.held[name] = character
 	end
-	-- The GUID held stays, whatever the peer says (as Memory keeps it); this
-	-- account's characters take none from a peer.
-	if not self.characters:owns(name, guid) then
-		character.guid = character.guid or heard.guid
-	end
+	-- The GUID held stays, whatever the peer says (as Memory keeps it). This
+	-- account's characters' copies take a peer's as anyone's would: holding
+	-- none would tell a peer which names are this account's. Those prepare
+	-- holds keep Self's.
+	character.guid = character.guid or heard.guid
 	character.skills[skillLine] = {
 		revision = heard.revision,
 		level = heard.level,
@@ -352,10 +354,18 @@ end
 -- Sees a character's GUID (a chat line, a group member): a character held
 -- without one takes it; one held with another goes stale, every profession of
 -- it hidden until the character shares first-hand. This account's characters
--- are left to Self, which knows their GUIDs (prepare).
+-- are left to Self, which knows their GUIDs (prepare), unless the GUID seen is
+-- not the one Self knows (Self:owns): another player's character has taken
+-- the name, which is held as anyone's from then on (isTaken).
 function Professions:see(name, guid)
 	local character = self.held[name]
-	if character and not character.own and character.guid ~= guid then
+	if character and character.own then
+		if self.characters:owns(name, guid) then
+			return
+		end
+		character.own = nil
+	end
+	if character and character.guid ~= guid then
 		if character.guid then
 			for _, profession in pairs(character.skills) do
 				profession.stale = true

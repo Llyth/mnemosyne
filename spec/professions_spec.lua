@@ -635,6 +635,29 @@ describe("Professions", function()
 			assert.is_nil(found[1].own)
 		end)
 
+		it(
+			"stops passing on your character's professions once another player's character shows up with its name",
+			function()
+				characters.registered["Hugh Jass"] = "Tony" -- renamed or deleted since: Self keeps it
+				characters.guids["Hugh Jass"] = "Player-1-0000000A"
+				characters.owned["Hugh Jass"] =
+					{ { skillLine = ALCHEMY, level = 100, maxLevel = 150, revision = 1500 } }
+				professions:prepare()
+				professions:see("Hugh Jass", "Player-1-0000000B") -- it speaks in chat
+				professions:prepare()
+				assert.same({}, professions:answer("Anna Conda", other():digest("Barb Dwyer")))
+				assert.is_true(professions:hear("Hugh Jass", {
+					name = "Hugh Jass",
+					skillLine = TAILORING,
+					level = 1,
+					maxLevel = 75,
+					revision = 1600,
+					guid = "Player-1-0000000B",
+				}))
+				assert.same({ "Hugh Jass 197" }, names(professions:answer("Anna Conda", other():digest("Barb Dwyer"))))
+			end
+		)
+
 		it("gives the digest peers on 1.4.0 give for the same professions", function()
 			professions:hear("Anna Conda", alchemy())
 			professions:hear("Anna Conda", { name = "Cole Slaw", skillLine = ALCHEMY, revision = 900 })
@@ -843,6 +866,26 @@ describe("Professions", function()
 					local tailoring =
 						{ name = "Dee Zaster", skillLine = TAILORING, level = 1, maxLevel = 75, revision = 900 }
 					assert.is_false(professions:hear("Anna Conda", tailoring))
+				end
+			)
+
+			it(
+				"passes on the account's other characters' professions with the GUID a peer gave, as anyone's",
+				function()
+					seeLists(professions, scope, {}, ROSTER)
+					characters.registered["Cole Slaw"] = "Cole"
+					characters.guids["Cole Slaw"] = "Player-1-0000000C"
+					professions:hear("Anna Conda", {
+						name = "Cole Slaw",
+						skillLine = ALCHEMY,
+						level = 9,
+						maxLevel = 75,
+						revision = 950,
+						guid = "Player-1-0ABCDEF1",
+					})
+					local passed = professions:answer("Anna Conda", other(ROSTER):digest("Barb Dwyer"))
+					local cole = passed[1].name == "Cole Slaw" and passed[1] or passed[2]
+					assert.same({ "Cole Slaw", "Player-1-0ABCDEF1" }, { cole.name, cole.guid })
 				end
 			)
 
