@@ -317,9 +317,10 @@ function Memory.new(saved, clock, forgotten, characters)
 			self.folded[fold(name)] = name
 		end
 	end
-	local heard, byKey = {}, {}
+	local heard, byKey, latest = {}, {}, clock() + DAY
 	for name, known in pairs(saved.identities) do
-		if known.nickname and not Protocol.checkNickname(known.nickname) then
+		-- One far ahead was kept before it was refused (hear): no later revision could replace it.
+		if (known.nickname and not Protocol.checkNickname(known.nickname)) or known.revision > latest then
 			saved.identities[name] = nil
 		else
 			local bucket = Digest.bucket(name)
@@ -457,8 +458,8 @@ end
 -- after it when it became disputed.
 --
 -- First-hand (from the character itself), it replaces any second-hand copy
--- and a stale identity, and a revision older than the first-hand one held is
--- ignored. Second-hand, it never replaces a first-hand or stale identity, a
+-- and a stale identity, and a revision older than the first-hand one held, or
+-- more than a day ahead of the clock, is ignored. Second-hand, it never replaces a first-hand or stale identity, a
 -- later revision wins (but not one more than a day ahead of the clock), and the
 -- same revision with another nickname makes the identity disputed.
 function Memory:hear(name, heard)
@@ -468,7 +469,10 @@ function Memory:hear(name, heard)
 	elseif heard.source then
 		return hearSecondHand(self, name, heard, known)
 	end
-	if known and known.firstHand and not known.stale and known.revision > heard.revision then
+	-- One far ahead is forged, as second-hand: peers would refuse it at every sync.
+	if heard.revision > self.clock() + DAY then
+		return false
+	elseif known and known.firstHand and not known.stale and known.revision > heard.revision then
 		return false
 	end
 	if known and not known.firstHand then

@@ -285,6 +285,7 @@ describe("Sync", function()
 	end)
 
 	it("sends many identities in batches that each fit a chunked message", function()
+		now = 99999999999999 -- the longest revisions
 		for i = 1, 100 do
 			memory:hear("Anna Conda" .. i, { nickname = string.rep("é", 32), revision = 99999999999999 })
 		end
