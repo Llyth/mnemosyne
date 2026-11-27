@@ -52,6 +52,7 @@ read_globals = {
 	"GetNumSubgroupMembers",
 	"GetProfessionInfo",
 	"GetProfessions",
+	"GetRealZoneText",
 	"GetServerTime",
 	"GetTime",
 	"GetUnitName",

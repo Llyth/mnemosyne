@@ -1,5 +1,5 @@
--- CommunitiesTab: an Identities tab and a Professions tab in the Guild &
--- Communities window, under its guild tabs (after Preferred Play Settings),
+-- CommunitiesTab: an Identities tab, a Professions tab and a Progress tab in
+-- the Guild & Communities window, under its guild tabs (after Preferred Play Settings),
 -- showing the same views as Mnemosyne's window's tabs. Part of the Interface
 -- adapter (decision 0004).
 --
@@ -8,7 +8,7 @@
 -- Blizzard's table and taint the window, so these tabs are none: while one is
 -- selected it hides the subframes the current mode shows (but the list of
 -- communities and the buttons under it) and shows its view in their place;
--- the other of ours swaps the view only. Selecting one of the window's tabs
+-- another of ours swaps the view only. Selecting one of the window's tabs
 -- gives them back: a new mode shows its own, and the same mode, which the
 -- window would not set again, gets back the ones hidden.
 local _, ns = ...
@@ -32,6 +32,12 @@ local OURS = {
 		newView = ns.ProfessionsTab.newView,
 		icon = "UI-HUD-MicroMenu-Professions-Up",
 		tooltip = L.PROFESSIONS,
+	},
+	{
+		key = "progress",
+		newView = ns.ProgressTab.newView,
+		icon = "UI-HUD-MicroMenu-Questlog-Up",
+		tooltip = L.PROGRESS,
 	},
 }
 
@@ -57,7 +63,7 @@ EventUtil.ContinueOnAddOnLoaded("Blizzard_Communities", function()
 		view:SetPoint("TOPLEFT", communities.CommunitiesList, "TOPRIGHT", 11, -38)
 		view:SetPoint("BOTTOMRIGHT", CommunitiesFrameInset, "BOTTOMRIGHT", -4, 4)
 		view:Hide()
-		ours.newView(view, WIDTH)
+		ours.newView(view, WIDTH, "communities") -- the place ProgressTab saves its sub-tab under
 		ns.Window.addView(view, ours.key)
 		ours.view = view
 

@@ -17,7 +17,8 @@ WoW Forever's own guild professions view no longer does.
 > recognition on tooltips and in chat, sharing first-hand and second-hand, and
 > every language WoW Forever has; since 1.1.0, Mnemosyne's window and the
 > professions of the characters you know, also in the Guild & Communities
-> window since 1.3.0. Nameplates and unit frames come later; the
+> window since 1.3.0. The **Progress** tab (attunements, entrance keys and
+> summoning items) is not released yet. Nameplates and unit frames come later; the
 > plan is in [docs/decisions/](docs/decisions/) and the words in
 > [CONTEXT.md](CONTEXT.md).
 
@@ -146,6 +147,24 @@ their professions as they are now, shared or not. A
 profession heard second-hand shows its skill level with ~ and who passed it on,
 and only while **Show second-hand** is on.
 
+Its **Progress** tab (the Guild & Communities window has the same tab, under
+Professions) shows who has the attunements, entrance keys and summoning items
+of WoW Forever, in four sub-tabs: Attunements, Endgame entrances, Endgame
+summons and Leveling; each window opens again on the sub-tab you last used.
+Each row is a character, named as in the Professions tab, and each column a
+milestone: a tick with the item's icon when the character holds it (in its
+bags, keyring or bank, as last seen), "In progress" with the icon of what it
+leads to when it is on the way (its quest in the log, or part of the item),
+and - otherwise. Point at a cell for the item or the quest. Upper Blackrock
+Spire shows its three gems, lit when held; point at one to see who lacks it.
+Molten Core is greyed: it is not in WoW Forever yet. Click a column's header to
+put those who have it first, then those on the way; click again for the usual
+order, by nickname, then name. Characters with nothing in a sub-tab are left
+out unless **Show everyone** is ticked, which also lists every one of your own
+characters. Whisper opens a whisper to the character (not on your own). A
+milestone heard second-hand is dimmed, says who passed it on, and shows only
+while **Show second-hand** is on.
+
 The settings panel is in Options, AddOns, Mnemosyne; the addon drawer next to
 the minimap and `/mnemosyne settings` open it too. It has:
 
@@ -243,7 +262,8 @@ them (see [Using it](#using-it)).
 
 Mnemosyne also shares each registered character's progress (its attunements,
 entrance keys and summoning items) with your guildmates and friends who have
-Mnemosyne, shown in the **Progress** tab of Mnemosyne's window. **Share my
+Mnemosyne, shown in the **Progress** tab of Mnemosyne's window and of the Guild
+& Communities window. **Share my
 progress**, on by default for all your characters, shares it the way **Share my
 professions** shares professions; off, other players forget it.
 

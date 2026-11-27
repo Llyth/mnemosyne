@@ -828,6 +828,13 @@ describe("Self", function()
 			assert.same({ "Dee Zaster", "Hugh Jass" }, characters:withProgress())
 		end)
 
+		it("lists every one of this account's characters, with progress or none, sorted by name", function()
+			characters:seeProgress("Hugh Jass", { [DIRE_MAUL] = done })
+			characters:seeProgress("Cole Slaw", {})
+			characters:keepAnonymous("Anna Conda")
+			assert.same({ "Anna Conda", "Cole Slaw", "Hugh Jass" }, characters:names())
+		end)
+
 		it("says whether reading the progress changed anything", function()
 			assert.is_true(characters:seeProgress("Hugh Jass", { [DIRE_MAUL] = done }))
 			assert.is_false(characters:seeProgress("Hugh Jass", { [DIRE_MAUL] = { state = "done", item = 18249 } }))

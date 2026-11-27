@@ -2,8 +2,8 @@
 -- commands and the tooltip line; the other commands are in Commands.lua, the
 -- registration prompt in Prompt.lua, the settings panel in Panel.lua and
 -- Mnemosyne's window in Window.lua (its Identities tab in Identities.lua, its
--- Professions tab in ProfessionsTab.lua). Every string it shows comes from the
--- locale table (src/locales/).
+-- Professions tab in ProfessionsTab.lua, its Progress tab in ProgressTab.lua).
+-- Every string it shows comes from the locale table (src/locales/).
 local _, ns = ...
 
 local L = ns.L
