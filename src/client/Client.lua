@@ -339,21 +339,30 @@ local function redraw(changed)
 	end
 end
 
--- Reads the skill level of each profession, secondary ones included, keyed by
--- skill line ID (GetProfessionInfo's 7th value), never by the name. At login an
--- empty read is skipped: the game may not have the professions yet, and an
--- empty list would drop them all.
-local function readProfessions(atLogin)
+-- This character's professions as the game has them now, secondary ones
+-- included: { skillLine, name, icon, level, maxLevel } each, keyed by skill line
+-- ID (GetProfessionInfo's 7th value), never by the name. Every slot is read, up
+-- to the last one GetProfessions returns.
+function Client.ownProfessions()
 	local list = {}
 	local indexes = { GetProfessions() } -- holes where a slot is empty
 	for i = 1, table.maxn(indexes) do
 		if indexes[i] then
-			local _, _, level, maxLevel, _, _, skillLine = GetProfessionInfo(indexes[i])
+			local name, icon, level, maxLevel, _, _, skillLine = GetProfessionInfo(indexes[i])
 			if skillLine then
-				list[#list + 1] = { skillLine = skillLine, level = level, maxLevel = maxLevel }
+				list[#list + 1] =
+					{ skillLine = skillLine, name = name, icon = icon, level = level, maxLevel = maxLevel }
 			end
 		end
 	end
+	return list
+end
+
+-- Reads the skill level of each profession (Client.ownProfessions). At login an
+-- empty read is skipped: the game may not have the professions yet, and an
+-- empty list would drop them all.
+local function readProfessions(atLogin)
+	local list = Client.ownProfessions()
 	if list[1] or not atLogin then
 		redraw(ns.characters:seeProfessions(playerName, list))
 	end
