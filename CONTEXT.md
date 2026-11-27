@@ -44,6 +44,18 @@ _Avoid_: craft, pattern, schematic
 Letting your registered characters' professions spread to peers. On by default, account-wide; turning it off makes peers forget them.
 _Avoid_: publishing, broadcasting
 
+**Progress**:
+What Mnemosyne knows about a character's attunements, entrance keys and summoning items: one milestone each, heard first-hand or second-hand.
+_Avoid_: achievements, attunements (for the whole category), unlocks
+
+**Milestone**:
+One tracked attunement, entrance key or summoning item, and where a character stands on it: has it now, in progress, or neither. Each has its own revision.
+_Avoid_: step, goal, key (for a milestone in general)
+
+**Sharing progress**:
+Letting your registered characters' progress spread to peers. On by default, account-wide; turning it off makes peers forget it.
+_Avoid_: publishing, broadcasting
+
 **Peer**:
 Another player's character running Mnemosyne, which you can exchange messages with.
 _Avoid_: node, client, user
