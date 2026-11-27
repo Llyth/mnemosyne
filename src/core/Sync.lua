@@ -223,6 +223,18 @@ local function answer(self, peer, digest, now, outgoing)
 	send(outgoing, peer, { kind = "done" })
 end
 
+-- Ends the sync with a peer, however it ends (its done, a late digest
+-- answered, the cut): its place is free, and, once this side answered it, its
+-- professions, which come after its identities and may come after its done
+-- (whispers come out of order), still count for 2 minutes.
+local function finish(self, peer, now)
+	local session = self.sessions[peer]
+	self.sessions[peer] = nil
+	if session.answered then
+		self.endedAt[peer] = { at = now, started = session.started }
+	end
+end
+
 -- Puts a peer in the waiting list, or moves it up, with the digest it sent if
 -- any, to answer when its sync starts. Returns whether it is in the list, which
 -- keeps the 10 most recently heard.
@@ -341,7 +353,7 @@ function Sync:receive(peer, message)
 				-- Its place was freed at the done: answered at once, not kept running.
 				self.sessions[peer] = { started = now, active = now }
 				answer(self, peer, message.digest, now, outgoing)
-				self.sessions[peer] = nil
+				finish(self, peer, now)
 			elseif refuses(self, peer, now) then
 				send(outgoing, peer, { kind = "done" })
 			elseif running(self) >= Sync.MAX_RUNNING then
@@ -391,11 +403,8 @@ function Sync:receive(peer, message)
 	elseif message.kind == "done" then
 		if not session.answered then
 			self.doneFirst[peer] = now
-		else
-			-- Its professions may still come after its done (whispers come out of order).
-			self.endedAt[peer] = { at = now, started = session.started }
 		end
-		self.sessions[peer] = nil
+		finish(self, peer, now)
 		played(self, self.saved)[peer] = now
 		return startWaiting(self, now)
 	end
@@ -408,12 +417,7 @@ function Sync:tick()
 	local now = self.clock()
 	for peer, session in pairs(self.sessions) do
 		if now - session.active >= Sync.TIMEOUT or now - session.started >= Sync.MAX_DURATION then
-			self.sessions[peer] = nil
-			if session.answered then
-				-- Its place is free, but its professions, which come after its
-				-- identities, still count, as after its done.
-				self.endedAt[peer] = { at = now, started = session.started }
-			end
+			finish(self, peer, now)
 		end
 	end
 	for peer, doneAt in pairs(self.doneFirst) do

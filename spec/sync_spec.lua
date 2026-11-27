@@ -844,6 +844,16 @@ describe("Sync", function()
 			assert.is_nil(professions:list()[3])
 		end)
 
+		it("takes professions that come after the peer's digest when its done came before it", function()
+			sync:request("Barb Dwyer", now)
+			sync:receive("Barb Dwyer", { kind = "done" })
+			sync:receive("Barb Dwyer", { kind = "professionDigest", digest = NONE })
+			sync:receive("Barb Dwyer", { kind = "digest", digest = emptyDigest() })
+			now = now + 5
+			sync:receive("Barb Dwyer", { kind = "professions", professions = { tailoring } })
+			assert.equal(2, #professions:list())
+		end)
+
 		it("takes professions that come after a long run of identities it already holds", function()
 			local held = { { name = "Hugh Jass", nickname = "Tony", revision = 900 } }
 			local started = now
