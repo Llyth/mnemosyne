@@ -9,6 +9,7 @@
 -- first-hand changes of the last day first. A sync with a peer happens at most
 -- once every 15 minutes with a friend or a guildmate (on this side's lists, as
 -- Scope holds them) and once every 6 hours with anyone else; at most 2 run at once
+-- (one whose answer is still sent after the peer's done counts)
 -- and at most 10 wait, the most recently heard peers first. A sync whose peer
 -- passes on nothing new for 2 minutes, or that lasts 20 minutes, is cut; the
 -- next one starts again from the digest. Whispers can arrive out of order, so a
@@ -148,7 +149,8 @@ function Sync.new(saved, clock, memory, settings, professions, progress, early, 
 		digests = { professions = {}, progress = {} },
 		-- peer -> { at, started } of a sync this side answered, ended or cut: its professions and progress still count
 		endedAt = {},
-		sessions = {}, -- peer -> { started, active, answered, digestAgain, copiesAnswered }
+		sessions = {}, -- peer -> { started, active, answered, digestAgain, copiesAnswered, producing, pulled }
+		answering = {}, -- peer -> the session ended whose answer is still made, holding its place
 		waiting = {}, -- { peer, heard, digest, digestHeard }, the most recently heard first
 		doneFirst = {}, -- peer -> when its done came before its digest, to answer the digest still
 	}, Sync)
@@ -160,8 +162,22 @@ end
 
 -- Queues a part of an answer that body(emit, step) produces: emit(message)
 -- gives one message, step() lets the queue send before it goes on. It
--- produces nothing more once the sync is cut (tick).
-local function produce(outgoing, peer, session, body)
+-- produces nothing more once the sync is cut (tick). The session counts its
+-- parts still made (producing) and when the queue last asked (pulled): an
+-- answer still made after the peer's done keeps its place (finish).
+local function produce(self, outgoing, peer, session, body)
+	session.producing = (session.producing or 0) + 1
+	session.pulled = self.clock()
+	local over = false
+	local function stop()
+		if not over then
+			over = true
+			session.producing = session.producing - 1
+			if session.producing == 0 and self.answering[peer] == session then
+				self.answering[peer] = nil
+			end
+		end
+	end
 	local co = coroutine.create(function()
 		body(function(message)
 			coroutine.yield({ peer = peer, text = Protocol.write(message), kind = message.kind })
@@ -173,11 +189,16 @@ local function produce(outgoing, peer, session, body)
 		peer = peer,
 		produce = function()
 			if session.cut or coroutine.status(co) == "dead" then
+				stop()
 				return nil
 			end
+			session.pulled = self.clock()
 			local ok, out = coroutine.resume(co)
 			if not ok then
+				stop()
 				error(out, 0)
+			elseif out == nil then
+				stop()
 			end
 			return out
 		end,
@@ -217,6 +238,9 @@ local function running(self)
 	for _ in pairs(self.sessions) do
 		count = count + 1
 	end
+	for _ in pairs(self.answering) do
+		count = count + 1
+	end
 	return count
 end
 
@@ -229,6 +253,9 @@ end
 -- Whether the cooldown keeps a sync with the peer from starting: a peer whose
 -- professions, or progress, this side never heard skips it once.
 local function refuses(self, peer, now)
+	if self.answering[peer] then
+		return true -- one sync at a time with a peer, its answer included
+	end
 	local last = self.shared[#self.shared]
 	local owed = last and rank(played(self, self.savedEarly)[peer]) < RANK[last.mark]
 	return isCooling(self, peer, now) and not owed
@@ -272,7 +299,7 @@ end
 -- Answers a peer's digest of professions or progress, once a sync: what it lacks.
 local function answerCopies(self, category, peer, digest, outgoing)
 	answered(self, peer, category)
-	produce(outgoing, peer, self.sessions[peer], function(emit, step)
+	produce(self, outgoing, peer, self.sessions[peer], function(emit, step)
 		passOnCopies(self, category, peer, digest, emit, step)
 	end)
 end
@@ -348,7 +375,7 @@ local function answer(self, peer, digest, now, outgoing)
 			answered(self, peer, category)
 		end
 	end
-	produce(outgoing, peer, session, function(emit, step)
+	produce(self, outgoing, peer, session, function(emit, step)
 		if passOn then
 			passOnIdentities(self, digest, now, emit, step)
 		end
@@ -362,13 +389,19 @@ local function answer(self, peer, digest, now, outgoing)
 end
 
 -- Ends the sync with a peer, however it ends (its done, a late digest
--- answered, the cut): its place is free, and, once this side answered it, its
+-- answered, the cut): its place is free, unless this side's answer is still
+-- made (a peer's done comes when its own part ends: a peer sending its done at
+-- once would otherwise free places while its answers still go out, and the
+-- queue cuts honest ones past 3), and, once this side answered it, its
 -- professions and progress, which come after its identities and may come after its done
 -- (whispers come out of order), still count for 2 minutes.
 local function finish(self, peer, now, cut)
 	local session = self.sessions[peer]
 	session.cut = cut
 	self.sessions[peer] = nil
+	if not cut and (session.producing or 0) > 0 then
+		self.answering[peer] = session
+	end
 	if session.answered then
 		self.endedAt[peer] = { at = now, started = session.started }
 	end
@@ -489,11 +522,15 @@ function Sync:receive(peer, message)
 			end
 		end
 	elseif message.kind == "digest" then
-		if not session then
+		if not session and self.answering[peer] then
+			-- Its answer still goes out: a done would end the peer's sync and waste the rest.
+			return outgoing
+		elseif not session then
 			local doneAt = self.doneFirst[peer]
 			self.doneFirst[peer] = nil
 			if doneAt and now - doneAt < Sync.TIMEOUT then
-				-- Its place was freed at the done: answered at once, not kept running.
+				-- Its place was freed at the done: answered at once, not kept running (the
+				-- answer still made holds a place, finish).
 				self.sessions[peer] = newSession(now)
 				answer(self, peer, message.digest, now, outgoing)
 				finish(self, peer, now)
@@ -563,6 +600,13 @@ function Sync:tick(paused)
 	for peer, session in pairs(self.sessions) do
 		if now - session.active >= Sync.TIMEOUT or now - session.started >= Sync.MAX_DURATION then
 			finish(self, peer, now, true)
+		end
+	end
+	-- An answer the queue stopped asking for (the peer went offline, the queue was full) is over.
+	for peer, session in pairs(self.answering) do
+		if now - session.pulled >= Sync.TIMEOUT or now - session.started >= Sync.MAX_DURATION then
+			session.cut = true
+			self.answering[peer] = nil
 		end
 	end
 	for peer, doneAt in pairs(self.doneFirst) do
