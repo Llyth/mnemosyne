@@ -2,7 +2,17 @@
 -- its own Memory, Self, Sync, News and Protocol reader, wired through an
 -- in-memory transport that carries wire text, chunks included, the way Client
 -- would.
-local ns = require("spec.helpers.addon")("Protocol", "Digest", "Memory", "Self", "Scope", "Professions", "Sync", "News")
+local ns = require("spec.helpers.addon")(
+	"Protocol",
+	"Digest",
+	"Memory",
+	"Self",
+	"Scope",
+	"Copies",
+	"Professions",
+	"Sync",
+	"News"
+)
 local Memory, News, Professions, Protocol, Scope, Self, Sync =
 	ns.Memory, ns.News, ns.Professions, ns.Protocol, ns.Scope, ns.Self, ns.Sync
 

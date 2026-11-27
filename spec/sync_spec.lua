@@ -1,4 +1,5 @@
-local ns = require("spec.helpers.addon")("Protocol", "Digest", "Memory", "Self", "Scope", "Professions", "Sync")
+local ns =
+	require("spec.helpers.addon")("Protocol", "Digest", "Memory", "Self", "Scope", "Copies", "Professions", "Sync")
 local Memory, Professions, Protocol, Scope, Self, Sync =
 	ns.Memory, ns.Professions, ns.Protocol, ns.Scope, ns.Self, ns.Sync
 
