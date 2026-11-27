@@ -2,8 +2,8 @@
 -- (the friend list and Battle.net friends' characters) and guildmates; with
 -- "Talk with everyone" on, anyone. It holds who is a friend or a guildmate,
 -- and who of them is online, as Client last read the lists: Sync asks it who
--- is a guildmate (the shorter cooldown), Professions whose professions go to
--- whom. Pure: Client reads the lists from the game (decision 0004).
+-- is a friend or a guildmate (the shorter cooldown), Professions whose
+-- professions go to whom. Pure: Client reads the lists from the game (decision 0004).
 local _, ns = ...
 
 local Scope = {}
@@ -56,6 +56,12 @@ end
 -- Whether a character is on the guild roster, whoever Mnemosyne talks with.
 function Scope:isGuildmate(name)
 	return self.guildmates[key(name)] == true
+end
+
+-- Whether a character is a friend or on the guild roster, whoever Mnemosyne
+-- talks with.
+function Scope:isListed(name)
+	return self.names[key(name)] == true
 end
 
 -- Every friend and guildmate, as read: an array of full names.
