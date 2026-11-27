@@ -20,6 +20,7 @@ local UNKNOWN_ICON = 134400 -- the question mark
 local CHECK = "Interface\\RaidFrame\\ReadyCheck-Ready"
 local NONE = "-"
 local GREY = 0.5
+local MAX_LACKING = 20 -- names a gem's tooltip lists, then "…"
 
 -- The sub-tabs, in order: the category of Milestones each shows, its label.
 local CATEGORIES = {
@@ -221,6 +222,10 @@ local function newView(content, viewWidth, place)
 		GameTooltip:SetItemByID(gem.item)
 		local names = {}
 		for i, row in ipairs(Grid.lacking(rows, gem.milestone, gem.index)) do
+			if i > MAX_LACKING then
+				names[i] = "…" -- the search narrows the rows, and the list with them
+				break
+			end
 			names[i] = label(row)
 		end
 		if #names > 0 then
