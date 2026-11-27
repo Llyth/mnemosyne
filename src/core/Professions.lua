@@ -12,9 +12,10 @@
 -- Kept only for this account's characters, and for characters seen on a guild
 -- roster or online as a friend's in the last 30 days; others are dropped
 -- quietly. Second-hand ones are refused and dropped while the character is
--- forgotten (a first-hand one still gets through, as for identities); all are
--- while its identity is held as a removal (anonymous or unregistered), so no
--- peer can link an anonymous character to its professions. Only the game's
+-- forgotten (a first-hand one still gets through, as for identities) or while
+-- its identity is held as a removal (anonymous or unregistered), so no peer
+-- can link an anonymous character to its professions; first-hand ones too
+-- while that removal is not disputed. Only the game's
 -- skill lines are kept. At most 2,000 second-hand changes a day from one
 -- peer, first-hand ones aside.
 local _, ns = ...
@@ -156,10 +157,17 @@ local function keeps(self, name, now)
 end
 
 -- Whether a character's profession heard first-hand or not is refused:
--- second-hand while the character is forgotten, any while its identity is
--- held as a removal (disputed or stale too).
+-- second-hand while the character is forgotten or its identity is held as a
+-- removal (disputed or stale too); first-hand while that removal is not
+-- disputed. Any peer can forge a removal that disputes a nickname: it never
+-- keeps out what the character shares itself, which for an anonymous
+-- character is only removals (Self:professions).
 local function isRefused(self, name, firstHand)
-	return (not firstHand and self.memory:isForgotten(name)) or self.memory:isWithdrawn(name)
+	local withdrawn, disputed = self.memory:isWithdrawn(name)
+	if firstHand then
+		return withdrawn and not disputed
+	end
+	return withdrawn or self.memory:isForgotten(name)
 end
 
 -- Counts one second-hand change from a peer. Returns false once the peer
@@ -259,9 +267,9 @@ function Professions:see(name, guid)
 end
 
 -- Drops quietly the professions no longer kept: of characters neither seen on
--- a roster nor as a friend's in the last 30 days or whose identity is held as
--- a removal, and the second-hand ones of forgotten characters. Drops from the
--- peers' professions held the recipes the game places in another profession.
+-- a roster nor as a friend's in the last 30 days, and those refused
+-- (isRefused). Drops from the peers' professions held the recipes the game
+-- places in another profession.
 function Professions:prune()
 	local now = self.clock()
 	for name, seenAt in pairs(self.seen) do
@@ -271,11 +279,11 @@ function Professions:prune()
 	end
 	for name, character in pairs(self.held) do
 		if not character.own then
-			if not keeps(self, name, now) or self.memory:isWithdrawn(name) then
+			if not keeps(self, name, now) then
 				self.held[name] = nil
-			elseif self.memory:isForgotten(name) then
+			else
 				for skillLine, profession in pairs(character.skills) do
-					if not profession.firstHand then
+					if isRefused(self, name, profession.firstHand) then
 						character.skills[skillLine] = nil
 					end
 				end
@@ -464,8 +472,7 @@ end
 -- heard, own }, copies; a disputed one as { name, skillLine, disputed } only.
 -- This account's characters' show as read now (Self), registered or not,
 -- shared or not, without a revision; never their stamped copies.
--- Removals, stale ones and those refused (second-hand of a forgotten
--- character, any whose identity is held as a removal) are left out.
+-- Removals, stale ones and those refused (isRefused) are left out.
 function Professions:list()
 	local found, mine = {}, {}
 	for _, name in ipairs(self.characters:withProfessions()) do
@@ -476,11 +483,10 @@ function Professions:list()
 		end
 	end
 	for name, character in pairs(self.held) do
-		local forgotten = self.memory:isForgotten(name)
-		if not (character.own or mine[name] or self.memory:isWithdrawn(name)) then
+		if not (character.own or mine[name]) then
 			for skillLine, profession in pairs(character.skills) do
-				-- A forgotten character's second-hand copy shows nowhere.
-				local refused = forgotten and not profession.firstHand
+				-- A refused copy shows nowhere.
+				local refused = isRefused(self, name, profession.firstHand)
 				if profession.disputed and not refused then
 					found[#found + 1] = { name = name, skillLine = skillLine, disputed = true }
 				elseif profession.level and not profession.stale and not refused then

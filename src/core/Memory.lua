@@ -332,7 +332,11 @@ local function hearSecondHand(self, name, heard, known)
 	if known then
 		if known.firstHand or known.stale or known.revision > heard.revision then
 			return false
-		elseif known.revision == heard.revision and (known.disputed or known.nickname == heard.nickname) then
+		elseif known.revision == heard.revision and known.disputed then
+			-- A removal among the disputed copies holds it withdrawn (isWithdrawn), whichever came first.
+			known.nickname = heard.nickname and known.nickname
+			return false
+		elseif known.revision == heard.revision and known.nickname == heard.nickname then
 			return false
 		end
 	end
@@ -351,6 +355,7 @@ local function hearSecondHand(self, name, heard, known)
 	elseif known.revision == heard.revision then
 		sum(self, name, known, -1)
 		known.disputed = true
+		known.nickname = heard.nickname and known.nickname
 		return true, "disputed"
 	end
 	local stored = {
@@ -604,10 +609,12 @@ function Memory:passOn(name)
 end
 
 -- Whether a character's identity is held as a removal (without a nickname),
--- even disputed or stale: what the character withdrew stays withdrawn.
+-- even disputed or stale: what the character withdrew stays withdrawn. A
+-- dispute between a nickname and a removal holds no nickname, whichever came
+-- first. Then whether that removal is disputed.
 function Memory:isWithdrawn(name)
 	local known = self.identities[name]
-	return known ~= nil and known.nickname == nil
+	return known ~= nil and known.nickname == nil, known ~= nil and known.disputed == true
 end
 
 -- Forgets a character (its full name in any case, accents or not): drops its
