@@ -438,11 +438,12 @@ function Self:hintRecipes(name)
 end
 
 -- This account's characters with a profession read now, sorted by name: what
--- they show to their own player never depends on what is shared.
+-- they show to their own player never depends on what is shared. A name
+-- another player's character has taken (owns) is left to it.
 function Self:withProfessions()
 	local found = {}
 	for name in pairs(self.characters) do
-		if self:currentProfessions(name)[1] then
+		if self:owns(name) and self:currentProfessions(name)[1] then
 			found[#found + 1] = name
 		end
 	end
@@ -597,11 +598,12 @@ function Self:names()
 end
 
 -- This account's characters with a milestone read now, sorted by name: what
--- they show to their own player never depends on what is shared.
+-- they show to their own player never depends on what is shared. A name
+-- another player's character has taken (owns) is left to it.
 function Self:withProgress()
 	local found = {}
 	for name in pairs(self.characters) do
-		if self:currentProgress(name)[1] then
+		if self:owns(name) and self:currentProgress(name)[1] then
 			found[#found + 1] = name
 		end
 	end
