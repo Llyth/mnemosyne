@@ -194,7 +194,9 @@ level, and the recipes you have learned once you open its window (Mnemosyne
 never opens it itself). Until then, it finds the learned recipes your
 guildmates and friends also know, and asks you once to open each window. **Share my professions**, on by default for all your
 characters, shares them when you sync with another player; off, or for a
-character you don't register, other players forget them. A guildmate gets the
+character you don't register, other players forget them. Your registered
+characters also say which professions they don't have, so a profession another
+player made up for one of them is dropped when it syncs. A guildmate gets the
 professions of your guild roster and of your own characters (only your own with
 **Pass on what I know** off); a friend outside your guild gets only your own
 characters'. A player whose professions you never received gets one sync even

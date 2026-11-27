@@ -433,6 +433,20 @@ describe("Self", function()
 			assert.same({ { skillLine = TAILORING, revision = 2000 } }, characters:professions("Hugh Jass"))
 		end)
 
+		it("stamps once a removal of each of the game's skill lines a registered character lacks", function()
+			local skillLines = { [TAILORING] = "crafting", [COOKING] = "secondary" }
+			characters:seeProfessions("Hugh Jass", { { skillLine = TAILORING, level = 50, maxLevel = 75 } })
+			characters:stampProfessions("Hugh Jass", skillLines)
+			now = 2000
+			characters:stampProfessions("Hugh Jass", skillLines)
+			assert.same({
+				{ skillLine = COOKING, revision = 1000 },
+				{ skillLine = TAILORING, level = 50, maxLevel = 75, revision = 1000 },
+			}, characters:professions("Hugh Jass"))
+			characters:stampProfessions("Anna Conda", skillLines)
+			assert.same({}, characters:professions("Anna Conda")) -- not registered: shares nothing
+		end)
+
 		it("forgets a profession dropped before any sync stamped it", function()
 			characters:seeProfessions("Hugh Jass", { { skillLine = TAILORING, level = 50, maxLevel = 75 } })
 			characters:seeProfessions("Hugh Jass", {})
