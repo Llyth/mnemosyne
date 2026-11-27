@@ -33,6 +33,10 @@ Memory.MAX_CHANGES_PER_PEER = 1000
 Memory.MAX_VOUCHED_PER_PEER = 5000
 
 local DAY = 24 * 60 * 60
+-- A loaded identity's place in the drop queue, as one number: when it was
+-- heard times this, plus the order met (at most 2^21 identities; exact in a
+-- Lua number until the year 2106).
+local QUEUE_KEYS = 2 ^ 21
 -- How old, at most, a vouched change may be (its revision) to count as vouched;
 -- one ahead of the clock never does: no real change is.
 Memory.VOUCHED_WINDOW = DAY
@@ -157,11 +161,11 @@ end
 -- is left out. A stale one is not, so peers still holding the same old copy
 -- match; nor is the GUID hashed, or peers that know it and peers that do not
 -- would never match: neither changes a sum.
-local function sum(self, name, known, sign)
+local function sum(self, name, known, sign, bucket)
 	if known and not known.disputed then
 		local hashed = Digest.hash(name .. "\n" .. known.revision .. "\n" .. (known.nickname or ""))
 		if sign > 0 then
-			self.sums:add(name, hashed)
+			self.sums:addIn(bucket or Digest.bucket(name), hashed)
 		else
 			self.sums:remove(name, hashed)
 		end
@@ -195,8 +199,28 @@ end
 
 -- Stores an identity (or nil to drop it), keeping the digest's sums, the
 -- names of its bucket and, once built, the index of full names in step.
+-- Takes a name out of the drop queue (queue), if it is in it.
+local function unqueue(self, name)
+	if not self.queued[name] then
+		return
+	end
+	local previous, following = self.previous[name], self.following[name]
+	if previous then
+		self.following[previous] = following
+	else
+		self.oldest = following
+	end
+	if following then
+		self.previous[following] = previous
+	else
+		self.newest = previous
+	end
+	self.queued[name], self.previous[name], self.following[name] = nil, nil, nil
+end
+
 local function store(self, name, known)
 	local before = self.identities[name]
+	unqueue(self, name) -- whatever replaces it was heard later, or is first-hand
 	sum(self, name, before, -1)
 	self.identities[name] = known
 	sum(self, name, known, 1)
@@ -206,23 +230,19 @@ local function store(self, name, known)
 	end
 end
 
--- Queues a second-hand identity to be dropped after the ones heard before it.
--- An entry stays live while the identity it holds is the one stored for its
--- name; once dead entries outnumber the live ones, the queue keeps the live
--- ones only, in order, so a long session of changes cannot grow it unbounded.
-local function queue(self, name, known)
-	self.queueEnd = self.queueEnd + 1
-	self.queue[self.queueEnd] = { name = name, known = known }
-	if self.queueEnd - self.queueStart + 1 > 2 * self.secondHand + 1000 then
-		local live = {}
-		for at = self.queueStart, self.queueEnd do
-			local entry = self.queue[at]
-			if self.identities[entry.name] == entry.known then
-				live[#live + 1] = entry
-			end
-		end
-		self.queue, self.queueStart, self.queueEnd = live, 1, #live
+-- Queues the second-hand identity just stored for a name to be dropped after
+-- the ones heard before it: the drop queue is a list linked by name, oldest
+-- first, which store takes a name out of when its identity is replaced or
+-- dropped. Each step costs the same however long the queue.
+local function queue(self, name)
+	self.queued[name] = true
+	self.previous[name] = self.newest
+	if self.newest then
+		self.following[self.newest] = name
+	else
+		self.oldest = name
 	end
+	self.newest = name
 end
 
 -- One of this account's characters is seen with its GUID (Self:ownsGuid: the
@@ -282,9 +302,12 @@ function Memory.new(saved, clock, forgotten, characters)
 		names = {}, -- bucket -> set of the names held in it, so missing hashes no name
 		folds = {}, -- text -> its folded text, for searches (cachedFold)
 		byFolded = nil, -- folded text -> full name held (or a set of them), built on the first fullName
-		queue = {},
-		queueStart = 1,
-		queueEnd = 0,
+		-- The drop queue (queue): the second-hand identities by when heard.
+		queued = {}, -- name -> true while in it
+		previous = {}, -- name -> the name heard before it
+		following = {}, -- name -> the name heard after it
+		oldest = nil,
+		newest = nil,
 	}, Memory)
 	for bucket = 1, Digest.BUCKETS do
 		self.names[bucket] = {}
@@ -294,21 +317,26 @@ function Memory.new(saved, clock, forgotten, characters)
 			self.folded[fold(name)] = name
 		end
 	end
+	local heard, byKey = {}, {}
 	for name, known in pairs(saved.identities) do
 		if known.nickname and not Protocol.checkNickname(known.nickname) then
 			saved.identities[name] = nil
 		else
-			sum(self, name, known, 1)
-			self.names[Digest.bucket(name)][name] = true
+			local bucket = Digest.bucket(name)
+			sum(self, name, known, 1, bucket)
+			self.names[bucket][name] = true
 			if not known.firstHand then
 				self.secondHand = self.secondHand + 1
-				queue(self, name, known)
+				-- Sorted as numbers, the fastest sort: when heard, then the order met.
+				local key = known.heard * QUEUE_KEYS + self.secondHand
+				heard[self.secondHand], byKey[key] = key, name
 			end
 		end
 	end
-	table.sort(self.queue, function(a, b)
-		return a.known.heard < b.known.heard
-	end)
+	table.sort(heard)
+	for _, key in ipairs(heard) do
+		queue(self, byKey[key])
+	end
 	local seen = {}
 	for name, known in pairs(saved.identities) do
 		if characters and characters:ownsGuid(name, known.guid) then
@@ -361,20 +389,11 @@ local function countChange(self, peer, now, vouched)
 	return true
 end
 
--- Drops the second-hand identity heard the longest ago: the first in the queue
--- still live (its identity still the one stored). heard only grows, so the queue
--- stays in the order heard.
+-- Drops the second-hand identity heard the longest ago: the first in the
+-- queue. heard only grows, so the queue stays in the order heard.
 local function dropOldest(self)
-	while true do
-		local oldest = self.queue[self.queueStart]
-		self.queue[self.queueStart] = nil
-		self.queueStart = self.queueStart + 1
-		if self.identities[oldest.name] == oldest.known then
-			store(self, oldest.name, nil)
-			self.secondHand = self.secondHand - 1
-			return
-		end
-	end
+	store(self, self.oldest, nil)
+	self.secondHand = self.secondHand - 1
 end
 
 local function hearSecondHand(self, name, heard, known)
@@ -427,7 +446,7 @@ local function hearSecondHand(self, name, heard, known)
 		guid = known and known.guid or heard.guid,
 	}
 	store(self, name, stored)
-	queue(self, name, stored)
+	queue(self, name)
 	return true
 end
 
@@ -720,7 +739,6 @@ function Memory:empty()
 		end
 	end
 	self.folded, self.secondHand = {}, 0
-	self.queue, self.queueStart, self.queueEnd = {}, 1, 0
 end
 
 -- Lets a forgotten character's second-hand copies in again. Returns false
