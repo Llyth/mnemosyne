@@ -7,8 +7,8 @@
 -- the other lacks or holds at an older revision, then the end of its part. A
 -- sync passes on at most what the other keeps in a day from one peer,
 -- first-hand changes of the last day first. A sync with a peer happens at most
--- once an hour with a guildmate (on this side's guild roster, as Professions
--- holds it) and once every 6 hours with anyone else; at most 2 run at once
+-- once an hour with a guildmate (on this side's guild roster, as Scope holds
+-- it) and once every 6 hours with anyone else; at most 2 run at once
 -- and at most 10 wait, the most recently heard peers first. A sync whose peer
 -- passes on nothing new for 2 minutes, or that lasts 20 minutes, is cut; the
 -- next one starts again from the digest. Whispers can arrive out of order, so a
@@ -68,15 +68,15 @@ Sync.FRESH = Memory.VOUCHED_WINDOW - 60 * 60 -- seconds
 -- settings: the saved settings; settings.passOn switches passing on what the
 -- memory holds.
 -- professions: the Professions to hash, pass on and learn into; none when left out.
--- Its guild roster tells guildmates, who sync more often; with none, every
--- peer waits the longer cooldown.
 -- early: the peers that can no longer sync during the cooldown, by character
 -- of this account (MnemosyneDB.characterEarlySyncs), character -> peer -> "heard" (its
 -- digest of professions was answered) or "synced" (it had its early sync);
 -- those saved before each character kept its own (a mark by peer) are let go.
 -- playerName: returns the full name of the character played, the one that
 -- syncs; nil before login, when nothing syncs.
-function Sync.new(saved, clock, memory, settings, professions, early, playerName)
+-- scope: the Scope, which tells guildmates, who sync more often; with none,
+-- every peer waits the longer cooldown.
+function Sync.new(saved, clock, memory, settings, professions, early, playerName, scope)
 	local now = clock()
 	early = early or {}
 	for character, synced in pairs(saved) do
@@ -102,6 +102,7 @@ function Sync.new(saved, clock, memory, settings, professions, early, playerName
 		memory = memory,
 		settings = settings,
 		professions = professions,
+		scope = scope,
 		savedEarly = early,
 		playerName = playerName or function() end,
 		professionDigests = {}, -- peer -> { digest, at }, its digest of professions until answered
@@ -134,7 +135,7 @@ end
 
 local function isCooling(self, peer, now)
 	local syncedAt = played(self, self.saved)[peer]
-	local guildmate = self.professions and self.professions.roster[peer]
+	local guildmate = self.scope and self.scope:isGuildmate(peer)
 	return syncedAt ~= nil and now - syncedAt < (guildmate and Sync.COOLDOWN_GUILD or Sync.COOLDOWN)
 end
 

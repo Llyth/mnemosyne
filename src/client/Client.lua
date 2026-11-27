@@ -218,33 +218,39 @@ function Client.ask(name)
 	return enqueue("ask", "WHISPER", name)
 end
 
--- Reads the friends and guildmates again on the next look (Client.inScope).
+-- Reads the friends and guildmates again on the next look (Client.inScope, Client.onlineNames).
 local scopeRead = false
 
+-- Reads the friends and the guild roster, and who of them is online, into
+-- the scope, the one place that holds them (Scope).
 local function readScope()
-	local scope, isKnown = ns.scope, Client.isKnown
-	local friends, roster = {}, {}
-	scope:reset()
+	local isKnown = Client.isKnown
+	local friends, roster, online = {}, {}, {}
 	-- On Forever a friend added by character name is listed with the Battle.net
 	-- friends too: C_FriendList stays empty (docs/agents/wow-api.md).
 	for i = 1, BNGetNumFriends() do
 		for j = 1, C_BattleNet.GetFriendNumGameAccounts(i) do
 			local account = C_BattleNet.GetFriendGameAccountInfo(i, j)
 			if account and account.clientProgram == BNET_CLIENT_WOW and isKnown(account.characterName) then
-				scope:add(account.characterName)
 				friends[#friends + 1] = account.characterName
+				if account.isOnline then
+					online[account.characterName] = true
+				end
 			end
 		end
 	end
 	for i = 1, GetNumGuildMembers() do
-		local name = GetGuildRosterInfo(i)
+		local name, _, _, _, _, _, _, _, isOnline = GetGuildRosterInfo(i)
 		if isKnown(name) then
-			scope:add(name)
 			roster[#roster + 1] = name
+			if isKnown(isOnline) and isOnline then
+				online[name] = true
+			end
 		end
 	end
-	-- Whose professions are kept, and which peers may keep the roster's.
-	ns.professions:seeLists(friends, roster)
+	ns.scope:see(friends, roster, online)
+	-- Whose professions are kept.
+	ns.professions:seeLists()
 	scopeRead = true
 end
 
@@ -261,29 +267,13 @@ function Client.inScope(name)
 end
 
 -- The characters online now that the game tells of, as a set of names: this
--- one, the friends' and the guildmates'.
+-- one, the friends' and the guildmates', as last read (readScope).
 function Client.onlineNames()
-	local online, isKnown = {}, Client.isKnown
+	if not scopeRead then
+		readScope()
+	end
+	local online = ns.scope:online()
 	online[Client.playerName() or ""] = true
-	for i = 1, BNGetNumFriends() do
-		for j = 1, C_BattleNet.GetFriendNumGameAccounts(i) do
-			local account = C_BattleNet.GetFriendGameAccountInfo(i, j)
-			if
-				account
-				and account.clientProgram == BNET_CLIENT_WOW
-				and account.isOnline
-				and isKnown(account.characterName)
-			then
-				online[account.characterName] = true
-			end
-		end
-	end
-	for i = 1, GetNumGuildMembers() do
-		local name, _, _, _, _, _, _, _, isOnline = GetGuildRosterInfo(i)
-		if isKnown(isOnline) and isOnline and isKnown(name) then
-			online[name] = true
-		end
-	end
 	return online
 end
 
@@ -532,12 +522,14 @@ function handlers.ADDON_LOADED(name)
 	-- The versions of Mnemosyne peers run, by name (Inbox).
 	-- shortcut: never pruned, one short entry per peer ever heard; prune with the memory if it grows.
 	db.versions = db.versions or {}
+	ns.scope = ns.Scope.new(db.settings)
 	ns.professions = ns.Professions.new(
 		db.professions,
 		GetServerTime,
 		ns.memory,
 		ns.characters,
 		db.settings,
+		ns.scope,
 		recipeSkillLine,
 		Client.playerName
 	)
@@ -548,7 +540,8 @@ function handlers.ADDON_LOADED(name)
 		db.settings,
 		ns.professions,
 		db.characterEarlySyncs,
-		Client.playerName
+		Client.playerName,
+		ns.scope
 	)
 	ns.news = ns.News.new(GetTime, math.random, ns.memory, db.settings)
 	outbox = ns.Outbox.new(GetTime, Client.canSend)
@@ -573,7 +566,6 @@ function handlers.ADDON_LOADED(name)
 			return Client.VERSION
 		end,
 	})
-	ns.scope = ns.Scope.new(db.settings)
 	ns.recognition = ns.Recognition.new(ns.memory, db.settings, ns.L, GetServerTime, ns.characters, ns.professions)
 	-- The debug report (src/core/Report.lua): its events, the caught errors, and
 	-- whether to offer it after an error.

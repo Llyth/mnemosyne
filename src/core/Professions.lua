@@ -59,12 +59,14 @@ Professions.MAX_SYNC_BYTES = 100000 -- of professions a sync passes on
 -- settings: the saved settings; settings.passOn switches passing on what was
 -- heard from others (this account's characters' professions always go, but
 -- for those that go as anyone's, asAnyone).
+-- scope: the Scope, which holds the friends and the guild roster as last read:
+-- whose professions are kept, and which peers may keep the roster's.
 -- recipeSkillLine: returns the skill line the game places a recipe ID in, or
 -- nil when it cannot; peers' recipes placed in another profession, or that it
 -- cannot place, are dropped.
 -- playerName: returns the full name of the character played, the one that
 -- syncs, or nil before login.
-function Professions.new(saved, clock, memory, characters, settings, recipeSkillLine, playerName)
+function Professions.new(saved, clock, memory, characters, settings, scope, recipeSkillLine, playerName)
 	saved.held = saved.held or {} -- name -> { guid, own, skills = { [skillLine] = profession } }
 	saved.seen = saved.seen or {} -- name -> when last seen on a roster or as a friend's
 	saved.newFrom = saved.newFrom or {} -- peer -> { since, count }
@@ -82,9 +84,9 @@ function Professions.new(saved, clock, memory, characters, settings, recipeSkill
 		memory = memory,
 		characters = characters,
 		settings = settings,
+		scope = scope,
 		recipeSkillLine = recipeSkillLine or function() end,
 		playerName = playerName or function() end,
-		roster = {}, -- the current guild roster, a set, for this session
 		changes = 0, -- how many changes were heard this session: the window redraws when it moves
 		hashes = setmetatable({}, { __mode = "k" }), -- profession -> its hash, computed once
 		-- profession -> true once its recipes were checked with the game placing recipes: prune checks it no more.
@@ -331,19 +333,13 @@ function Professions:prune()
 	end
 end
 
--- Sees the friends' characters online and the guild roster, as Client reads
--- them (arrays of full names), then drops what is no longer kept. The roster
--- also says, for this session, which peers are guildmates and whose
--- professions they may keep.
-function Professions:seeLists(friends, roster)
+-- Sees the friends' characters online and the guild roster, as the Scope
+-- holds them once Client read them again: each is seen now. Then drops what is
+-- no longer kept.
+function Professions:seeLists()
 	local now = self.clock()
-	for _, name in ipairs(friends) do
+	for _, name in ipairs(self.scope:listed()) do
 		self.seen[name] = now
-	end
-	self.roster = {}
-	for _, name in ipairs(roster) do
-		self.seen[name] = now
-		self.roster[name] = true
 	end
 	self:prune()
 end
@@ -424,7 +420,9 @@ local function goesTo(self, peer, name, character, now)
 		local registered = registration ~= nil and registration.nickname ~= nil
 		return (registered or name == self.playerName()) and seenLately(self, peer, now)
 	end
-	return (self.roster[peer] and self.roster[name] and not (anyone and isRefused(self, name, true))) or false
+	local scope = self.scope
+	return (scope:isGuildmate(peer) and scope:isGuildmate(name) and not (anyone and isRefused(self, name, true)))
+		or false
 end
 
 -- The digest for a peer, and the names in each bucket: every profession that

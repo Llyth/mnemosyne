@@ -1,5 +1,6 @@
-local ns = require("spec.helpers.addon")("Protocol", "Digest", "Memory", "Self", "Professions", "Sync")
-local Memory, Professions, Protocol, Self, Sync = ns.Memory, ns.Professions, ns.Protocol, ns.Self, ns.Sync
+local ns = require("spec.helpers.addon")("Protocol", "Digest", "Memory", "Self", "Scope", "Professions", "Sync")
+local Memory, Professions, Protocol, Scope, Self, Sync =
+	ns.Memory, ns.Professions, ns.Protocol, ns.Scope, ns.Self, ns.Sync
 
 describe("Sync", function()
 	local HOUR = 60 * 60
@@ -443,6 +444,17 @@ describe("Sync", function()
 		assert.same({ "Barb Dwyer digest" }, sent(sync:request("Barb Dwyer", now)))
 	end)
 
+	it("syncs with a guildmate again after an hour, without professions too", function()
+		local scope = Scope.new({})
+		scope:see({}, { "Barb Dwyer" })
+		sync = Sync.new(saved, clock, memory, settings, nil, nil, playing, scope)
+		syncWith("Barb Dwyer")
+		now = now + HOUR - 1
+		assert.same({ {}, false }, { sync:request("Barb Dwyer", now) })
+		now = now + 1
+		assert.same({ "Barb Dwyer digest" }, sent(sync:request("Barb Dwyer", now)))
+	end)
+
 	it("remembers when it synced with a peer across a reload", function()
 		syncWith("Barb Dwyer")
 		sync = Sync.new(saved, clock, memory, settings, nil, nil, playing)
@@ -759,7 +771,7 @@ describe("Sync", function()
 	end)
 
 	describe("with professions", function()
-		local professions, early
+		local scope, professions, early
 		local NONE = string.rep("0", Protocol.DIGEST_LENGTH)
 		local tailoring = { name = "Hugh Jass", skillLine = 197, revision = 900, level = 5, maxLevel = 75 }
 
@@ -767,10 +779,12 @@ describe("Sync", function()
 			characters = Self.new({}, clock, {})
 			characters:register("Dee Zaster", "Dee")
 			characters:seeProfessions("Dee Zaster", { { skillLine = 171, level = 5, maxLevel = 75 } })
-			professions = Professions.new({}, clock, memory, characters, settings)
-			professions:seeLists({}, { "Barb Dwyer", "Hugh Jass" })
+			scope = Scope.new(settings)
+			professions = Professions.new({}, clock, memory, characters, settings, scope)
+			scope:see({}, { "Barb Dwyer", "Hugh Jass" })
+			professions:seeLists()
 			early = {}
-			sync = Sync.new(saved, clock, memory, settings, professions, early, playing)
+			sync = Sync.new(saved, clock, memory, settings, professions, early, playing, scope)
 		end)
 
 		it("sends the digest of its professions just before its digest, its own stamped first", function()
@@ -955,7 +969,8 @@ describe("Sync", function()
 		end)
 
 		it("syncs with a friend outside the guild at most once every 6 hours", function()
-			professions:seeLists({ "Cole Slaw" }, { "Barb Dwyer", "Hugh Jass" })
+			scope:see({ "Cole Slaw" }, { "Barb Dwyer", "Hugh Jass" })
+			professions:seeLists()
 			syncFully("Cole Slaw")
 			now = now + 6 * HOUR - 1
 			assert.same({ {}, false }, { sync:request("Cole Slaw", now) })
@@ -1043,7 +1058,7 @@ describe("Sync", function()
 					assert.is_true(#outgoing > 1)
 					sync:receive("Barb Dwyer", { kind = "done" })
 					now = now + HOUR / 2
-					sync = Sync.new(saved, clock, memory, settings, professions, early, playing)
+					sync = Sync.new(saved, clock, memory, settings, professions, early, playing, scope)
 					assert.same({ {}, false }, { sync:request("Barb Dwyer", now) })
 					outgoing = sync:receive("Barb Dwyer", { kind = "digest", digest = emptyDigest() })
 					assert.same({ "Barb Dwyer done" }, sent(outgoing))
