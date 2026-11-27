@@ -160,11 +160,11 @@ L.PANEL_SHARE_PROFESSIONS = "Передавать мои профессии"
 L.PANEL_SHARE_PROFESSIONS_HELP = "Передавать профессии ваших зарегистрированных персонажей (уровни навыка и "
 	.. "изученные рецепты) игрокам с Mnemosyne в вашей гильдии и среди ваших друзей. Если выключено, они их забудут."
 L.PANEL_SHARE_PROGRESS = "Передавать мой прогресс"
-L.PANEL_SHARE_PROGRESS_HELP = "Передавать прогресс ваших зарегистрированных персонажей (допуски, ключи от входа и "
+L.PANEL_SHARE_PROGRESS_HELP = "Передавать прогресс ваших зарегистрированных персонажей (сродство, ключи от входа и "
 	.. "предметы призыва) игрокам с Mnemosyne в вашей гильдии и среди ваших друзей. Если выключено, они его забудут."
 L.PANEL_EVERYONE = "Общаться со всеми"
 L.PANEL_EVERYONE_HELP = "Если выключено, Mnemosyne общается только с вашими друзьями (из списка друзей "
-	.. "и друзьями Battle.net) и гильдией. Если включено, то еще и с вашими группами и со всеми, "
+	.. "и друзьями по Battle.net) и гильдией. Если включено, то еще и с вашими группами и со всеми, "
 	.. "на кого вы наводите указатель мыши или кого берете в цель."
 L.PANEL_ASK_STRANGERS = "Спрашивать незнакомцев"
 L.PANEL_ASK_STRANGERS_HELP = "Шепотом отправлять невидимый в чате запрос незнакомому персонажу, на которого вы "
@@ -198,7 +198,7 @@ L.STATUS_SYNC = "%s (%s)" -- a peer and how long ago: "Anna Conda (5 минут 
 L.STATUS_NO_SYNC =
 	"Этот персонаж не синхронизировался за последние 6 часов."
 -- Mnemosyne's window.
-L.WINDOW_WHISPER = "Шепот"
+L.WINDOW_WHISPER = "Шепнуть"
 L.WINDOW_LAST_SYNC = "Последняя синхронизация этого персонажа: %s, %s." -- a peer and how long ago
 L.WINDOW_WAITING = "В очереди: %d"
 
@@ -218,14 +218,14 @@ L.HELP_PROFESSIONS = "/mnemosyne professions: открыть вкладку «П
 
 -- The window's Progress tab.
 L.PROGRESS = "Прогресс"
-L.PROGRESS_ATTUNEMENTS = "Допуски"
+L.PROGRESS_ATTUNEMENTS = "Сродство"
 L.PROGRESS_ENTRANCES = "Входы (высокий уровень)"
 L.PROGRESS_SUMMONS = "Призывы (высокий уровень)"
-L.PROGRESS_LEVELING = "Повышение уровня"
+L.PROGRESS_LEVELING = "Развитие персонажа"
 L.PROGRESS_EVERYONE = "Показывать всех"
 L.PROGRESS_NAME = "%s (%s)" -- the nickname, then the character's name: "Tony (Hugh Jass)"
-L.PROGRESS_IN_PROGRESS = "В процессе"
-L.PROGRESS_SEAL = "В процессе (печать)"
+L.PROGRESS_IN_PROGRESS = "Выполняется"
+L.PROGRESS_SEAL = "Выполняется (печать)"
 L.PROGRESS_NOT_YET = "Пока нет в WoW Forever"
 L.PROGRESS_HEARD_FROM = "Источник: %s"
 L.PROGRESS_DISPUTED = "Скрыто: игроки передали разные версии"
