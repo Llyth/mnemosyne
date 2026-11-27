@@ -13,7 +13,7 @@ back: when you hover a character or read its chat line, you see who plays it.
 It also shows the professions and recipes of your guildmates and friends, which
 WoW Forever's own guild professions view no longer does.
 
-> **Status: 1.5.0.** Everything version 1 set out to do: registering,
+> **Status: 1.6.0.** Everything version 1 set out to do: registering,
 > recognition on tooltips and in chat, sharing first-hand and second-hand, and
 > every language WoW Forever has; since 1.1.0, Mnemosyne's window and the
 > professions of the characters you know, also in the Guild & Communities
