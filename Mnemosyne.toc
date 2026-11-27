@@ -23,6 +23,7 @@ src\core\Protocol.lua
 src\core\Digest.lua
 src\core\Memory.lua
 src\core\Self.lua
+src\core\Copies.lua
 src\core\Professions.lua
 src\core\Milestones.lua
 src\core\Seed.lua
