@@ -91,7 +91,7 @@ L.LOOKUP_FOUND_SECOND_HAND = "%s : joué par %s, transmis par %s" -- the nicknam
 L.HELP_SYNC = "/mnemosyne sync : mettre la mémoire de ce personnage à jour avec les pairs joignables maintenant"
 L.SYNC_STARTED = "Synchronisation avec %d |4pair:pairs;."
 L.SYNC_NONE = "Aucun pair avec qui se synchroniser pour l'instant : aucun entendu cette session, "
-	.. "ou tous synchronisés récemment (au cours de la dernière heure pour les membres de votre guilde, "
+	.. "ou tous synchronisés récemment (au cours des 15 dernières minutes pour les membres de votre guilde, "
 	.. "ces 6 dernières heures pour les autres)."
 L.HELP_SYNC_RESET = "/mnemosyne sync reset : oublier quand vous vous êtes synchronisé avec chaque joueur, "
 	.. "pour vous resynchroniser tout de suite (il doit le faire aussi)"

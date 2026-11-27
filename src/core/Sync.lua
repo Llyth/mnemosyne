@@ -7,7 +7,7 @@
 -- the other lacks or holds at an older revision, then the end of its part. A
 -- sync passes on at most what the other keeps in a day from one peer,
 -- first-hand changes of the last day first. A sync with a peer happens at most
--- once an hour with a guildmate (on this side's guild roster, as Scope holds
+-- once every 15 minutes with a guildmate (on this side's guild roster, as Scope holds
 -- it) and once every 6 hours with anyone else; at most 2 run at once
 -- and at most 10 wait, the most recently heard peers first. A sync whose peer
 -- passes on nothing new for 2 minutes, or that lasts 20 minutes, is cut; the
@@ -45,7 +45,7 @@ local Sync = {}
 Sync.__index = Sync
 ns.Sync = Sync
 
-Sync.COOLDOWN_GUILD = 60 * 60 -- seconds between two syncs with the same guildmate
+Sync.COOLDOWN_GUILD = 15 * 60 -- seconds between two syncs with the same guildmate
 Sync.COOLDOWN = 6 * 60 * 60 -- seconds between two syncs with the same peer outside the guild
 Sync.MAX_RUNNING = 2
 Sync.MAX_WAITING = 10
