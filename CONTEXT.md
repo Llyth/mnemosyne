@@ -105,7 +105,7 @@ Withdrawing a character's registration. The character tells its peers, and they 
 _Avoid_: deleting, opting out
 
 **Removal**:
-The message a character sends when it unregisters: a revision without a nickname, so its peers forget its identity. In a sync, any identity passed on without a nickname is a removal, whether the character unregistered or is anonymous. A profession passed on empty is a removal too: the character dropped it, unregistered, or stopped sharing professions.
+The message a character sends when it unregisters: a revision without a nickname, so its peers forget its identity. In a sync, any identity passed on without a nickname is a removal, whether the character unregistered or is anonymous. A profession passed on empty is a removal too: the character dropped it, stopped sharing professions, or is anonymous or unregistered (those go only from the character itself, while it is the one played, never from its account's other characters).
 _Avoid_: deletion
 
 **Forgetting**:

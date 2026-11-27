@@ -4,7 +4,7 @@ local Memory, Professions, Protocol = ns.Memory, ns.Professions, ns.Protocol
 describe("Professions", function()
 	local DAY = 24 * 60 * 60
 	local ALCHEMY, TAILORING, ENCHANTING = 171, 197, 333
-	local now, saved, memory, characters, settings, professions, recipeLines
+	local now, saved, memory, characters, settings, professions, recipeLines, played
 
 	-- The game's skill line of each recipe, as Client looks it up; nil when the
 	-- game cannot place it.
@@ -17,10 +17,11 @@ describe("Professions", function()
 	end
 
 	-- This account's characters, as Self gives them (the contract of #91): each
-	-- name's professions as stamped (owned, a removal without a level) and as
-	-- read now (current).
+	-- name's registration (registered with a nickname, anonymous or
+	-- unregistered), its professions as stamped (owned, a removal without a
+	-- level) and as read now (current).
 	local function newCharacters()
-		local stub = { owned = {}, current = {}, registered = {}, stamped = {} }
+		local stub = { owned = {}, current = {}, registered = {}, anonymous = {}, unregistered = {}, stamped = {} }
 		function stub:withProfessions()
 			local found = {}
 			for name, list in pairs(self.current) do
@@ -35,12 +36,21 @@ describe("Professions", function()
 			return self.current[name] or {}
 		end
 		function stub:registration(name)
-			return self.registered[name] and { nickname = self.registered[name], revision = 1 }
+			if self.registered[name] then
+				return { nickname = self.registered[name], revision = 1 }
+			elseif self.anonymous[name] then
+				return { anonymous = true, revision = 1 }
+			elseif self.unregistered[name] then
+				return { revision = 1 }
+			end
 		end
 		function stub:list()
 			local found = {}
 			for name, nickname in pairs(self.registered) do
 				found[#found + 1] = { name = name, nickname = nickname }
+			end
+			for name in pairs(self.anonymous) do
+				found[#found + 1] = { name = name }
 			end
 			return found
 		end
@@ -60,7 +70,10 @@ describe("Professions", function()
 		characters = newCharacters()
 		settings = { passOn = true }
 		recipeLines = { [2329] = ALCHEMY, [2330] = ALCHEMY, [7421] = ENCHANTING }
-		professions = Professions.new(saved, clock, memory, characters, settings, recipeSkillLine)
+		played = "Bea Bop" -- the character logged on, which syncs
+		professions = Professions.new(saved, clock, memory, characters, settings, recipeSkillLine, function()
+			return played
+		end)
 		professions:seeLists({ "Bo Nanza" }, { "Hugh Jass", "Anna Conda", "Cole Slaw" })
 	end)
 
@@ -516,6 +529,64 @@ describe("Professions", function()
 				{ "Dee Zaster 171", "Hugh Jass 171" },
 				names(professions:answer("Anna Conda", other():digest("Barb Dwyer")))
 			)
+		end)
+
+		-- Dee Zaster kept anonymous and Ella Vator unregistered, after both shared
+		-- alchemy: Self stamps their professions as removals.
+		local function withdrawTwo()
+			for name, nickname in pairs({ ["Dee Zaster"] = "Dee", ["Ella Vator"] = "Ella" }) do
+				characters.registered[name] = nickname
+				characters.owned[name] = { { skillLine = ALCHEMY, level = 5, maxLevel = 75, revision = 900 } }
+			end
+			professions:prepare()
+			characters.registered["Dee Zaster"], characters.anonymous["Dee Zaster"] = nil, true
+			characters.registered["Ella Vator"], characters.unregistered["Ella Vator"] = nil, true
+			for _, name in ipairs({ "Dee Zaster", "Ella Vator" }) do
+				characters.owned[name] = { { skillLine = ALCHEMY, revision = 950 } }
+			end
+			professions:prepare()
+		end
+
+		it("passes on nothing of its anonymous or unregistered characters while another one syncs", function()
+			withdrawTwo()
+			assert.same({}, professions:answer("Anna Conda", other():digest("Barb Dwyer")))
+			assert.equal(other():digest("Barb Dwyer"), professions:digest("Anna Conda"))
+		end)
+
+		it("passes on an anonymous or unregistered character's removals while it syncs itself", function()
+			withdrawTwo()
+			played = "Dee Zaster"
+			assert.same({ "Dee Zaster 171" }, names(professions:answer("Anna Conda", other():digest("Barb Dwyer"))))
+			played = "Ella Vator"
+			assert.same({ "Ella Vator 171" }, names(professions:answer("Anna Conda", other():digest("Barb Dwyer"))))
+		end)
+
+		it("makes a peer that heard a character first-hand drop its professions once it syncs anonymous", function()
+			characters.registered["Hugh Jass"] = "Hugh"
+			characters.owned["Hugh Jass"] = { { skillLine = ALCHEMY, level = 75, maxLevel = 150, revision = 900 } }
+			played = "Hugh Jass"
+			professions:prepare()
+			local theirMemory = Memory.new({}, clock)
+			local theirs = Professions.new({}, clock, theirMemory, newCharacters(), { passOn = true })
+			theirs:seeLists({}, { "Hugh Jass", "Anna Conda", "Cole Slaw" })
+			local function sync()
+				for _, profession in ipairs(professions:answer("Anna Conda", theirs:digest("Hugh Jass"))) do
+					theirs:hear("Hugh Jass", profession)
+				end
+				theirs:prepare()
+			end
+			-- The peer heard Hugh Jass's registration and alchemy from it.
+			theirMemory:hear("Hugh Jass", { nickname = "Hugh", revision = 1 })
+			sync()
+			assert.equal(1, #theirs:list())
+			-- Kept anonymous while the peer was away: the removal passed on later is
+			-- second-hand, and the first-hand registration wins over it.
+			characters.registered["Hugh Jass"], characters.anonymous["Hugh Jass"] = nil, true
+			characters.owned["Hugh Jass"] = { { skillLine = ALCHEMY, revision = 950 } }
+			assert.is_false(theirMemory:hear("Hugh Jass", { revision = 2, source = "Cole Slaw" }))
+			professions:prepare()
+			sync()
+			assert.same({}, theirs:list())
 		end)
 
 		it("passes on nothing to a peer neither on the roster nor a friend, which would refuse it", function()
