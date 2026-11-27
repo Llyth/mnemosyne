@@ -34,6 +34,8 @@ local SYNC_KINDS = { digest = true, identities = true, done = true, professionDi
 -- log: Debug (isOn, received, dropped).
 -- onNewer(): tells the player a newer Mnemosyne exists.
 -- versions: the saved versions of Mnemosyne peers run, by name.
+-- version(): this account's version of Mnemosyne (Protocol.releaseVersion),
+-- nil in a copy the packager did not build.
 function Inbox.new(deps)
 	return setmetatable({
 		clock = deps.clock,
@@ -50,6 +52,7 @@ function Inbox.new(deps)
 		log = deps.log,
 		onNewer = deps.onNewer,
 		versions = deps.versions,
+		version = deps.version,
 		toldVersion = {}, -- peer -> true once whispered this account's version, for the session
 		answeredAt = {}, -- sender -> clock() of the last answer, for the session
 		heardAt = {}, -- peer -> serverClock() when last heard, for the session
@@ -159,8 +162,14 @@ function Inbox:receive(sender, channel, text)
 	if kind == "version" then
 		self.versions[sender] = message.version
 		-- Heard on a channel, the sender may not know this one's: whispered back
-		-- once. Never back to a whisper, so two peers never loop.
-		if channel ~= "WHISPER" and not self.toldVersion[sender] and self.outbox:add("version", "WHISPER", sender) then
+		-- once, when this one has a version. Never back to a whisper, so two
+		-- peers never loop.
+		if
+			channel ~= "WHISPER"
+			and self.version()
+			and not self.toldVersion[sender]
+			and self.outbox:add("version", "WHISPER", sender)
+		then
 			self.toldVersion[sender] = true
 			self.wake()
 		end

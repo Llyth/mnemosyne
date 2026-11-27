@@ -12,9 +12,9 @@ local L = ns.L
 local Client = {}
 ns.Client = Client
 
--- This copy's version: the release's tag, or the placeholder in a copy the
--- packager did not build.
-Client.VERSION = C_AddOns.GetAddOnMetadata(addonName, "Version")
+-- This copy's version, "1.4.1", read from the release's tag the packager wrote
+-- in the .toc ("v1.4.1"); nil in a copy it did not build, which sends none.
+Client.VERSION = Protocol.releaseVersion(C_AddOns.GetAddOnMetadata(addonName, "Version"))
 
 local SCHEMA = 1
 local TICK = 0.25 -- seconds between two looks at the queue
@@ -154,11 +154,11 @@ local function wake()
 end
 
 -- Queues a job once (Outbox:add), an announcement with this account's
--- version after it (when a release's: Protocol.isVersion). Returns true when
--- it queued the job.
+-- version after it (when it has one: Client.VERSION). Returns true when it
+-- queued the job.
 local function enqueue(kind, channel, target)
 	if outbox:add(kind, channel, target) then
-		if kind == "announce" and Protocol.isVersion(Client.VERSION) then
+		if kind == "announce" and Client.VERSION then
 			outbox:add("version", channel, target)
 		end
 		wake()
@@ -529,6 +529,9 @@ function handlers.ADDON_LOADED(name)
 			ns.say(L.NEWER_VERSION)
 		end,
 		versions = db.versions,
+		version = function()
+			return Client.VERSION
+		end,
 	})
 	ns.scope = ns.Scope.new(db.settings)
 	ns.recognition = ns.Recognition.new(ns.memory, db.settings, ns.L, GetServerTime, ns.characters, ns.professions)
