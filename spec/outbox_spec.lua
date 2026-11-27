@@ -156,6 +156,86 @@ describe("Outbox", function()
 		assert.same({ "a1", "b1", "b2" }, sent)
 	end)
 
+	describe("with a lazy answer", function()
+		-- A lazy answer (Sync's produce): its messages in turn, false where it is
+		-- not ready yet; it counts how often it was asked.
+		local asked
+		local function lazy(peer, ...)
+			local steps, at = { ... }, 0
+			asked = 0
+			return {
+				peer = peer,
+				produce = function()
+					asked = asked + 1
+					at = at + 1
+					local step = steps[at]
+					if step == false then
+						return false
+					end
+					return step and sync(peer, step)
+				end,
+			}
+		end
+
+		it("asks it for its next message only once the peer's queued ones are sent", function()
+			outbox:addSyncs({ sync("Anna Conda", "digest"), lazy("Anna Conda", "a1", "a2", "done") })
+			assert.equal(0, asked)
+			outbox:flush(port)
+			assert.same({ "digest", "a1", "a2", "done" }, sent)
+			assert.equal(4, asked)
+			assert.is_false(outbox:flush(port))
+		end)
+
+		it("goes on with it at the next look while it is not ready, sending the others meanwhile", function()
+			outbox:addSyncs({ lazy("Anna Conda", false, "a1") })
+			outbox:addSyncs({ sync("Barb Dwyer", "b1") })
+			assert.is_true(outbox:flush(port))
+			assert.same({ "b1" }, sent)
+			assert.is_false(outbox:flush(port))
+			assert.same({ "b1", "a1" }, sent)
+		end)
+
+		it("keeps a message queued after it behind it", function()
+			outbox:addSyncs({ lazy("Anna Conda", "a1"), sync("Anna Conda", "a2") })
+			outbox:flush(port)
+			assert.same({ "a1", "a2" }, sent)
+		end)
+
+		it("asks it nothing in combat or lockdown", function()
+			outbox:addSyncs({ lazy("Anna Conda", "a1") })
+			paused = true
+			assert.is_true(outbox:flush(port))
+			assert.equal(0, asked)
+		end)
+
+		it("drops it once the peer cannot get its messages", function()
+			outbox:addSyncs({ lazy("Anna Conda", "a1", "a2") })
+			results["Anna Conda"] = "failed"
+			assert.is_false(outbox:flush(port))
+			assert.same({ "a1" }, sent)
+			assert.equal(1, asked)
+		end)
+
+		it("cuts one that comes while 3 peers' answers are being made", function()
+			for _, peer in ipairs({ "Anna Conda", "Barb Dwyer", "Cole Slaw", "Dee Zaster" }) do
+				outbox:addSyncs({ lazy(peer, peer) })
+			end
+			outbox:flush(port)
+			assert.same({ "Anna Conda", "Barb Dwyer", "Cole Slaw" }, sent)
+		end)
+
+		it("cuts it from the first message that does not fit", function()
+			local max = Outbox.MAX_SYNC_CHUNKS
+			Outbox.MAX_SYNC_CHUNKS = 1
+			outbox:addSyncs({ sync("Barb Dwyer", "b1"), lazy("Anna Conda", "a1", "a2") })
+			outbox:flush(port)
+			Outbox.MAX_SYNC_CHUNKS = max
+			assert.same({ "b1" }, sent)
+			assert.is_false(outbox:flush(port))
+			assert.equal(1, asked)
+		end)
+	end)
+
 	it("drops a job with nothing to send, and lets it be queued again", function()
 		port.compose = function() end
 		outbox:add("announce", "GROUP")

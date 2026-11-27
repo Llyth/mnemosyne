@@ -579,6 +579,22 @@ describe("Professions", function()
 			}, shown("Dee Zaster"))
 		end)
 
+		it("pauses every few professions it passes on, leaving out one dropped meanwhile", function()
+			local step = Professions.STEP
+			Professions.STEP = 1
+			professions:hear("Anna Conda", alchemy())
+			professions:hear("Anna Conda", { name = "Cole Slaw", skillLine = ALCHEMY, revision = 900 })
+			local pauses = 0
+			local passed = professions:answer("Anna Conda", other():digest("Barb Dwyer"), function()
+				pauses = pauses + 1
+				saved.held["Hugh Jass"] = nil
+				saved.held["Cole Slaw"] = nil
+			end)
+			Professions.STEP = step
+			assert.equal(1, #passed)
+			assert.is_true(pauses >= 1)
+		end)
+
 		it("passes on what the peer lacks, a removal included, with the GUID it knows", function()
 			professions:hear("Anna Conda", alchemy())
 			professions:see("Hugh Jass", "Player-1-00000001")
