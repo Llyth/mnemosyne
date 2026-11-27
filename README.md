@@ -40,7 +40,10 @@ your other registered characters, or else from what other players say about this
 one, and nothing is registered until you click Register. A nickname cannot hold
 invisible characters, except that the invisible mark a phone adds to some emoji
 (as in ❤️) is dropped for you. If an older version registered a nickname with
-other invisible characters, Mnemosyne asks again on that character. Only a
+other invisible characters, Mnemosyne asks again on that character. Another
+player's nickname an older version saved with invisible characters (the emoji
+mark included) is no longer shown or passed on, until that player updates
+Mnemosyne too. Only a
 character's own player can register it, and Mnemosyne never links an anonymous
 character to your other characters in what it shows or shares (see
 [Privacy](#privacy) for what a player who records syncs could still guess).
