@@ -51,7 +51,7 @@ L.OPEN_PROFESSIONS =
 	"Mnemosyne가 제조법을 공유할 수 있도록 각 전문 기술 창을 한 번씩 여십시오: %s."
 -- The other commands.
 L.HELP_LOOKUP = "/mnemosyne lookup <텍스트>: 이름이나 별명으로 캐릭터 검색"
-L.HELP_STATUS = "/mnemosyne status: 기억에 담긴 내용"
+L.HELP_STATUS = "/mnemosyne status: 이 캐릭터의 기억에 담긴 내용"
 L.HELP_DEBUG = "/mnemosyne debug: 주고받는 모든 메시지를 대화창에 기록하거나 중지; "
 	.. "/mnemosyne debug copy: 복사할 수 있도록 기록을 창에 표시"
 L.HELP_HELP = "/mnemosyne help: 이 목록"
@@ -59,7 +59,7 @@ L.LOOKUP_EMPTY = "명령어 뒤에 이름이나 별명을 입력하십시오: /m
 L.LOOKUP_NONE = '"%s"에 해당하는 캐릭터가 없습니다.'
 L.LOOKUP_FOUND = "%s: 플레이어 %s"
 L.LOOKUP_MORE = "...외 %d개. 검색 범위를 좁히려면 이름을 더 입력하십시오."
-L.STATUS_IDENTITIES = "알고 있는 신원: %d"
+L.STATUS_IDENTITIES = "이 캐릭터가 알고 있는 신원: %d"
 L.STATUS_CHARACTERS = "내 캐릭터: 등록 %d, 익명 %d"
 L.STATUS_REGISTERED = "이 캐릭터: 등록됨, 별명 %s"
 L.STATUS_ANONYMOUS = "이 캐릭터: 익명"
@@ -98,7 +98,8 @@ L.REPORT_NEVER = "다시 묻지 않기"
 L.SECOND_HAND = "~%s" -- a nickname heard second-hand: "~Tony"
 L.HEARD_FROM = "출처: %s"
 L.LOOKUP_FOUND_SECOND_HAND = "%s: 플레이어 %s, 출처 %s" -- the nickname marked as SECOND_HAND
-L.HELP_SYNC = "/mnemosyne sync: 지금 연결할 수 있는 피어와 기억을 최신 상태로 맞춤"
+L.HELP_SYNC =
+	"/mnemosyne sync: 지금 연결할 수 있는 피어와 이 캐릭터의 기억을 최신 상태로 맞춤"
 L.SYNC_STARTED = "피어 %d명과 동기화합니다."
 L.SYNC_NONE =
 	"지금 동기화할 피어가 없습니다. 이번 세션에 수신된 피어가 없거나, 모두 최근에 동기화했습니다(길드원은 최근 1시간, 그 외에는 최근 6시간 안에)."
@@ -107,15 +108,15 @@ L.HELP_SYNC_RESET = "/mnemosyne sync reset: 각 플레이어와 마지막으로 
 L.SYNC_RESET = "내 쪽의 동기화 대기 시간을 초기화했습니다. 다시 동기화하려면 "
 	.. "상대 플레이어도 /mnemosyne sync reset을 입력해야 합니다."
 -- Forgetting.
-L.HELP_FORGET =
-	"/mnemosyne forget <캐릭터>: 캐릭터의 별명을 지우고 다른 플레이어가 전달하는 그 캐릭터 정보를 거부"
+L.HELP_FORGET = "/mnemosyne forget <캐릭터>: 이 캐릭터에서만 캐릭터의 별명을 지우고 "
+	.. "다른 플레이어가 전달하는 그 캐릭터 정보를 거부"
 L.HELP_UNFORGET = "/mnemosyne unforget <캐릭터>: forget 되돌리기"
-L.FORGOTTEN =
-	"%s 캐릭터를 잊었습니다. 이제 /mnemosyne unforget %s 전까지 그 캐릭터가 직접 말한 내용만 반영됩니다."
+L.FORGOTTEN = "이 캐릭터에서 %s 캐릭터를 잊었습니다. "
+	.. "이제 /mnemosyne unforget %s 전까지 그 캐릭터가 직접 말한 내용만 반영됩니다."
 L.ALREADY_FORGOTTEN = "%s 캐릭터는 이미 잊었습니다."
 L.UNFORGOTTEN = "%s 캐릭터를 더 이상 잊지 않습니다."
 L.NOT_FORGOTTEN = "%s 캐릭터는 잊은 상태가 아닙니다."
-L.FORGOTTEN_LIST = "잊은 캐릭터: %s"
+L.FORGOTTEN_LIST = "이 캐릭터가 잊은 캐릭터: %s"
 L.FORGET_FULL_NAME = "캐릭터의 전체 이름(이름과 성)을 입력하십시오: /mnemosyne forget <캐릭터>"
 L.FORGOTTEN_NONE =
 	"잊은 캐릭터가 없습니다. 캐릭터의 전체 이름을 입력하십시오: /mnemosyne forget <캐릭터>"

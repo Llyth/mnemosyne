@@ -99,8 +99,9 @@ function Professions.new(saved, clock, memory, characters, settings, scope, reci
 	}, Professions)
 end
 
--- A copy of the professions' saved table (as Professions.new takes it) for
--- another of the account's characters to start from (decision 0001): every
+-- The professions' saved table copied whole (as Professions.new takes it),
+-- for another of the account's characters to start from (the seed, decision
+-- 0001): every
 -- profession held but the disputed ones, each its own tables, this account's
 -- characters' included (prepare takes an unregistered one's removals from
 -- them); when each character was seen, so a roster read empty at login drops

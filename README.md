@@ -167,11 +167,11 @@ the minimap and `/mnemosyne settings` open it too. It has:
 | `/mnemosyne register <nickname>` | Register the character you are playing |
 | `/mnemosyne unregister` | Withdraw its registration; peers forget it |
 | `/mnemosyne lookup <text>` | Find characters by name or by nickname, ignoring case and accents; a second-hand nickname shows with who passed it on |
-| `/mnemosyne forget <character>` | Forget a character (its full name): drop its nickname from this character's memory and refuse what other players pass on about it; what the character says itself still counts. Without a name, lists the characters you forgot |
+| `/mnemosyne forget <character>` | Forget a character (its full name): drop its nickname from this character's memory and refuse what other players pass on about it; what the character says itself still counts. Without a name, lists the characters this character forgot |
 | `/mnemosyne unforget <character>` | Undo forget: learn about the character from other players again |
 | `/mnemosyne sync` | Sync with the players heard this session who have Mnemosyne (at most once an hour with each guildmate, once every 6 hours with anyone else) |
 | `/mnemosyne sync reset` | Forget when you last synced with each player, on all your characters, so you can sync with them again at once. It works on your side only: a player who synced with you recently still refuses until they type `/mnemosyne sync reset` too |
-| `/mnemosyne status` | How many identities you know (second-hand ones only while **Show second-hand** is on), how many of your characters are registered or anonymous, how many players who have Mnemosyne you heard this session, whom this character synced with in the last 6 hours, and this character's registration (registered, anonymous, unregistered, or not registered yet) |
+| `/mnemosyne status` | How many identities this character knows (second-hand ones only while **Show second-hand** is on), how many of your characters are registered or anonymous, how many players who have Mnemosyne you heard this session, whom this character synced with in the last 6 hours, and this character's registration (registered, anonymous, unregistered, or not registered yet) |
 | `/mnemosyne report` | A debug report to paste in a bug report |
 | `/mnemosyne debug` | Log every message sent and received in the chat frame, or stop |
 | `/mnemosyne echo` | A test peer, Echo Mnemosyne, that sends back what you send, to test alone, or stop |
@@ -202,7 +202,12 @@ show or pass on, so another player can't plant something through one and find
 it through another. When you update from 1.4.0 or earlier, each character
 starts, the first time you play it, from a copy of the memory your characters
 shared; a new character, or one you first play more than 30 days after the
-update, starts empty and learns from your guild, group and friends.
+update, starts empty and learns from your guild, group and friends. That shared
+past still links your characters for a while: what another player planted in
+it before the update can be found through each of them until syncs replace it,
+the characters you forgot before the update stay forgotten on each, and for up
+to 23 hours after its first login each character vouches, in its syncs, for
+what your characters heard first-hand just before it.
 
 When you register a character, its nickname spreads to every player who has
 Mnemosyne, through other players too. Characters you don't register are never

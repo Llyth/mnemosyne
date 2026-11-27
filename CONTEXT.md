@@ -68,6 +68,14 @@ _Avoid_: origin, provider, relay
 Every identity and profession one character holds, first-hand and second-hand. Each of the account's characters has its own.
 _Avoid_: database, cache, store
 
+**Copy**:
+An identity or profession as one memory holds it: peers hold copies of the same character's identity, and among second-hand copies the later revision wins. A whole memory a character starts from is not "the copy": the character starts from the seed.
+_Avoid_: replica, mirror
+
+**Seed**:
+The account's memory as Mnemosyne 1.4.x left it, which all its characters shared. Each character played since the update starts from it, copied whole, at its first login, unless it was created since (then it starts empty). Never written again, and dropped 30 days after the first login since the update.
+_Avoid_: legacy memory, account memory, migration, the copy
+
 **Revision**:
 When, by the game server's clock, a character's player last registered it, changed its nickname, unregistered it or kept it anonymous. Between second-hand copies, the later revision wins.
 _Avoid_: version, timestamp
@@ -87,6 +95,10 @@ _Avoid_: conflict
 **Stale**:
 An identity or profession whose full name now belongs to another character (a different GUID), after its own was deleted or renamed. Hidden until the new character speaks first-hand.
 _Avoid_: expired, outdated, invalid
+
+**Taken name**:
+The full name of one of your characters that another player's character has now, after yours was deleted or renamed: told by its GUID, another than the one your character had when last played. It is that character's, held and shown as any other player's.
+_Avoid_: reused name, stolen name
 
 **Sync**:
 Two peers bringing each other's memory up to date, privately and in the background.

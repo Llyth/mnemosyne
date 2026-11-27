@@ -9,7 +9,7 @@ ns.Seed = Seed
 
 Seed.KEPT_FOR = 30 * 24 * 60 * 60 -- seconds the seed is kept after it was first seen
 
--- Keeps the seed and gives a character its copy, at each login.
+-- Keeps the seed, and starts a character from it at its first login.
 -- account: the account's saved table (MnemosyneDB). The seed is never written
 -- again, so a downgrade finds it as it was; when it was first seen is stamped
 -- once (seededAt), and 30 days later it is dropped, as is whatever an older
