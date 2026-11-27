@@ -52,6 +52,7 @@ Professions.SKILL_LINES = {
 	[356] = "secondary", -- Fishing
 }
 Professions.KEPT_FOR = 30 * DAY -- after a character was last seen on a roster or as a friend's
+Professions.PRUNE_EVERY = 10 * 60 -- seconds between two prunes as the lists are read again (seeLists)
 Professions.MAX_SYNC_BYTES = 100000 -- of professions a sync passes on
 Professions.STEP = 100 -- professions an answer writes before it lets the queue send (lazy)
 
@@ -95,7 +96,8 @@ function Professions.new(saved, clock, memory, characters, settings, scope, reci
 		changes = 0, -- how many changes were heard this session: the window redraws when it moves
 		heardSince = {}, -- name -> true once a profession of it was heard since the last look for recipes
 		hashes = setmetatable({}, { __mode = "k" }), -- profession -> its hash, computed once
-		-- profession -> true once its recipes were checked with the game placing recipes: prune checks it no more.
+		-- profession -> true once its recipes were checked with the game placing recipes: prune checks it no more;
+		-- false once checked while the game placed none: prune checks one such copy at a time, until it places one.
 		checked = setmetatable({}, { __mode = "k" }),
 		placesRecipes = false, -- whether the game placed a recipe this session
 	}, Professions)
@@ -385,9 +387,12 @@ end
 -- a roster nor as a friend's in the last 30 days, and those refused
 -- (isRefused). Drops from the peers' professions held the recipes the game
 -- places in another profession or cannot place, each copy once this session
--- after the game placed a recipe.
+-- after the game placed a recipe; while it has placed none, one copy a prune,
+-- to find whether it does now.
 function Professions:prune()
 	local now = self.clock()
+	self.prunedAt = now
+	local probed = false
 	for name, seenAt in pairs(self.seen) do
 		if now - seenAt >= Professions.KEPT_FOR then
 			self.seen[name] = nil
@@ -419,13 +424,15 @@ function Professions:prune()
 				end
 			end
 			for skillLine, profession in pairs(character.skills) do
-				if not self.checked[profession] then
+				local checked = self.checked[profession]
+				if checked == nil or (checked == false and (self.placesRecipes or not probed)) then
+					probed = probed or (checked == false and not self.placesRecipes)
 					local recipes, placed = ownRecipes(self, skillLine, profession.recipes)
 					if recipes ~= profession.recipes then
 						profession.recipes = recipes
 						self.hashes[profession] = nil
 					end
-					self.checked[profession] = placed or nil
+					self.checked[profession] = placed
 				end
 			end
 		end
@@ -434,13 +441,15 @@ end
 
 -- Sees the friends' characters online and the guild roster, as the Scope
 -- holds them once Client read them again: each is seen now. Then drops what is
--- no longer kept.
+-- no longer kept, at most once every 10 minutes: a character is kept 30 days.
 function Professions:seeLists()
 	local now = self.clock()
 	for _, name in ipairs(self.scope:listed()) do
 		self.seen[name] = now
 	end
-	self:prune()
+	if not self.prunedAt or now - self.prunedAt >= Professions.PRUNE_EVERY then
+		self:prune()
+	end
 end
 
 -- Reads this account's characters' professions, as a sync starts: stamps each
