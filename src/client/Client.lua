@@ -429,20 +429,32 @@ handlers.TRADE_SKILL_LIST_UPDATE = readRecipes
 
 -- The skill line the game places a recipe in (its parent profession's, as
 -- ProfessionsUtil.OpenProfessionFrameToRecipe reads it), or nil when it cannot:
--- Professions drops a peer's recipe placed in another profession. Cached for
--- the session.
+-- Professions drops a peer's recipe placed in another profession or nowhere.
+-- Cached for the session, a recipe it cannot place as false once it placed
+-- one (its data is loaded by then), so a peer's made-up IDs are looked up
+-- once; at most 10,000 of those, so they cannot grow the cache without end.
+-- A secret answer is not cached.
 local skillLineOfRecipe = {}
+local placesRecipes = false -- whether the game placed a recipe this session
+local unplaced = 0 -- how many recipes the cache holds as false
 local function recipeSkillLine(recipeID)
 	local found = skillLineOfRecipe[recipeID]
 	if found == nil and C_TradeSkillUI.GetTradeSkillLineForRecipe then
 		local skillLine, _, parent = C_TradeSkillUI.GetTradeSkillLineForRecipe(recipeID)
 		found = parent or skillLine
-		if not Client.isKnown(found) or type(found) ~= "number" then
+		if found ~= nil and not Client.isKnown(found) then
+			return nil
+		elseif type(found) ~= "number" then
+			if placesRecipes and unplaced < 10000 then
+				skillLineOfRecipe[recipeID] = false
+				unplaced = unplaced + 1
+			end
 			return nil
 		end
+		placesRecipes = true
 		skillLineOfRecipe[recipeID] = found
 	end
-	return found
+	return found or nil
 end
 
 -- Looks with the windows closed for recipes peers know of this character's
