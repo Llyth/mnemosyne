@@ -73,4 +73,13 @@ describe("Copies", function()
 		)
 		assert.same({ { name = "Anna Conda", milestone = "onyxia", disputed = true } }, milestones:list())
 	end)
+
+	it("passes on no more second-hand changes than a peer takes from it in a day", function()
+		milestones:hear("Hugh Jass", { name = "Anna Conda", milestone = "onyxia", revision = 10, state = 2 })
+		milestones:hear("Hugh Jass", { name = "Anna Conda", milestone = "scholomance", revision = 10, state = 2 })
+		milestones.MAX_CHANGES_PER_PEER = 1
+		local passed = milestones:answer("Hugh Jass", ns.Digest.new():write())
+		milestones.MAX_CHANGES_PER_PEER = nil
+		assert.equal(1, #passed)
+	end)
 end)

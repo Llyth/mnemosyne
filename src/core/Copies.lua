@@ -561,7 +561,8 @@ end
 -- in buckets whose digest differs, never a disputed or stale one, and only
 -- this account's characters' while passing on is off (not those that go as
 -- anyone's, asAnyone); at most
--- MAX_SYNC_BYTES (100 KB), the first-hand ones changed in the past day first, the latest
+-- MAX_SYNC_BYTES (100 KB) and MAX_CHANGES_PER_PEER the peer hears
+-- second-hand, the first-hand ones changed in the past day first, the latest
 -- first, then the rest from a point that moves with the clock. Each is
 -- { name, [KEY], revision, the content's FIELDS, guid }, a removal
 -- without content. step(), when given, is called every few copies
@@ -603,6 +604,8 @@ function Copies:answer(peer, digest, step)
 		return a.revision > b.revision
 	end)
 	local chosen, bytes, rest = {}, 0, #restNames
+	-- The peer takes at most MAX_CHANGES_PER_PEER second-hand changes a day from us (countChange).
+	local played, secondHand = self.playerName(), 0
 	for i = 1, #fresh + rest do
 		local passed = fresh[i]
 		if not passed then
@@ -614,6 +617,12 @@ function Copies:answer(peer, digest, step)
 			bytes = bytes + #self.write(passed) + 1
 			if bytes > self.MAX_SYNC_BYTES then
 				break
+			end
+			if passed.name ~= played then
+				if secondHand == self.MAX_CHANGES_PER_PEER then
+					break
+				end
+				secondHand = secondHand + 1
 			end
 			chosen[#chosen + 1] = passed
 		end
