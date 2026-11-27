@@ -64,13 +64,9 @@ local function professionNames(skillLines)
 	for _, skillLine in ipairs(skillLines) do
 		wanted[skillLine] = true
 	end
-	local indexes = { GetProfessions() } -- holes where a slot is empty
-	for i = 1, table.maxn(indexes) do
-		if indexes[i] then
-			local professionName, _, _, _, _, _, skillLine = GetProfessionInfo(indexes[i])
-			if wanted[skillLine] and professionName then
-				names[#names + 1] = professionName
-			end
+	for _, profession in ipairs(Client.ownProfessions()) do
+		if wanted[profession.skillLine] and profession.name then
+			names[#names + 1] = profession.name
 		end
 	end
 	return names[1] and table.concat(names, ", ")

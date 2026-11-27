@@ -15,15 +15,11 @@ local text = ns.widgets.text
 local WIDTH = ns.Window.WIDTH
 local ROW = 20
 
--- One of your professions' name and icon from GetProfessionInfo, or nil.
+-- One of your professions' name and icon (Client.ownProfessions), or nil.
 local function ownProfession(skillLine)
-	local indexes = { GetProfessions() } -- holes where a slot is empty
-	for i = 1, 5 do
-		if indexes[i] then
-			local name, icon, _, _, _, _, line = GetProfessionInfo(indexes[i])
-			if line == skillLine then
-				return name, icon
-			end
+	for _, profession in ipairs(Client.ownProfessions()) do
+		if profession.skillLine == skillLine then
+			return profession.name, profession.icon
 		end
 	end
 end
