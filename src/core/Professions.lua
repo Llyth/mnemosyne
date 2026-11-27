@@ -83,6 +83,8 @@ function Professions.new(saved, clock, memory, characters, settings, recipeSkill
 		roster = {}, -- the current guild roster, a set, for this session
 		changes = 0, -- how many changes were heard this session: the window redraws when it moves
 		hashes = setmetatable({}, { __mode = "k" }), -- profession -> its hash, computed once
+		-- profession -> true once the game placed each of its recipes: prune checks it no more.
+		checked = setmetatable({}, { __mode = "k" }),
 	}, Professions)
 end
 
@@ -96,18 +98,21 @@ end
 
 -- A peer's recipes of a profession without those the game places in another:
 -- 1.1.x saved a window's recipes under the profession opened before. The
--- same table when none is dropped.
+-- same table when none is dropped; then whether the game placed every one,
+-- so checking them again would change nothing.
 local function ownRecipes(self, skillLine, recipes)
 	if not recipes then
-		return nil
+		return nil, true
 	end
-	local kept = {}
+	local kept, placed = {}, true
 	for _, recipe in ipairs(recipes) do
-		if Professions.belongsTo(self.recipeSkillLine(recipe), skillLine) then
+		local lookedUp = self.recipeSkillLine(recipe)
+		placed = placed and lookedUp ~= nil
+		if Professions.belongsTo(lookedUp, skillLine) then
 			kept[#kept + 1] = recipe
 		end
 	end
-	return #kept < #recipes and kept or recipes
+	return #kept < #recipes and kept or recipes, placed
 end
 
 local function hash(text)
@@ -269,7 +274,8 @@ end
 -- Drops quietly the professions no longer kept: of characters neither seen on
 -- a roster nor as a friend's in the last 30 days, and those refused
 -- (isRefused). Drops from the peers' professions held the recipes the game
--- places in another profession.
+-- places in another profession, each copy until the game placed all its
+-- recipes once this session.
 function Professions:prune()
 	local now = self.clock()
 	for name, seenAt in pairs(self.seen) do
@@ -292,10 +298,13 @@ function Professions:prune()
 				end
 			end
 			for skillLine, profession in pairs(character.skills) do
-				local recipes = ownRecipes(self, skillLine, profession.recipes)
-				if recipes ~= profession.recipes then
-					profession.recipes = recipes
-					self.hashes[profession] = nil
+				if not self.checked[profession] then
+					local recipes, placed = ownRecipes(self, skillLine, profession.recipes)
+					if recipes ~= profession.recipes then
+						profession.recipes = recipes
+						self.hashes[profession] = nil
+					end
+					self.checked[profession] = placed or nil
 				end
 			end
 		end

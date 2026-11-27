@@ -579,6 +579,29 @@ describe("Professions", function()
 		end)
 	end)
 
+	it("checks the recipes of a copy it holds against the game once a session, not at each roster read", function()
+		professions:hear("Anna Conda", alchemy())
+		local lookups = 0
+		local loaded = Professions.new(saved, clock, memory, characters, settings, function(recipe)
+			lookups = lookups + 1
+			return recipeLines[recipe]
+		end)
+		loaded:seeLists({}, { "Hugh Jass", "Anna Conda" })
+		assert.equal(2, lookups)
+		loaded:seeLists({}, { "Hugh Jass", "Anna Conda" })
+		loaded:prepare()
+		assert.equal(2, lookups)
+	end)
+
+	it("checks a held copy again while the game could not place all its recipes", function()
+		recipeLines = {}
+		professions:hear("Anna Conda", alchemy(900, { 2329, 7421 }))
+		professions:prune()
+		recipeLines = { [2329] = ALCHEMY, [7421] = ENCHANTING }
+		professions:prune()
+		assert.same({ 2329 }, shown("Hugh Jass")[1].recipes)
+	end)
+
 	it("loads what it saved", function()
 		professions:hear("Anna Conda", alchemy())
 		local loaded = Professions.new(saved, clock, memory, characters, settings)
