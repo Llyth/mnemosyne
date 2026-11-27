@@ -91,7 +91,7 @@ L.LOOKUP_FOUND_SECOND_HAND = "%s: jogado por %s, repassado por %s" -- the nickna
 L.HELP_SYNC = "/mnemosyne sync: atualizar a sua memória com os contatos que você alcança agora"
 L.SYNC_STARTED = "Sincronizando com %d |4contato:contatos;."
 L.SYNC_NONE = "Nenhum contato para sincronizar agora: nenhum ouvido nesta sessão, "
-	.. "ou todos sincronizados nas últimas 6 horas."
+	.. "ou todos sincronizados há pouco (na última hora os colegas de guilda, nas últimas 6 horas os demais)."
 L.HELP_SYNC_RESET = "/mnemosyne sync reset: esquecer quando você sincronizou com cada jogador, "
 	.. "para sincronizar de novo na hora (o outro também precisa fazer isso)"
 L.SYNC_RESET = "Esperas entre sincronizações apagadas do seu lado. O outro jogador também precisa digitar "
