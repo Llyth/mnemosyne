@@ -947,6 +947,7 @@ describe("Professions", function()
 			it("drops, as anyone's, the account's other characters' professions once it holds a removal", function()
 				seeLists(professions, scope, {}, ROSTER)
 				memory:hear("Dee Zaster", { revision = 2000, source = "Cole Slaw" })
+				now = now + Professions.PRUNE_EVERY
 				seeLists(professions, scope, {}, ROSTER)
 				assert.is_nil(saved.held["Dee Zaster"])
 				memory:hear("Dee Zaster", { nickname = "Dee", revision = 3000, source = "Cole Slaw" })
@@ -1085,6 +1086,43 @@ describe("Professions", function()
 		recipeLines = { [2329] = ALCHEMY, [7421] = ENCHANTING }
 		professions:prune()
 		assert.same({ 2329 }, shown("Hugh Jass")[1].recipes)
+	end)
+
+	it("drops what is no longer kept at most once every 10 minutes as the lists are read again", function()
+		professions:hear("Anna Conda", alchemy())
+		memory:forget("Hugh Jass")
+		seeLists(professions, scope, {}, { "Hugh Jass", "Anna Conda" })
+		assert.is_not_nil(saved.held["Hugh Jass"])
+		now = now + Professions.PRUNE_EVERY
+		seeLists(professions, scope, {}, { "Hugh Jass", "Anna Conda" })
+		assert.is_nil(saved.held["Hugh Jass"])
+	end)
+
+	it("looks at one copy only, at each prune, while the game places no recipe", function()
+		recipeLines = {}
+		professions:hear("Anna Conda", alchemy())
+		professions:hear("Anna Conda", {
+			name = "Cole Slaw",
+			skillLine = ALCHEMY,
+			level = 1,
+			maxLevel = 75,
+			recipes = { 2329, 2330 },
+			revision = 900,
+		})
+		local lookups = 0
+		local loaded = Professions.new(saved, clock, memory, characters, settings, scope, function(recipe)
+			lookups = lookups + 1
+			return recipeLines[recipe]
+		end)
+		loaded:prune()
+		assert.equal(4, lookups)
+		loaded:prune()
+		assert.equal(6, lookups)
+		recipeLines = { [2329] = ALCHEMY, [2330] = ENCHANTING }
+		loaded:prune()
+		assert.equal(10, lookups)
+		assert.same({ 2329 }, saved.held["Hugh Jass"].skills[ALCHEMY].recipes)
+		assert.same({ 2329 }, saved.held["Cole Slaw"].skills[ALCHEMY].recipes)
 	end)
 
 	it("lets go at load the counts of a peer's changes older than a day", function()

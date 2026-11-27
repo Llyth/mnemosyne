@@ -237,8 +237,15 @@ function Client.ask(name)
 	return enqueue("ask", "WHISPER", name)
 end
 
--- Reads the friends and guildmates again on the next look (Client.inScope, Client.onlineNames).
+-- Whether the friends and guildmates were read (Client.inScope and
+-- Client.onlineNames read them first): once, with the guild's roster if in a
+-- guild. Once they change, they are read again on a timer, at most every 30
+-- seconds and never in combat: the last read holds meanwhile. A big guild's
+-- roster changes every few seconds, and each read walks it whole.
 local scopeRead = false
+local SCOPE_EVERY = 30 -- seconds
+local scopeTimer -- the read due
+local scopeAfterCombat = false -- whether the read waits for combat to end
 
 -- Reads the friends and the guild roster, and who of them is online, into
 -- the scope, the one place that holds them (Scope).
@@ -270,7 +277,8 @@ local function readScope()
 	ns.scope:see(friends, roster, online)
 	-- Whose professions are kept.
 	ns.professions:seeLists()
-	scopeRead = true
+	-- A guild's roster read empty had not come from the server yet: read again at the next change.
+	scopeRead = roster[1] ~= nil or not IsInGuild()
 end
 
 -- Whether Mnemosyne talks with a character (Scope): a friend or a guildmate,
@@ -297,7 +305,17 @@ function Client.onlineNames()
 end
 
 local function listsChanged()
-	scopeRead = false
+	if not scopeRead or scopeTimer or scopeAfterCombat then
+		return -- read on the next look, or already due
+	end
+	scopeTimer = C_Timer.NewTimer(SCOPE_EVERY, function()
+		scopeTimer = nil
+		if InCombatLockdown() then
+			scopeAfterCombat = true
+		else
+			readScope()
+		end
+	end)
 end
 
 -- Drops what the echo peer left in the memory, so it never reaches a real peer.
@@ -703,6 +721,10 @@ function handlers.PLAYER_REGEN_ENABLED()
 	if findAfterCombat then
 		findAfterCombat = false
 		redraw(findRecipes(true))
+	end
+	if scopeAfterCombat then
+		scopeAfterCombat = false
+		readScope()
 	end
 end
 
