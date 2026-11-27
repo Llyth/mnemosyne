@@ -38,7 +38,7 @@ jobs:
         run: gh pr edit "$NUMBER" --add-assignee "$AUTHOR"
       # The autolabeler of release-drafter; same version as the release job
       # (cloudposse/github-action-auto-release) uses.
-      - uses: release-drafter/release-drafter/autolabeler@978bb0b30c5ee8cdd332ced253758157150d43f0 # v7.10.0
+      - uses: release-drafter/release-drafter/autolabeler@d1a19e60e81a7e650d00a7de9277f87e439117ea # v7.11.0
         with:
           config-name: configs/draft-release.yml
       # The autolabeler knows only the first words listed in the config. A title it does
