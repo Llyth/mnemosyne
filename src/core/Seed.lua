@@ -1,6 +1,7 @@
 -- Seed: the account's memory as 1.4.x left it (MnemosyneDB.memory,
--- .professions, .forgotten and .asked), which each character copies once
--- (decision 0001). Pure: it takes the saved tables and the clock's time as
+-- .professions, .forgotten and .asked), whose identities, professions and
+-- forgotten characters each character copies once, without disputes and daily
+-- counts (decision 0001). Pure: it takes the saved tables and the clock's time as
 -- arguments (decision 0004).
 local _, ns = ...
 

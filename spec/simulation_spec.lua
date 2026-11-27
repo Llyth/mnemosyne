@@ -173,7 +173,7 @@ describe("Several peers", function()
 		assert.equal("Tony", d.memory:recall(a.name).nickname)
 	end)
 
-	it("hides a reused name's old identity until the character that took the name speaks first-hand", function()
+	it("hides the old identity of a name another character took, until that character speaks first-hand", function()
 		announce(a, b)
 		b.memory:see(a.name, "Player-1-00000001") -- B saw Anna Conda in chat
 		sync(b, d)
