@@ -507,8 +507,15 @@ function handlers.ADDON_LOADED(name)
 	-- The versions of Mnemosyne peers run, by name (Inbox).
 	-- shortcut: never pruned, one short entry per peer ever heard; prune with the memory if it grows.
 	db.versions = db.versions or {}
-	ns.professions =
-		ns.Professions.new(db.professions, GetServerTime, ns.memory, ns.characters, db.settings, recipeSkillLine)
+	ns.professions = ns.Professions.new(
+		db.professions,
+		GetServerTime,
+		ns.memory,
+		ns.characters,
+		db.settings,
+		recipeSkillLine,
+		Client.playerName
+	)
 	ns.sync = ns.Sync.new(db.syncs, GetServerTime, ns.memory, db.settings, ns.characters, ns.professions, db.earlySyncs)
 	ns.news = ns.News.new(GetTime, math.random, ns.memory, ns.characters, db.settings)
 	outbox = ns.Outbox.new(GetTime, Client.canSend)

@@ -61,7 +61,9 @@ Professions.MAX_SYNC_BYTES = 100000 -- of professions a sync passes on
 -- heard from others (this account's characters' professions always go).
 -- recipeSkillLine: returns the skill line the game places a recipe ID in, or
 -- nil when it cannot; peers' recipes placed in another profession are dropped.
-function Professions.new(saved, clock, memory, characters, settings, recipeSkillLine)
+-- playerName: returns the full name of the character played, the one that
+-- syncs, or nil before login.
+function Professions.new(saved, clock, memory, characters, settings, recipeSkillLine, playerName)
 	saved.held = saved.held or {} -- name -> { guid, own, skills = { [skillLine] = profession } }
 	saved.seen = saved.seen or {} -- name -> when last seen on a roster or as a friend's
 	saved.newFrom = saved.newFrom or {} -- peer -> { since, count }
@@ -80,6 +82,7 @@ function Professions.new(saved, clock, memory, characters, settings, recipeSkill
 		characters = characters,
 		settings = settings,
 		recipeSkillLine = recipeSkillLine or function() end,
+		playerName = playerName or function() end,
 		roster = {}, -- the current guild roster, a set, for this session
 		changes = 0, -- how many changes were heard this session: the window redraws when it moves
 		hashes = setmetatable({}, { __mode = "k" }), -- profession -> its hash, computed once
@@ -338,7 +341,8 @@ function Professions:prepare()
 	end
 	for name, character in pairs(self.held) do
 		if character.own then
-			names[name] = true -- unregistered since: its removals still go
+			-- Unregistered since: its removals still go while it syncs itself (goesTo).
+			names[name] = true
 		end
 	end
 	local now = self.clock()
@@ -369,13 +373,19 @@ function Professions:prepare()
 end
 
 -- Whether a character's professions go to a peer, or come from it: this
--- account's characters' to a peer seen lately (on the roster or a friend),
--- which keeps them; to a guildmate, also the roster's. Passing on is left
--- aside, so both sides' digests compare the same set: Professions:answer
--- leaves the roster's out while it is off.
+-- account's registered characters' to a peer seen lately (on the roster or a
+-- friend), which keeps them; to a guildmate, also the roster's. Passing on is
+-- left aside, so both sides' digests compare the same set: Professions:answer
+-- leaves the roster's out while it is off. Those of this account's anonymous
+-- or unregistered characters, all removals, go only while that character is
+-- the one played: the peer hears them first-hand, from the character itself,
+-- which links nothing. Sent while another character of the account syncs,
+-- they would link it to the account (decision 0001).
 local function goesTo(self, peer, name, character, now)
 	if character.own then
-		return seenLately(self, peer, now)
+		local registration = self.characters:registration(name)
+		local registered = registration ~= nil and registration.nickname ~= nil
+		return (registered or name == self.playerName()) and seenLately(self, peer, now)
 	end
 	return (self.roster[peer] and self.roster[name]) or false
 end
