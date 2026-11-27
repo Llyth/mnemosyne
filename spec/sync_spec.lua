@@ -764,6 +764,49 @@ describe("Sync", function()
 		assert.same({ "Barb Dwyer digest" }, sent(sync:request("Barb Dwyer", now)))
 	end)
 
+	it("makes a guildmate whose sync was cut at 20 minutes wait 6 hours, as anyone else", function()
+		local scope = Scope.new({})
+		scope:see({}, { "Mallory Knox" })
+		sync = Sync.new(saved, clock, memory, settings, nil, nil, nil, playing, scope)
+		sync:receive("Mallory Knox", { kind = "digest", digest = emptyDigest() })
+		for revision = 1, Sync.MAX_DURATION / 100 do
+			now = now + 100
+			sync:receive(
+				"Mallory Knox",
+				{ kind = "identities", identities = { { name = "Anna Conda", revision = revision } } }
+			)
+			sync:tick()
+		end
+		now = now + LISTED
+		assert.same({ {}, false }, { sync:request("Mallory Knox", now) })
+		now = now + Sync.COOLDOWN - LISTED
+		assert.same({ "Mallory Knox digest" }, sent(sync:request("Mallory Knox", now)))
+	end)
+
+	it("makes a guildmate whose answer still went out at 20 minutes wait 6 hours", function()
+		for i = 1, 3000 do
+			memory:hear("Anna Conda" .. i, { nickname = "Ann", revision = 900 })
+		end
+		local scope = Scope.new({})
+		scope:see({}, { "Mallory Knox" })
+		sync = Sync.new(saved, clock, memory, settings, nil, nil, nil, playing, scope, true)
+		local answer = sync:receive("Mallory Knox", { kind = "digest", digest = emptyDigest() })[2].produce
+		sync:receive("Mallory Knox", { kind = "done" })
+		for _ = 1, Sync.MAX_DURATION / 60 do
+			now = now + 60
+			local message = answer()
+			while message == false do
+				message = answer()
+			end
+			sync:tick()
+		end
+		assert.is_nil(answer())
+		now = now + LISTED
+		assert.same({ {}, false }, { sync:request("Mallory Knox", now) })
+		now = now + Sync.COOLDOWN - LISTED
+		assert.same({ "Mallory Knox digest" }, sent(sync:request("Mallory Knox", now)))
+	end)
+
 	describe("between two peers", function()
 		local function newPeer(name)
 			local peer = {
