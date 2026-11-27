@@ -92,26 +92,26 @@ function Window.open(key)
 	select(key or MnemosyneDB.window.tab)
 end
 
-local views = {} -- frames outside the window that Window.refresh redraws too
+local views = {} -- frames outside the window that Window.refresh redraws too: { key, content }
 
 -- Adds a frame with a refresh function, outside the window, that
 -- Window.refresh redraws while it shows: the Guild & Communities window's
--- Identities and Professions tabs.
-function Window.addView(content)
-	views[#views + 1] = content
+-- Identities and Professions tabs, under the key of the window's tab that
+-- shows the same.
+function Window.addView(content, key)
+	views[#views + 1] = { key = key, content = content }
 end
 
 -- Redraws the tab that shows, and the views that show, after a change made
--- elsewhere (a setting).
-function Window.refresh()
-	for _, tab in ipairs(tabs) do
-		if tab.content:IsVisible() and tab.content.refresh then
-			tab.content.refresh()
-		end
-	end
-	for _, content in ipairs(views) do
-		if content:IsVisible() then
-			content.refresh()
+-- elsewhere: with a key ("professions"), only those of that key, the others
+-- showing nothing the change touched; without, all (a setting, a forget).
+function Window.refresh(key)
+	for _, list in ipairs({ tabs, views }) do
+		for _, shown in ipairs(list) do
+			local content = shown.content
+			if (not key or shown.key == key) and content:IsVisible() and content.refresh then
+				content.refresh()
+			end
 		end
 	end
 end

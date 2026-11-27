@@ -17,11 +17,22 @@ local L = ns.L
 
 local WIDTH = 628 -- right of the list of communities, in the window's 814
 
--- Our tabs, top to bottom: the view each builds, its icon (the micro menu's
--- buttons') and its tooltip.
+-- Our tabs, top to bottom: the key of Mnemosyne's window's tab that shows the
+-- same, the view each builds, its icon (the micro menu's buttons') and its
+-- tooltip.
 local OURS = {
-	{ newView = ns.Identities.newView, icon = "UI-HUD-MicroMenu-GuildCommunities-Up", tooltip = L.PANEL_IDENTITIES },
-	{ newView = ns.ProfessionsTab.newView, icon = "UI-HUD-MicroMenu-Professions-Up", tooltip = L.PROFESSIONS },
+	{
+		key = "identities",
+		newView = ns.Identities.newView,
+		icon = "UI-HUD-MicroMenu-GuildCommunities-Up",
+		tooltip = L.PANEL_IDENTITIES,
+	},
+	{
+		key = "professions",
+		newView = ns.ProfessionsTab.newView,
+		icon = "UI-HUD-MicroMenu-Professions-Up",
+		tooltip = L.PROFESSIONS,
+	},
 }
 
 -- The window's tabs, by the display mode they select.
@@ -47,7 +58,7 @@ EventUtil.ContinueOnAddOnLoaded("Blizzard_Communities", function()
 		view:SetPoint("BOTTOMRIGHT", CommunitiesFrameInset, "BOTTOMRIGHT", -4, 4)
 		view:Hide()
 		ours.newView(view, WIDTH)
-		ns.Window.addView(view)
+		ns.Window.addView(view, ours.key)
 		ours.view = view
 
 		local tab = CreateFrame("CheckButton", nil, communities, "RightSideTabTemplate")
