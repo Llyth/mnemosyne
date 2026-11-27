@@ -41,7 +41,11 @@ end
 
 -- Adds a hashed text (from Digest.hash) in the bucket of a name.
 function Digest:add(name, hashed)
-	local bucket = Digest.bucket(name)
+	self:addIn(Digest.bucket(name), hashed)
+end
+
+-- Adds a hashed text in a bucket (Digest.bucket of its name, found once).
+function Digest:addIn(bucket, hashed)
 	self.sums[bucket] = (self.sums[bucket] + hashed) % HASH_MODULUS
 end
 

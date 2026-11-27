@@ -549,15 +549,17 @@ end
 -- they would link it to the account (decision 0001). While the character
 -- played is not registered, the account's others go as anyone's (asAnyone),
 -- left out as a peer leaves them out once their identity is held as a removal.
-local function goesTo(self, peer, name, character, now)
-	local anyone = asAnyone(self, name)
-	if character.own and not anyone then
+-- asked: { peerIsGuildmate (Scope:isGuildmate), played (the character
+-- played), othersAsAnyone (asAnyone of any other) }, the same for every name
+-- of a digest, asked once.
+local function goesTo(self, peer, name, character, now, asked)
+	if character.own and not asAnyone(self, name) then
 		local registration = self.characters:registration(name)
 		local registered = registration ~= nil and registration.nickname ~= nil
 		return (registered or name == self.playerName()) and seenLately(self, peer, now)
 	end
-	local scope = self.scope
-	return (scope:isGuildmate(peer) and scope:isGuildmate(name) and not (anyone and isRefused(self, name, true)))
+	local anyone = asked.othersAsAnyone and name ~= asked.played
+	return (asked.peerIsGuildmate and self.scope:isGuildmate(name) and not (anyone and isRefused(self, name, true)))
 		or false
 end
 
@@ -568,18 +570,43 @@ local function sums(self, peer)
 	for bucket = 1, Digest.BUCKETS do
 		names[bucket] = {}
 	end
+	local played = self.playerName()
+	local registration = played and self.characters:registration(played)
+	local asked = {
+		peerIsGuildmate = self.scope:isGuildmate(peer),
+		played = played,
+		othersAsAnyone = played ~= nil and not (registration and registration.nickname), -- as asAnyone gives
+	}
 	for name, character in pairs(self.held) do
-		if goesTo(self, peer, name, character, now) then
+		if goesTo(self, peer, name, character, now, asked) then
 			local bucket = Digest.bucket(name)
 			names[bucket][#names[bucket] + 1] = name
 			for skillLine, profession in pairs(character.skills) do
 				if not profession.disputed then
-					digest:add(name, hashOf(self, name, skillLine, profession))
+					digest:addIn(bucket, hashOf(self, name, skillLine, profession))
 				end
 			end
 		end
 	end
 	return digest, names
+end
+
+-- Hashes up to count professions held whose hash is not known yet, so the
+-- first sync's digest does not hash them all at once. Returns whether some
+-- are left.
+function Professions:warm(count)
+	for name, character in pairs(self.held) do
+		for skillLine, profession in pairs(character.skills) do
+			if not self.hashes[profession] then
+				if count == 0 then
+					return true
+				end
+				count = count - 1
+				hashOf(self, name, skillLine, profession)
+			end
+		end
+	end
+	return false
 end
 
 -- The digest of what goes to a peer, for a sync: each profession hashed with

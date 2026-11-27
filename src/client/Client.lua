@@ -20,6 +20,7 @@ local SCHEMA = 1
 local TICK = 0.25 -- seconds between two looks at the queue
 local SYNC_TICK = 5 -- seconds between two looks at the syncs (cut, start waiting ones)
 local NEWS_TICK = 1 -- seconds between two looks at the news due
+local WARM_COUNT = 15 -- professions hashed a frame after load (Professions:warm), about 1 ms
 
 -- Results that mean "not now": the job stays at the head of the queue.
 local RETRY = {
@@ -619,6 +620,14 @@ function handlers.ADDON_LOADED(name)
 	db.events = db.events or {}
 	db.errors = db.errors or {}
 	C_ChatInfo.RegisterAddonMessagePrefix(Protocol.PREFIX)
+	-- The professions' hashes, a few each frame out of combat, so the first
+	-- sync's digest does not compute them all in one frame.
+	local warming
+	warming = C_Timer.NewTicker(0, function()
+		if not InCombatLockdown() and not ns.professions:warm(WARM_COUNT) then
+			warming:Cancel()
+		end
+	end)
 	for event in pairs(handlers) do
 		if event ~= "ADDON_LOADED" then
 			frame:RegisterEvent(event)
