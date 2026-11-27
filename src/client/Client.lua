@@ -521,8 +521,12 @@ function handlers.ADDON_LOADED(name)
 	end
 	ns.characters = ns.Self.new(db.characters, GetServerTime, db.settings)
 	db.asked = db.asked or {}
-	db.syncs = db.syncs or {}
-	db.earlySyncs = db.earlySyncs or {}
+	-- Each character's syncs and early syncs (Sync), under keys of their own: 1.4.0
+	-- reads syncs and earlySyncs as times and marks by peer, so emptying those keeps a
+	-- downgrade working; what they held is let go (at most one more sync).
+	db.syncs, db.earlySyncs = nil, nil
+	db.characterSyncs = db.characterSyncs or {}
+	db.characterEarlySyncs = db.characterEarlySyncs or {}
 	db.window = db.window or {} -- Mnemosyne's window: its position and last tab
 	db.professions = db.professions or {}
 	-- The versions of Mnemosyne peers run, by name (Inbox).
@@ -537,7 +541,15 @@ function handlers.ADDON_LOADED(name)
 		recipeSkillLine,
 		Client.playerName
 	)
-	ns.sync = ns.Sync.new(db.syncs, GetServerTime, ns.memory, db.settings, ns.professions, db.earlySyncs)
+	ns.sync = ns.Sync.new(
+		db.characterSyncs,
+		GetServerTime,
+		ns.memory,
+		db.settings,
+		ns.professions,
+		db.characterEarlySyncs,
+		Client.playerName
+	)
 	ns.news = ns.News.new(GetTime, math.random, ns.memory, db.settings)
 	outbox = ns.Outbox.new(GetTime, Client.canSend)
 	inbox = ns.Inbox.new({
