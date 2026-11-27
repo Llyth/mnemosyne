@@ -60,7 +60,8 @@ what they learned before you, second-hand: two copies of Mnemosyne sync their
 memories privately by whisper, in the background, at login with the first few
 players who answer, with each new group member who has Mnemosyne, and when you
 type `/mnemosyne sync`, at most once an hour with the same guildmate and once
-every 6 hours with anyone else. When a
+every 6 hours with anyone else, counted for each of your characters on its own.
+When a
 sync brings you a nickname that is new to you or newer, or an unregistration,
 Mnemosyne posts it to your guild once, after a few seconds, unless a guildmate
 posted it first, so the whole guild learns it at once.
@@ -123,8 +124,8 @@ you haven't heard since); disputed ones are listed as disputed. Forget drops one
 whisper to the character. Second-hand ones are listed only while **Show
 second-hand** is on, and the first 50 found show. Your own registered and
 anonymous characters come first, marked as yours. Under the list, the sync
-status: your last sync, with whom and when, and how many players wait for
-theirs.
+status: this character's last sync, with whom and when, and how many players
+wait for theirs.
 
 Its **Professions** tab (`/mnemosyne professions` opens it, and the Guild & Communities window has the same tab, under its guild
 tabs) shows every profession of the game as a tile, primary ones first (the
@@ -166,8 +167,8 @@ the minimap and `/mnemosyne settings` open it too. It has:
 | `/mnemosyne forget <character>` | Forget a character (its full name): drop its nickname from your memory and refuse what other players pass on about it; what the character says itself still counts. Without a name, lists the characters you forgot |
 | `/mnemosyne unforget <character>` | Undo forget: learn about the character from other players again |
 | `/mnemosyne sync` | Sync with the players heard this session who have Mnemosyne (at most once an hour with each guildmate, once every 6 hours with anyone else) |
-| `/mnemosyne sync reset` | Forget when you last synced with each player, so you can sync with them again at once. It works on your side only: a player who synced with you recently still refuses until they type `/mnemosyne sync reset` too |
-| `/mnemosyne status` | How many identities you know (second-hand ones only while **Show second-hand** is on), how many of your characters are registered or anonymous, how many players who have Mnemosyne you heard this session, whom you synced with in the last 6 hours, and this character's registration (registered, anonymous, unregistered, or not registered yet) |
+| `/mnemosyne sync reset` | Forget when you last synced with each player, on all your characters, so you can sync with them again at once. It works on your side only: a player who synced with you recently still refuses until they type `/mnemosyne sync reset` too |
+| `/mnemosyne status` | How many identities you know (second-hand ones only while **Show second-hand** is on), how many of your characters are registered or anonymous, how many players who have Mnemosyne you heard this session, whom this character synced with in the last 6 hours, and this character's registration (registered, anonymous, unregistered, or not registered yet) |
 | `/mnemosyne report` | A debug report to paste in a bug report |
 | `/mnemosyne debug` | Log every message sent and received in the chat frame, or stop |
 | `/mnemosyne echo` | A test peer, Echo Mnemosyne, that sends back what you send, to test alone, or stop |

@@ -30,6 +30,9 @@
 -- professions would otherwise wait out the cooldown to pass them on. After
 -- that early sync, or once its digest of professions is answered, the cooldown
 -- holds, so an older peer gets one early sync only.
+-- The cooldowns and early syncs are each character's own: one shared by the
+-- account's characters would have one refuse a peer another synced with, which
+-- a peer comparing them would read as one account (decision 0001).
 local _, ns = ...
 
 local Memory, Protocol = ns.Memory, ns.Protocol
@@ -53,8 +56,10 @@ Sync.MAX_DURATION = 20 * 60 -- seconds before a sync is cut, however much the pe
 -- so one sent last in a long sync still reaches it inside it.
 Sync.FRESH = Memory.VOUCHED_WINDOW - 60 * 60 -- seconds
 
--- saved: when each peer last synced (MnemosyneDB.syncs); entries older than
--- the longer cooldown are let go here.
+-- saved: when each peer last synced, by character of this account
+-- (MnemosyneDB.characterSyncs, character -> peer -> time); entries older than the
+-- longer cooldown are let go here, and those saved before each character kept
+-- its own (a time by peer), which then cool nothing: at most one more sync.
 -- clock: returns the server time, in seconds.
 -- memory: the Memory to hash, pass on and learn into. What peers say about
 -- this account's own characters is learned and passed on as anyone's
@@ -65,23 +70,40 @@ Sync.FRESH = Memory.VOUCHED_WINDOW - 60 * 60 -- seconds
 -- professions: the Professions to hash, pass on and learn into; none when left out.
 -- Its guild roster tells guildmates, who sync more often; with none, every
 -- peer waits the longer cooldown.
--- early: the peers that can no longer sync during the cooldown
--- (MnemosyneDB.earlySyncs), peer -> "heard" (its digest of professions was
--- answered) or "synced" (it had its early sync).
-function Sync.new(saved, clock, memory, settings, professions, early)
+-- early: the peers that can no longer sync during the cooldown, by character
+-- of this account (MnemosyneDB.characterEarlySyncs), character -> peer -> "heard" (its
+-- digest of professions was answered) or "synced" (it had its early sync);
+-- those saved before each character kept its own (a mark by peer) are let go.
+-- playerName: returns the full name of the character played, the one that
+-- syncs; nil before login, when nothing syncs.
+function Sync.new(saved, clock, memory, settings, professions, early, playerName)
 	local now = clock()
-	for peer, syncedAt in pairs(saved) do
-		if now - syncedAt >= Sync.COOLDOWN then
-			saved[peer] = nil
+	early = early or {}
+	for character, synced in pairs(saved) do
+		if type(synced) == "table" then
+			for peer, syncedAt in pairs(synced) do
+				if now - syncedAt >= Sync.COOLDOWN then
+					synced[peer] = nil
+				end
+			end
+		end
+		if type(synced) ~= "table" or next(synced) == nil then
+			saved[character] = nil
+		end
+	end
+	for character, marks in pairs(early) do
+		if type(marks) ~= "table" then
+			early[character] = nil
 		end
 	end
 	return setmetatable({
-		synced = saved,
+		saved = saved,
 		clock = clock,
 		memory = memory,
 		settings = settings,
 		professions = professions,
-		early = early or {},
+		savedEarly = early,
+		playerName = playerName or function() end,
 		professionDigests = {}, -- peer -> { digest, at }, its digest of professions until answered
 		endedAt = {}, -- peer -> { at, started } of a sync this side answered, ended or cut: its professions still count
 		sessions = {}, -- peer -> { started, active, answered, digestAgain }
@@ -94,6 +116,14 @@ local function send(outgoing, peer, message)
 	outgoing[#outgoing + 1] = { peer = peer, text = Protocol.write(message), kind = message.kind }
 end
 
+-- What the character played made, by peer: its syncs (saved) or its early
+-- syncs (savedEarly), made on first use.
+local function played(self, byCharacter)
+	local name = self.playerName() or "" -- nil before login, when nothing syncs
+	byCharacter[name] = byCharacter[name] or {}
+	return byCharacter[name]
+end
+
 local function running(self)
 	local count = 0
 	for _ in pairs(self.sessions) do
@@ -103,7 +133,7 @@ local function running(self)
 end
 
 local function isCooling(self, peer, now)
-	local syncedAt = self.synced[peer]
+	local syncedAt = played(self, self.saved)[peer]
 	local guildmate = self.professions and self.professions.roster[peer]
 	return syncedAt ~= nil and now - syncedAt < (guildmate and Sync.COOLDOWN_GUILD or Sync.COOLDOWN)
 end
@@ -111,12 +141,12 @@ end
 -- Whether the cooldown keeps a sync with the peer from starting: a peer whose
 -- professions this side never heard skips it once.
 local function refuses(self, peer, now)
-	return isCooling(self, peer, now) and (not self.professions or self.early[peer] ~= nil)
+	return isCooling(self, peer, now) and (not self.professions or played(self, self.savedEarly)[peer] ~= nil)
 end
 
 local function start(self, peer, now, outgoing)
 	if isCooling(self, peer, now) then
-		self.early[peer] = "synced"
+		played(self, self.savedEarly)[peer] = "synced"
 	end
 	self.sessions[peer] = { started = now, active = now }
 	if self.professions then
@@ -130,7 +160,7 @@ end
 -- Answers a peer's digest of professions, once a sync: the professions it lacks.
 local function answerProfessions(self, peer, digest, outgoing)
 	self.sessions[peer].professionsAnswered = true
-	self.early[peer] = "heard"
+	played(self, self.savedEarly)[peer] = "heard"
 	for _, batch in ipairs(Protocol.batchProfessions(self.professions:answer(peer, digest))) do
 		send(outgoing, peer, { kind = "professions", professions = batch })
 	end
@@ -143,7 +173,7 @@ local function answer(self, peer, digest, now, outgoing)
 	local session = self.sessions[peer]
 	session.answered = true
 	session.active = now
-	self.synced[peer] = now
+	played(self, self.saved)[peer] = now
 	if self.settings.passOn then
 		local fresh, missing = {}, {}
 		-- Hashed now, not at start: the memory may have changed while the peer's digest came.
@@ -365,7 +395,7 @@ function Sync:receive(peer, message)
 			self.endedAt[peer] = { at = now, started = session.started }
 		end
 		self.sessions[peer] = nil
-		self.synced[peer] = now
+		played(self, self.saved)[peer] = now
 		return startWaiting(self, now)
 	end
 	return outgoing
@@ -403,11 +433,11 @@ function Sync:tick()
 	return startWaiting(self, now)
 end
 
--- The peers synced in the last 6 hours, guildmates included, as { peer, at },
--- the most recent first.
+-- The peers the character played synced with in the last 6 hours, guildmates
+-- included, as { peer, at }, the most recent first.
 function Sync:recent()
 	local now, recent = self.clock(), {}
-	for peer, at in pairs(self.synced) do
+	for peer, at in pairs(played(self, self.saved)) do
 		if now - at < Sync.COOLDOWN then
 			recent[#recent + 1] = { peer = peer, at = at }
 		end
@@ -418,13 +448,14 @@ function Sync:recent()
 	return recent
 end
 
--- Forgets when each peer last synced, so a sync with any peer can start again
--- at once from this side. A peer still in its own cooldown keeps refusing; the
--- early syncs (decision 0008) stay as they are.
+-- Forgets when each peer last synced, with every character of this account,
+-- so a sync with any peer can start again at once from this side. A peer still
+-- in its own cooldown keeps refusing; the early syncs (decision 0008) stay as
+-- they are.
 function Sync:resetCooldowns()
-	-- Emptied in place: it is the saved table (MnemosyneDB.syncs).
-	for peer in pairs(self.synced) do
-		self.synced[peer] = nil
+	-- Emptied in place: it is the saved table (MnemosyneDB.characterSyncs).
+	for character in pairs(self.saved) do
+		self.saved[character] = nil
 	end
 end
 
