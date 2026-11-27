@@ -128,6 +128,17 @@ function Self:guid(name)
 	return character and character.guid
 end
 
+-- Whether a full name is one of this account's characters, given the GUID
+-- seen for it (nil when none): by name while either GUID is unknown; not when
+-- the GUID seen is another than the one the character had when last played,
+-- as another player's character has taken its name (decision 0003). Ask with
+-- a GUID the game gave or a character told of itself, never one a peer passed
+-- on: a peer's word on another character's GUID is no proof.
+function Self:owns(name, guid)
+	local character = self.characters[name]
+	return character ~= nil and not (guid and character.guid and guid ~= character.guid)
+end
+
 -- A character's state: "notAsked", "registered", "anonymous" or "unregistered".
 function Self:state(name)
 	local character = self.characters[name]

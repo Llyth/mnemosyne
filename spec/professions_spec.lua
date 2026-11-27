@@ -19,9 +19,17 @@ describe("Professions", function()
 	-- This account's characters, as Self gives them (the contract of #91): each
 	-- name's registration (registered with a nickname, anonymous or
 	-- unregistered), its professions as stamped (owned, a removal without a
-	-- level) and as read now (current).
+	-- level) and as read now (current), and the GUID it was played with (guids).
 	local function newCharacters()
-		local stub = { owned = {}, current = {}, registered = {}, anonymous = {}, unregistered = {}, stamped = {} }
+		local stub =
+			{ owned = {}, current = {}, registered = {}, anonymous = {}, unregistered = {}, stamped = {}, guids = {} }
+		function stub:guid(name)
+			return self.guids[name]
+		end
+		function stub:owns(name, guid)
+			local mine = self.registered[name] or self.anonymous[name] or self.unregistered[name] or self.guids[name]
+			return mine ~= nil and not (guid and self.guids[name] and guid ~= self.guids[name])
+		end
 		function stub:withProfessions()
 			local found = {}
 			for name, list in pairs(self.current) do
@@ -541,6 +549,61 @@ describe("Professions", function()
 			local hugh = passed[1].name == "Hugh Jass" and passed[1] or passed[2]
 			assert.equal("Player-1-00000001", hugh.guid)
 			assert.same({ 2329, 2330 }, hugh.recipes)
+		end)
+
+		it("passes on your character's professions with its own GUID, never a peer's, once seen with it", function()
+			professions:hear("Anna Conda", alchemy(900)) -- the name's former owner's, passed on with its GUID
+			professions:hear(
+				"Anna Conda",
+				{ name = "Hugh Jass", skillLine = TAILORING, revision = 900, guid = "Player-1-0000000A" }
+			)
+			characters.registered["Hugh Jass"] = "Tony"
+			characters.guids["Hugh Jass"] = "Player-1-0000000B"
+			characters.owned["Hugh Jass"] = { { skillLine = ALCHEMY, level = 100, maxLevel = 150, revision = 1500 } }
+			professions:prepare()
+			professions:see("Hugh Jass", "Player-1-0000000B") -- it speaks in chat
+			professions:prepare()
+			local passed = professions:answer("Anna Conda", other():digest("Barb Dwyer"))
+			assert.same({ "Hugh Jass 171" }, names(passed))
+			assert.same({ "Player-1-0000000B", 100 }, { passed[1].guid, passed[1].level })
+		end)
+
+		it("passes on again your character's professions an earlier version hid as stale", function()
+			saved.held["Hugh Jass"] = {
+				own = true,
+				guid = "Player-1-0000000A",
+				skills = {
+					[ALCHEMY] = {
+						revision = 1500,
+						level = 100,
+						maxLevel = 150,
+						firstHand = true,
+						heard = 1500,
+						stale = true,
+					},
+				},
+			}
+			characters.registered["Hugh Jass"] = "Tony"
+			characters.guids["Hugh Jass"] = "Player-1-0000000B"
+			characters.owned["Hugh Jass"] = { { skillLine = ALCHEMY, level = 100, maxLevel = 150, revision = 1500 } }
+			professions:prepare()
+			local passed = professions:answer("Anna Conda", other():digest("Barb Dwyer"))
+			assert.same({ "Hugh Jass 171" }, names(passed))
+			assert.equal("Player-1-0000000B", passed[1].guid)
+		end)
+
+		it("holds as theirs the professions another player's character tells itself on a name yours had", function()
+			characters.registered["Hugh Jass"] = "Tony"
+			characters.guids["Hugh Jass"] = "Player-1-0000000A"
+			characters.owned["Hugh Jass"] = { { skillLine = ALCHEMY, level = 300, maxLevel = 300, revision = 2000 } }
+			professions:prepare()
+			local told = alchemy(1900)
+			told.guid = "Player-1-0000000B"
+			assert.is_true(professions:hear("Hugh Jass", told))
+			professions:prepare()
+			local found = shown("Hugh Jass")
+			assert.same({ 1, 75, true }, { #found, found[1] and found[1].level, found[1] and found[1].firstHand })
+			assert.is_nil(found[1].own)
 		end)
 
 		it("gives the digest peers on 1.4.0 give for the same professions", function()

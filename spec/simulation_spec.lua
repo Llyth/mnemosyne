@@ -52,8 +52,8 @@ describe("Several peers", function()
 	end
 
 	local function newPeer(name)
-		local memory = Memory.new({}, clock)
 		local characters = Self.new({}, clock, {})
+		local memory = Memory.new({}, clock, {}, characters)
 		local scope = Scope.new({})
 		local professions = Professions.new({}, clock, memory, characters, { passOn = true }, scope)
 		local peer = {

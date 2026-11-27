@@ -1,5 +1,5 @@
-local ns = require("spec.helpers.addon")("Protocol", "Digest", "Memory")
-local Memory, Protocol = ns.Memory, ns.Protocol
+local ns = require("spec.helpers.addon")("Protocol", "Digest", "Memory", "Self")
+local Memory, Protocol, Self = ns.Memory, ns.Protocol, ns.Self
 
 describe("Memory", function()
 	local now, saved, memory
@@ -984,4 +984,47 @@ describe("Memory, stale", function()
 		end
 		assert.equal(Memory.new(saved, clock):digest(), memory:digest())
 	end)
+end)
+
+describe("Memory, this account's characters", function()
+	local MINE, FORMER = "Player-1-00000001", "Player-1-00000002"
+	local now, characters, memory
+
+	local function clock()
+		return now
+	end
+
+	local function hearFrom(source, name, nickname, revision, guid)
+		return memory:hear(name, { nickname = nickname, revision = revision, source = source, guid = guid })
+	end
+
+	before_each(function()
+		now = 1000
+		characters = Self.new({}, clock, {})
+		characters:register("Zed Zulu", "Llyth")
+		characters:see("Zed Zulu", MINE)
+		memory = Memory.new({}, clock, {}, characters)
+	end)
+
+	it("takes later revisions of one of them seen with its GUID, whatever GUID a peer passed on", function()
+		hearFrom("Ann Bee", "Zed Zulu", "Llyth", 900, FORMER)
+		memory:see("Zed Zulu", MINE) -- it speaks in chat
+		assert.is_true(hearFrom("Ann Bee", "Zed Zulu", "Tony", 950))
+		assert.same({ nickname = "Tony", guid = MINE }, {
+			nickname = memory:passOn("Zed Zulu").nickname,
+			guid = memory:passOn("Zed Zulu").guid,
+		})
+	end)
+
+	it(
+		"takes later revisions of one of them again once seen with its GUID, a copy gone stale before included",
+		function()
+			hearFrom("Ann Bee", "Zed Zulu", "Bob", 800) -- another player's character, before the name was yours
+			memory:see("Zed Zulu", FORMER)
+			memory:see("Zed Zulu", "Player-1-00000003")
+			memory:see("Zed Zulu", MINE)
+			assert.is_true(hearFrom("Ann Bee", "Zed Zulu", "Llyth", 950))
+			assert.equal("Llyth", memory:recall("Zed Zulu").nickname)
+		end
+	)
 end)

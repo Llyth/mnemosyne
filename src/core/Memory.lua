@@ -13,7 +13,9 @@
 -- character's GUID once seen in the game (see) or passed on with it, and goes
 -- stale, hidden until its full name speaks first-hand, when the name shows up
 -- with another GUID. A forgotten character's second-hand copies are refused
--- (only the player's choice, nobody is told).
+-- (only the player's choice, nobody is told). What peers say about this
+-- account's own characters is held as anyone's (decision 0001), but with the
+-- GUID Self knows (Self:owns), never a peer's.
 local _, ns = ...
 
 local Digest = ns.Digest
@@ -228,7 +230,9 @@ end
 -- forgotten: the characters forgotten, as a set of full names
 -- (MnemosyneDB.forgotten); an empty one when left out. A name matches it
 -- ignoring case and accents, as a player may type it.
-function Memory.new(saved, clock, forgotten)
+-- characters: this account's characters (Self), told apart by GUID; none when
+-- left out.
+function Memory.new(saved, clock, forgotten, characters)
 	saved.identities = saved.identities or {}
 	saved.newFrom = saved.newFrom or {} -- counts every change, not only new ones (key kept)
 	local now = clock()
@@ -241,6 +245,7 @@ function Memory.new(saved, clock, forgotten)
 		identities = saved.identities, -- written only through store, which keeps names in step
 		newFrom = saved.newFrom,
 		forgottenNames = forgotten or {},
+		characters = characters,
 		folded = {}, -- each forgotten name, by its folded text
 		secondHand = 0,
 		clock = clock,
@@ -272,6 +277,12 @@ function Memory.new(saved, clock, forgotten)
 		return a.known.heard < b.known.heard
 	end)
 	return self
+end
+
+-- Whether a full name is one of this account's characters, given a GUID for
+-- it, or by name without one (Self:owns).
+local function isMine(self, name, guid)
+	return self.characters ~= nil and self.characters:owns(name, guid)
 end
 
 -- Counts one second-hand change from a peer, toward its 5,000 vouched ones
@@ -354,8 +365,9 @@ local function hearSecondHand(self, name, heard, known)
 		heard = now,
 		-- The GUID held stays, whatever the peer says: if the name changed hands,
 		-- better hidden until it speaks than shown on another character, and a
-		-- forged GUID never stops it going stale.
-		guid = known and known.guid or heard.guid,
+		-- forged GUID never stops it going stale. One of this account's
+		-- characters takes none from a peer: Self knows its GUID.
+		guid = known and known.guid or not isMine(self, name) and heard.guid or nil,
 	}
 	store(self, name, stored)
 	queue(self, name, stored)
@@ -388,13 +400,16 @@ function Memory:hear(name, heard)
 	end
 	-- The GUID stays, even a peer's or one from before a new registration: if it
 	-- is not this character's, the identity goes stale when the character is
-	-- seen, and is asked as a stranger, until it speaks first-hand again.
+	-- seen, and is asked as a stranger, until it speaks first-hand again. But not
+	-- the GUID of one of this account's characters (or one held for its name
+	-- while Self knows none): what speaks first-hand under that name is another
+	-- player's character, as no client hears itself or its account's others.
 	store(self, name, {
 		nickname = heard.nickname,
 		revision = heard.revision,
 		firstHand = true,
 		heard = self.clock(),
-		guid = known and known.guid,
+		guid = known and not isMine(self, name, known.guid) and known.guid or nil,
 	})
 	return true
 end
@@ -405,11 +420,15 @@ end
 -- one was deleted or renamed), so it is hidden until the name speaks
 -- first-hand, and keeps the new GUID for that character. Neither changes the
 -- digest's sums (sum), so the identity is changed in place, keeping its place
--- in the drop queue.
+-- in the drop queue. A copy of one of this account's characters seen with its
+-- GUID never goes stale, and is stale no more: it never speaks first-hand to
+-- its own account, so stale it would refuse every later revision for good.
 function Memory:see(name, guid)
 	local known = self.identities[name]
 	if known and known.guid ~= guid then
-		if known.guid then
+		if not known.firstHand and isMine(self, name, guid) then
+			known.stale = nil
+		elseif known.guid then
 			known.stale = true
 		end
 		known.guid = guid
