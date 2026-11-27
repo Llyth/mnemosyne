@@ -236,6 +236,23 @@ describe("Memory, second-hand", function()
 		assert.is_true(hearFrom("Barb Dwyer", "Hugh Jass", "Tony", now + 24 * 60 * 60))
 	end)
 
+	it("refuses a first-hand revision from more than a day ahead, which peers would refuse at each sync", function()
+		assert.is_false(memory:hear("Hugh Jass", { nickname = "Tony", revision = now + 24 * 60 * 60 + 1 }))
+		assert.is_nil(memory:recall("Hugh Jass"))
+		assert.is_true(memory:hear("Hugh Jass", { nickname = "Tony", revision = now + 24 * 60 * 60 }))
+	end)
+
+	it("lets go at load a revision from more than a day ahead, kept before it was refused", function()
+		local kept = {
+			identities = {
+				["Hugh Jass"] = { nickname = "Tony", revision = now + 24 * 60 * 60 + 1, firstHand = true, heard = now },
+			},
+		}
+		memory = Memory.new(kept, clock)
+		assert.is_nil(memory:recall("Hugh Jass"))
+		assert.is_true(memory:hear("Hugh Jass", { nickname = "Tony", revision = now }))
+	end)
+
 	it("lets the later revision win among second-hand copies", function()
 		hearFrom("Barb Dwyer", "Hugh Jass", "Tony", 900)
 		now = 2000
