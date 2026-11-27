@@ -15,6 +15,7 @@ local WHISPER = 74 -- right of the cells: the Whisper button
 local SCROLL = 28 -- the scroll bar
 local MAX_CELL = 120
 local TOP = 78 -- the rows, under the sub-tabs, the search and the headers
+local HEADER = 26 -- a column header: two lines of its name
 local UNKNOWN_ICON = 134400 -- the question mark
 local CHECK = "Interface\\RaidFrame\\ReadyCheck-Ready"
 local NONE = "-"
@@ -180,8 +181,14 @@ local function newView(content, viewWidth, place)
 		if not headers[j] then
 			local frame = CreateFrame("Button", nil, content)
 			frame:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
-			frame.label = text(frame, "GameFontNormalSmall", 0, 3, 1)
-			frame.label:SetWordWrap(false)
+			-- Two lines at most, sitting on the rows: a long name wraps instead of
+			-- being cut ("Upper Blackrock Spire" in a cell 85 wide).
+			frame.label = text(frame, "GameFontNormalSmall", 0, 0, 1)
+			frame.label:ClearAllPoints()
+			frame.label:SetPoint("BOTTOMLEFT", 0, 2)
+			frame.label:SetWordWrap(true)
+			frame.label:SetMaxLines(2)
+			frame.label:SetJustifyV("BOTTOM")
 			frame:SetScript("OnClick", function(self)
 				if not self.milestone.placeholder then
 					sortBy = sortBy ~= self.milestone.id and self.milestone.id or nil
@@ -361,8 +368,8 @@ local function newView(content, viewWidth, place)
 		for j, milestone in ipairs(columns) do
 			local frame = header(j)
 			frame.milestone = milestone
-			frame:SetSize(width - 2, 18)
-			frame:SetPoint("TOPLEFT", LABEL + (j - 1) * width, -56)
+			frame:SetSize(width - 2, HEADER)
+			frame:SetPoint("TOPLEFT", LABEL + (j - 1) * width, -(TOP - HEADER))
 			frame.label:SetWidth(width - 2)
 			frame.label:SetText(milestoneName(milestone))
 			local grey = milestone.placeholder and GREY
