@@ -768,6 +768,94 @@ describe("Sync", function()
 			assert.is_nil(professions:list()[3])
 		end)
 
+		it("takes professions that come after a long run of identities it already holds", function()
+			local held = { { name = "Hugh Jass", nickname = "Tony", revision = 900 } }
+			local started = now
+			sync:receive("Barb Dwyer", { kind = "professionDigest", digest = NONE })
+			sync:receive("Barb Dwyer", { kind = "digest", digest = emptyDigest() })
+			while now - started < 2 * Sync.TIMEOUT + 5 do
+				now = now + 5
+				sync:receive("Barb Dwyer", { kind = "identities", identities = held })
+				sync:tick()
+			end
+			sync:receive("Barb Dwyer", { kind = "professions", professions = { tailoring } })
+			assert.equal(2, #professions:list())
+		end)
+
+		it("takes professions that come after a long run of professions it already holds", function()
+			local started = now
+			sync:receive("Barb Dwyer", { kind = "professionDigest", digest = NONE })
+			sync:receive("Barb Dwyer", { kind = "digest", digest = emptyDigest() })
+			while now - started < 2 * Sync.TIMEOUT + 5 do
+				now = now + 5
+				sync:receive("Barb Dwyer", { kind = "professions", professions = { tailoring } })
+				sync:tick()
+			end
+			local alchemy = { name = "Hugh Jass", skillLine = 171, revision = 900, level = 5, maxLevel = 75 }
+			sync:receive("Barb Dwyer", { kind = "professions", professions = { alchemy } })
+			assert.equal(3, #professions:list())
+		end)
+
+		it("takes no professions after cutting a sync it never answered", function()
+			sync:request("Barb Dwyer", now)
+			now = now + Sync.TIMEOUT
+			sync:tick()
+			sync:receive("Barb Dwyer", { kind = "professions", professions = { tailoring } })
+			assert.equal(1, #professions:list())
+		end)
+
+		it("stops taking professions 2 minutes past the 20-minute cut, however long the peer goes on", function()
+			local held = { { name = "Hugh Jass", nickname = "Tony", revision = 900 } }
+			local started = now
+			sync:receive("Barb Dwyer", { kind = "professionDigest", digest = NONE })
+			sync:receive("Barb Dwyer", { kind = "digest", digest = emptyDigest() })
+			while now - started < Sync.MAX_DURATION + Sync.TIMEOUT do
+				now = now + 5
+				sync:receive("Barb Dwyer", { kind = "identities", identities = held })
+				sync:tick()
+			end
+			sync:receive("Barb Dwyer", { kind = "professions", professions = { tailoring } })
+			assert.equal(1, #professions:list())
+		end)
+
+		it("stops taking professions 2 minutes past the 20-minute cut, however long the peer sends them", function()
+			local started = now
+			sync:receive("Barb Dwyer", { kind = "professionDigest", digest = NONE })
+			sync:receive("Barb Dwyer", { kind = "digest", digest = emptyDigest() })
+			while now - started < Sync.MAX_DURATION + Sync.TIMEOUT do
+				now = now + 5
+				sync:receive("Barb Dwyer", { kind = "professions", professions = { tailoring } })
+				sync:tick()
+			end
+			local alchemy = { name = "Hugh Jass", skillLine = 171, revision = 900, level = 5, maxLevel = 75 }
+			sync:receive("Barb Dwyer", { kind = "professions", professions = { alchemy } })
+			assert.equal(2, #professions:list())
+		end)
+
+		it("stops taking professions 2 minutes past the 20-minute cut after a done near its end", function()
+			local held = { { name = "Hugh Jass", nickname = "Tony", revision = 900 } }
+			local started = now
+			sync:receive("Barb Dwyer", { kind = "professionDigest", digest = NONE })
+			sync:receive("Barb Dwyer", { kind = "digest", digest = emptyDigest() })
+			-- A new identity each minute keeps the sync going for 19 minutes.
+			for i = 1, 19 do
+				now = now + 60
+				sync:receive("Barb Dwyer", {
+					kind = "identities",
+					identities = { { name = "Name Number" .. i, nickname = "Name", revision = 900 } },
+				})
+				sync:tick()
+			end
+			sync:receive("Barb Dwyer", { kind = "done" })
+			while now - started < Sync.MAX_DURATION + Sync.TIMEOUT do
+				now = now + 5
+				sync:receive("Barb Dwyer", { kind = "identities", identities = held })
+				sync:tick()
+			end
+			sync:receive("Barb Dwyer", { kind = "professions", professions = { tailoring } })
+			assert.equal(1, #professions:list())
+		end)
+
 		it("forgets a digest of professions whose digest did not follow within 2 minutes", function()
 			professions:hear("Cole Slaw", tailoring)
 			sync:receive("Barb Dwyer", { kind = "professionDigest", digest = NONE })

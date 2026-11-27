@@ -20,8 +20,11 @@
 -- lacks after the identities, so a sync cut short has passed on the
 -- identities. A digest of professions that comes after the peer's digest
 -- (whispers come out of order) is answered when it comes, during the sync, and
--- professions that come after the peer's done are still taken for 2 minutes. A
--- peer that sends no digest of professions (an older one) gets only identities.
+-- professions that come after the peer's done, or after the sync was cut (a
+-- long run of identities or professions this side holds reaches the 2-minute
+-- cut), are still taken for 2 minutes after the peer's last batch, never more
+-- than 2 minutes past the sync's 20. A peer that sends no digest of
+-- professions (an older one) gets only identities.
 -- A peer whose digest of professions this side never answered syncs once
 -- during the cooldown, on either side: peers that synced before they shared
 -- professions would otherwise wait out the cooldown to pass them on. After
@@ -81,7 +84,7 @@ function Sync.new(saved, clock, memory, settings, characters, professions, early
 		professions = professions,
 		early = early or {},
 		professionDigests = {}, -- peer -> { digest, at }, its digest of professions until answered
-		endedAt = {}, -- peer -> when a sync this side answered ended at its done: its professions still count
+		endedAt = {}, -- peer -> { at, started } of a sync this side answered, ended or cut: its professions still count
 		sessions = {}, -- peer -> { started, active, answered, digestAgain }
 		waiting = {}, -- { peer, heard, digest, digestHeard }, the most recently heard first
 		doneFirst = {}, -- peer -> when its done came before its digest, to answer the digest still
@@ -287,13 +290,17 @@ function Sync:receive(peer, message)
 			self.professionDigests[peer] = { digest = message.digest, at = now }
 		end
 	elseif message.kind == "professions" then
-		local endedAt = self.endedAt[peer]
-		local open = (session and session.answered) or (endedAt and now - endedAt < Sync.TIMEOUT)
+		local ended = self.endedAt[peer]
+		local open = (session and session.answered) or (ended and now - ended.at < Sync.TIMEOUT)
 		if self.professions and open then
 			for _, profession in ipairs(message.professions) do
 				if self.professions:hear(peer, profession) and session then
 					session.active = now
 				end
+			end
+			if not session then
+				-- Still passing on its part, as for identities below.
+				ended.at = math.min(now, ended.started + Sync.MAX_DURATION)
 			end
 		end
 	elseif message.kind == "digest" then
@@ -325,6 +332,12 @@ function Sync:receive(peer, message)
 			answer(self, peer, message.digest, now, outgoing)
 		end
 	elseif not session then
+		local ended = self.endedAt[peer]
+		if message.kind == "identities" and ended and now - ended.at < Sync.TIMEOUT then
+			-- Still passing on its part, so its professions may come after: 2 minutes
+			-- more, but no later than the 20 minutes a sync may last.
+			ended.at = math.min(now, ended.started + Sync.MAX_DURATION)
+		end
 		return outgoing
 	elseif message.kind == "identities" and session.answered then
 		local learned = {}
@@ -353,7 +366,7 @@ function Sync:receive(peer, message)
 			self.doneFirst[peer] = now
 		else
 			-- Its professions may still come after its done (whispers come out of order).
-			self.endedAt[peer] = now
+			self.endedAt[peer] = { at = now, started = session.started }
 		end
 		self.sessions[peer] = nil
 		self.synced[peer] = now
@@ -369,6 +382,11 @@ function Sync:tick()
 	for peer, session in pairs(self.sessions) do
 		if now - session.active >= Sync.TIMEOUT or now - session.started >= Sync.MAX_DURATION then
 			self.sessions[peer] = nil
+			if session.answered then
+				-- Its place is free, but its professions, which come after its
+				-- identities, still count, as after its done.
+				self.endedAt[peer] = { at = now, started = session.started }
+			end
 		end
 	end
 	for peer, doneAt in pairs(self.doneFirst) do
@@ -381,8 +399,8 @@ function Sync:tick()
 			self.professionDigests[peer] = nil
 		end
 	end
-	for peer, endedAt in pairs(self.endedAt) do
-		if now - endedAt >= Sync.TIMEOUT then
+	for peer, ended in pairs(self.endedAt) do
+		if now - ended.at >= Sync.TIMEOUT then
 			self.endedAt[peer] = nil
 		end
 	end
