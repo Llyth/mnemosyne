@@ -325,9 +325,10 @@ function Copies:see(name, guid)
 		if self.characters:owns(name, guid) then
 			return
 		end
-		character.own = nil
+		character.own, self.summed = nil, nil
 	end
 	if character and character.guid ~= guid then
+		self.summed = nil
 		if character.guid then
 			for _, copy in pairs(character.skills) do
 				copy.stale = true
@@ -340,6 +341,7 @@ end
 -- Drops every copy held, every character seen and every peer's daily
 -- count: a character new since the update starts empty (Memory:empty).
 function Copies:empty()
+	self.summed = nil
 	for _, saved in ipairs({ self.held, self.seen, self.newFrom }) do
 		for key in pairs(saved) do
 			saved[key] = nil
@@ -352,6 +354,7 @@ end
 -- (isRefused). only (name -> character held), when given:
 -- those characters only, as a sync starts (prepare).
 function Copies:prune(only)
+	self.summed = nil
 	local now = self.clock()
 	if not only then
 		self.prunedAt = now
@@ -394,6 +397,7 @@ end
 -- holds them once Client read them again: each is seen now. Then drops what is
 -- no longer kept, at most once every 10 minutes: a character is kept 30 days.
 function Copies:seeLists()
+	self.summed = nil
 	local now = self.clock()
 	for _, name in ipairs(self.scope:listed()) do
 		self.seen[name] = now
@@ -506,21 +510,36 @@ local function goesTo(self, peer, name, character, now, asked)
 end
 
 -- The digest for a peer, and the names in each bucket: every copy that
--- goes to it, disputed ones left out.
-local function sums(self, peer)
-	local now, digest, names = self.clock(), Digest.new(), {}
-	for bucket = 1, Digest.BUCKETS do
-		names[bucket] = {}
-	end
+-- goes to it, disputed ones left out. step(), when given, is called every
+-- STEP characters (a lazy answer pauses there); one dropped meanwhile is left out.
+-- What goesTo asks once for a peer (asked).
+local function ask(self, peer)
 	local played = self.playerName()
 	local registration = played and self.characters:registration(played)
-	local asked = {
+	return {
 		peerIsGuildmate = self.scope:isGuildmate(peer),
 		played = played,
 		othersAsAnyone = played ~= nil and not (registration and registration.nickname), -- as asAnyone gives
 	}
-	for name, character in pairs(self.held) do
-		if goesTo(self, peer, name, character, now, asked) then
+end
+
+local function sums(self, peer, step)
+	local now, digest, names = self.clock(), Digest.new(), {}
+	for bucket = 1, Digest.BUCKETS do
+		names[bucket] = {}
+	end
+	local asked = ask(self, peer)
+	-- Their names first: held may change while paused, which a pairs() over it would not survive.
+	local all = {}
+	for name in pairs(self.held) do
+		all[#all + 1] = name
+	end
+	for i, name in ipairs(all) do
+		local character = self.held[name]
+		if step and i % self.STEP == 0 then
+			step()
+		end
+		if character and goesTo(self, peer, name, character, now, asked) then
 			local bucket = Digest.bucket(name)
 			names[bucket][#names[bucket] + 1] = name
 			for key, copy in pairs(character.skills) do
@@ -566,8 +585,12 @@ end
 
 -- The digest of what goes to a peer, for a sync: each copy hashed with
 -- what it says, summed in the bucket of its character's name.
+-- Its sums are kept for the answer to the peer's digest, while nothing
+-- changed what is held (hear, prune, prepare, seeLists, empty).
 function Copies:digest(peer)
-	return (sums(self, peer)):write()
+	local digest, names = sums(self, peer)
+	self.summed = { peer = peer, digest = digest, names = names, changes = self.changes }
+	return digest:write()
 end
 
 -- What to pass on to a peer, from its digest: the copies that go to it,
@@ -582,7 +605,13 @@ end
 -- written (a lazy answer pauses there); one dropped meanwhile is left out.
 function Copies:answer(peer, digest, step)
 	local now = self.clock()
-	local mine, names = sums(self, peer)
+	local summed, mine, names = self.summed
+	self.summed = nil
+	if summed and summed.peer == peer and summed.changes == self.changes then
+		mine, names = summed.digest, summed.names
+	else
+		mine, names = sums(self, peer, step)
+	end
 	-- The rest as their name and key only: most never fit the 100 KB.
 	local fresh, restNames, restKeys = {}, {}, {}
 	local function passedOn(name, key)
@@ -597,12 +626,20 @@ function Copies:answer(peer, digest, step)
 		end
 		return passed
 	end
+	-- Asked again: the sums may come from the digest, made before a registration or a removal heard since.
+	local looked, asked = 0, ask(self, peer)
 	for _, bucket in ipairs(Digest.differing(mine:write(), digest)) do
 		for _, name in ipairs(names[bucket]) do
-			local character = self.held[name]
-			local passes = (character.own and not asAnyone(self, name)) or self.settings.passOn
-			for key, copy in pairs(character.skills) do
-				if passes and not copy.disputed and not copy.stale then
+			looked = looked + 1
+			if step and looked % self.STEP == 0 then
+				step()
+			end
+			local character = self.held[name] -- nil once dropped while paused
+			local passes = character
+				and goesTo(self, peer, name, character, now, asked)
+				and ((character.own and not asAnyone(self, name)) or self.settings.passOn)
+			for key, copy in pairs(passes and character.skills or {}) do
+				if not copy.disputed and not copy.stale then
 					local age = now - copy.revision
 					if copy.firstHand and age >= 0 and age <= DAY then
 						fresh[#fresh + 1] = passedOn(name, key)

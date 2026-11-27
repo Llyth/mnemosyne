@@ -602,11 +602,10 @@ describe("Professions", function()
 			local pauses = 0
 			local passed = professions:answer("Anna Conda", other():digest("Barb Dwyer"), function()
 				pauses = pauses + 1
-				saved.held["Hugh Jass"] = nil
 				saved.held["Cole Slaw"] = nil
 			end)
 			Professions.STEP = step
-			assert.equal(1, #passed)
+			assert.same({ "Hugh Jass 171" }, names(passed))
 			assert.is_true(pauses >= 1)
 		end)
 
@@ -1245,5 +1244,78 @@ describe("Professions", function()
 			assert.is_nil(saved.held["Hugh Jass"].skills[ALCHEMY].stale)
 			assert.is_nil(saved.held["Hugh Jass"].skills[TAILORING])
 		end)
+	end)
+end)
+
+describe("Professions answering after the sync's digest", function()
+	local ALCHEMY = 171
+	local now, characters, settings, scope, professions, played, memory
+	local function clock()
+		return now
+	end
+	local function newCharacters()
+		local account = Self.new({}, clock, settings)
+		account.stampProfessions = function() end
+		return account
+	end
+	local function own(name, list)
+		local character = characters.characters[name] or {}
+		characters.characters[name] = character
+		character.professions = {}
+		for _, p in ipairs(list) do
+			character.professions[p.skillLine] =
+				{ shared = { level = p.level, maxLevel = p.maxLevel, revision = p.revision } }
+		end
+	end
+	local function other()
+		local s = Scope.new({})
+		local theirs = Professions.new({}, clock, Memory.new({}, clock), newCharacters(), { passOn = true }, s)
+		s:see({}, { "Hugh Jass", "Anna Conda", "Cole Slaw" })
+		theirs:seeLists()
+		return theirs
+	end
+
+	before_each(function()
+		now = 1000000
+		settings = { passOn = true }
+		characters = newCharacters()
+		played = "Bea Bop"
+		characters:register(played, "Bea")
+		scope = Scope.new(settings)
+		memory = Memory.new({}, clock)
+		professions = Professions.new({}, clock, memory, characters, settings, scope, function() end, function()
+			return played
+		end)
+		scope:see({ "Bo Nanza" }, { "Hugh Jass", "Anna Conda", "Cole Slaw" })
+		professions:seeLists()
+		characters:register("Dee Zaster", "Dee") -- off the roster
+		own("Dee Zaster", { { skillLine = ALCHEMY, level = 5, maxLevel = 75, revision = 900 } })
+		professions:prepare()
+	end)
+
+	it("keeps an alt out once the character played goes anonymous, with no digest first", function()
+		characters:keepAnonymous(played)
+		assert.same({}, professions:answer("Anna Conda", other():digest("Barb Dwyer")))
+	end)
+
+	it("keeps an alt out once the character played goes anonymous after the digest", function()
+		professions:digest("Anna Conda") -- start(): the sync's digest
+		characters:keepAnonymous(played) -- the player goes anonymous before the peer's digest is answered
+		local passed = professions:answer("Anna Conda", other():digest("Barb Dwyer"))
+		assert.same({}, passed) -- Dee Zaster's alchemy would link Bea Bop to it (decision 0001)
+	end)
+
+	it("keeps an alt out once its removal is heard after the digest, in the same sync", function()
+		local ROSTER = { "Hugh Jass", "Anna Conda", "Cole Slaw", "Dee Zaster" }
+		characters:keepAnonymous(played)
+		scope:see({}, ROSTER)
+		professions:seeLists()
+		local s = Scope.new({})
+		local theirs = Professions.new({}, clock, Memory.new({}, clock), newCharacters(), { passOn = true }, s)
+		s:see({}, ROSTER)
+		theirs:seeLists()
+		professions:digest("Anna Conda")
+		memory:hear("Dee Zaster", { revision = 2000, source = "Cole Slaw" }) -- identities come before copies
+		assert.same({}, professions:answer("Anna Conda", theirs:digest("Barb Dwyer")))
 	end)
 end)
