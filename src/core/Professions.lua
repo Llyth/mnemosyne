@@ -195,28 +195,12 @@ end
 
 -- Whether a character is one of this account's, given the GUID it told of
 -- itself (nil when none, or when a peer passed it on: no proof): not once
--- another player's character has taken its name (Self:owns).
+-- another player's character has taken its name (Self:owns, which remembers
+-- a taken name account-wide, Self:seeName).
 local function isOwn(self, name, guid)
 	local character = self.held[name]
 	return ((character and character.own) or self.characters:registration(name) ~= nil)
 		and self.characters:owns(name, guid)
-end
-
--- Whether another player's character has taken the name of one of this
--- account's: it told its professions itself (first-hand) under a GUID that is
--- not this account's character's, or the game showed it under the name (see),
--- which left this account's character's, first-hand, stale under its GUID.
-local function isTaken(self, name)
-	local character = self.held[name]
-	if not character or character.own then
-		return false
-	end
-	for _, profession in pairs(character.skills) do
-		if profession.firstHand then
-			return not isOwn(self, name, character.guid)
-		end
-	end
-	return false
 end
 
 -- Whether one of this account's characters' professions go and come as any
@@ -241,11 +225,9 @@ end
 
 -- Whether professions of a character are kept: this account's, or seen lately.
 -- This account's are kept as anyone's while they go and come as anyone's
--- (asAnyone), and so is a name another player's character has taken (isTaken,
--- or told under its GUID: guid as isOwn takes it).
+-- (asAnyone), and so is a name another player's character has taken (isOwn).
 local function keeps(self, name, now, guid)
-	return (isOwn(self, name, guid) and not asAnyone(self, name) and not isTaken(self, name))
-		or seenLately(self, name, now)
+	return (isOwn(self, name, guid) and not asAnyone(self, name)) or seenLately(self, name, now)
 end
 
 -- Whether a character's profession heard first-hand or not is refused:
@@ -279,14 +261,18 @@ end
 
 -- Hears a profession from a peer, as Protocol reads it: { name, skillLine,
 -- revision, level, maxLevel, recipes, guid }, a removal without a level.
--- First-hand when the peer is the character itself: under a GUID other than
--- the one of this account's character of that name, the name is another
--- player's character's, and what was held as this account's goes. Returns
--- true when it changed what is held.
+-- First-hand when the peer is the character itself: the GUID it tells of
+-- itself counts as the game showing it (see), so under a GUID other than the
+-- one of this account's character of that name, the name is another player's
+-- character's, and what was held as this account's goes stale. Returns true
+-- when it changed what is held.
 function Professions:hear(peer, heard)
 	local now, name, skillLine = self.clock(), heard.name, heard.skillLine
 	local firstHand = name == peer
 	local guid = firstHand and heard.guid or nil -- a peer's word on another character's GUID tells nothing
+	if guid then
+		self:see(name, guid)
+	end
 	if
 		not Professions.SKILL_LINES[skillLine]
 		or heard.revision > now + DAY
@@ -306,9 +292,6 @@ function Professions:hear(peer, heard)
 		guid = heard.guid,
 	}
 	local character = self.held[name]
-	if character and character.own and not isOwn(self, name, guid) then
-		character = nil -- the name is another player's character's now
-	end
 	local known = character and character.skills[skillLine]
 	local same = known
 		and not known.disputed
@@ -352,13 +335,15 @@ function Professions:hear(peer, heard)
 	return true
 end
 
--- Sees a character's GUID (a chat line, a group member): a character held
--- without one takes it; one held with another goes stale, every profession of
--- it hidden until the character shares first-hand. This account's characters
--- are left to Self, which knows their GUIDs (prepare), unless the GUID seen is
--- not the one Self knows (Self:owns): another player's character has taken
--- the name, which is held as anyone's from then on (isTaken).
+-- Sees a character's GUID (a chat line, a group member, or one it told of
+-- itself): a character held without one takes it; one held with another goes
+-- stale, every profession of it hidden until the character shares first-hand.
+-- This account's characters are left to Self, which knows their GUIDs
+-- (prepare), unless the GUID seen is not the one Self knows: another player's
+-- character has taken the name, which Self remembers (Self:seeName) and is
+-- held as anyone's from then on.
 function Professions:see(name, guid)
+	self.characters:seeName(name, guid)
 	local character = self.held[name]
 	if character and character.own then
 		if self.characters:owns(name, guid) then
@@ -444,8 +429,9 @@ end
 -- holds, never stale, and only them: a profession peers passed on before the
 -- character was this account's never goes as its own. While the character
 -- played is not registered, only its own: the others' wait for a registered
--- one (asAnyone). A name another player's character has taken (isTaken) is
--- left to it. Then drops what is no longer kept.
+-- one (asAnyone). A name another player's character has taken (Self:owns) is
+-- left to it, what was held as this account's under it stale, as see leaves
+-- it. Then drops what is no longer kept.
 function Professions:prepare()
 	local names = {}
 	for _, character in ipairs(self.characters:list("")) do
@@ -459,7 +445,17 @@ function Professions:prepare()
 	end
 	local now = self.clock()
 	for name in pairs(names) do
-		if asAnyone(self, name) or isTaken(self, name) then
+		local character = self.held[name]
+		if not self.characters:owns(name) then
+			names[name] = nil
+			if character and character.own then
+				-- Seen taken by another of this account's characters.
+				character.own = nil
+				for _, profession in pairs(character.skills) do
+					profession.stale = true
+				end
+			end
+		elseif asAnyone(self, name) then
 			names[name] = nil
 		end
 	end
