@@ -301,7 +301,7 @@ end
 
 local BASE36 = "0123456789abcdefghijklmnopqrstuvwxyz"
 
-local function base36(number)
+local function writeBase36(number)
 	local text = ""
 	repeat
 		local digit = number % 36
@@ -311,11 +311,29 @@ local function base36(number)
 	return text
 end
 
+-- Numbers of one or two digits, written once: most differences between two
+-- recipe IDs are.
+local SHORT_BASE36 = {}
+for number = 0, 36 * 36 - 1 do
+	SHORT_BASE36[number] = writeBase36(number)
+end
+
+local function base36(number)
+	return SHORT_BASE36[number] or writeBase36(number)
+end
+
+-- The text writeProfession gave each profession table, kept while the table
+-- lives: an answer measures, batches and sends each profession it passes on.
+local professionTexts = setmetatable({}, { __mode = "k" })
+
 -- Writes a profession passed on ({ name, skillLine, revision, level, maxLevel,
 -- recipes, guid }, a removal without a level), and its GUID on a line of its
 -- own when known. Trusts its input: the recipe IDs sorted, from Self or a peer
--- checked by read.
+-- checked by read; a table once written is never changed (the text is kept).
 function Protocol.writeProfession(profession)
+	if professionTexts[profession] then
+		return professionTexts[profession]
+	end
 	local text = profession.revision .. ":" .. profession.name .. ":" .. profession.skillLine
 	if profession.level then
 		text = text .. ":" .. profession.level .. ":" .. profession.maxLevel
@@ -328,7 +346,9 @@ function Protocol.writeProfession(profession)
 			text = text .. ":" .. table.concat(parts, ",")
 		end
 	end
-	return text .. (profession.guid and "\nG:" .. profession.guid or "")
+	text = text .. (profession.guid and "\nG:" .. profession.guid or "")
+	professionTexts[profession] = text
+	return text
 end
 
 -- Splits professions into batches, each the professions of one message that a

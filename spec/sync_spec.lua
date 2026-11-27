@@ -153,6 +153,75 @@ describe("Sync", function()
 		end
 	)
 
+	describe("answering lazily", function()
+		local function lazySync()
+			return Sync.new({}, clock, memory, settings, nil, nil, playing, nil, true)
+		end
+
+		-- Asks each lazy answer for its messages until it is over, as the queue
+		-- does; counts the times one was not ready yet.
+		local function produced(outgoing)
+			local messages, waits = {}, 0
+			for _, out in ipairs(outgoing) do
+				if out.produce then
+					local message = out.produce()
+					while message ~= nil do
+						if message then
+							messages[#messages + 1] = message
+						else
+							waits = waits + 1
+						end
+						message = out.produce()
+					end
+				else
+					messages[#messages + 1] = out
+				end
+			end
+			return messages, waits
+		end
+
+		local function texts(messages)
+			local list = {}
+			for i, message in ipairs(messages) do
+				list[i] = message.peer .. " " .. message.text
+			end
+			return list
+		end
+
+		it("sends the same messages as a whole answer, made as the queue asks for them", function()
+			for i = 1, 3 * Sync.STEP do
+				memory:hear("Anna Conda" .. i, { nickname = "Ann", revision = now - i })
+			end
+			local digest = { kind = "digest", digest = emptyDigest() }
+			local whole = sync:receive("Barb Dwyer", digest)
+			local outgoing = lazySync():receive("Barb Dwyer", digest)
+			assert.same({ "Barb Dwyer digest" }, sent({ outgoing[1] }))
+			assert.is_function(outgoing[2].produce)
+			local messages, waits = produced(outgoing)
+			assert.same(texts(whole), texts(messages))
+			assert.is_true(waits >= 3)
+		end)
+
+		it("makes nothing more of its answer once the sync is cut", function()
+			for i = 1, 100 do
+				memory:hear("Anna Conda" .. i, { nickname = "Ann", revision = 900 })
+			end
+			sync = lazySync()
+			local outgoing = sync:receive("Barb Dwyer", { kind = "digest", digest = emptyDigest() })
+			assert.is_table(outgoing[2].produce())
+			now = now + Sync.TIMEOUT
+			sync:tick()
+			assert.is_nil(outgoing[2].produce())
+		end)
+
+		it("still makes its answer after the peer's done", function()
+			sync = lazySync()
+			local outgoing = sync:receive("Barb Dwyer", { kind = "digest", digest = emptyDigest() })
+			sync:receive("Barb Dwyer", { kind = "done" })
+			assert.same({ "Barb Dwyer digest", "Barb Dwyer identities", "Barb Dwyer done" }, sent(produced(outgoing)))
+		end)
+	end)
+
 	it("sends many identities in batches that each fit a chunked message", function()
 		for i = 1, 100 do
 			memory:hear("Anna Conda" .. i, { nickname = string.rep("é", 32), revision = 99999999999999 })

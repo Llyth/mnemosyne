@@ -53,6 +53,7 @@ Professions.SKILL_LINES = {
 }
 Professions.KEPT_FOR = 30 * DAY -- after a character was last seen on a roster or as a friend's
 Professions.MAX_SYNC_BYTES = 100000 -- of professions a sync passes on
+Professions.STEP = 100 -- professions an answer writes before it lets the queue send (lazy)
 
 -- saved: the table Professions keeps its professions in
 -- (MnemosyneCharacterDB.professions).
@@ -570,31 +571,40 @@ end
 -- 100 KB, the first-hand ones changed in the past day first, the latest
 -- first, then the rest from a point that moves with the clock. Each is
 -- { name, skillLine, revision, level, maxLevel, recipes, guid }, a removal
--- without a level.
-function Professions:answer(peer, digest)
+-- without a level. step(), when given, is called every few professions
+-- written (a lazy answer pauses there); one dropped meanwhile is left out.
+function Professions:answer(peer, digest, step)
 	local now = self.clock()
 	local mine, names = sums(self, peer)
-	local fresh, rest = {}, {}
+	-- The rest as their name and skill line only: most never fit the 100 KB.
+	local fresh, restNames, restSkills = {}, {}, {}
+	local function passedOn(name, skillLine)
+		local character = self.held[name]
+		local profession = character and character.skills[skillLine]
+		if not profession then
+			return nil
+		end
+		return {
+			name = name,
+			skillLine = skillLine,
+			revision = profession.revision,
+			level = profession.level,
+			maxLevel = profession.maxLevel,
+			recipes = profession.recipes,
+			guid = character.guid,
+		}
+	end
 	for _, bucket in ipairs(Digest.differing(mine:write(), digest)) do
 		for _, name in ipairs(names[bucket]) do
 			local character = self.held[name]
 			local passes = (character.own and not asAnyone(self, name)) or self.settings.passOn
 			for skillLine, profession in pairs(character.skills) do
 				if passes and not profession.disputed and not profession.stale then
-					local passed = {
-						name = name,
-						skillLine = skillLine,
-						revision = profession.revision,
-						level = profession.level,
-						maxLevel = profession.maxLevel,
-						recipes = profession.recipes,
-						guid = character.guid,
-					}
 					local age = now - profession.revision
 					if profession.firstHand and age >= 0 and age <= DAY then
-						fresh[#fresh + 1] = passed
+						fresh[#fresh + 1] = passedOn(name, skillLine)
 					else
-						rest[#rest + 1] = passed
+						restNames[#restNames + 1], restSkills[#restSkills + 1] = name, skillLine
 					end
 				end
 			end
@@ -603,16 +613,24 @@ function Professions:answer(peer, digest)
 	table.sort(fresh, function(a, b)
 		return a.revision > b.revision
 	end)
-	for i = 1, #rest do
-		fresh[#fresh + 1] = rest[(now + i) % #rest + 1]
-	end
-	local chosen, bytes = {}, 0
-	for _, passed in ipairs(fresh) do
-		bytes = bytes + #Protocol.writeProfession(passed) + 1
-		if bytes > Professions.MAX_SYNC_BYTES then
-			break
+	local chosen, bytes, rest = {}, 0, #restNames
+	for i = 1, #fresh + rest do
+		local passed = fresh[i]
+		if not passed then
+			local at = (now + i - #fresh) % rest + 1
+			passed = passedOn(restNames[at], restSkills[at])
 		end
-		chosen[#chosen + 1] = passed
+		if passed then
+			-- Written once: batching and sending reuse the text (Protocol.writeProfession).
+			bytes = bytes + #Protocol.writeProfession(passed) + 1
+			if bytes > Professions.MAX_SYNC_BYTES then
+				break
+			end
+			chosen[#chosen + 1] = passed
+		end
+		if step and i % Professions.STEP == 0 then
+			step()
+		end
 	end
 	return chosen
 end

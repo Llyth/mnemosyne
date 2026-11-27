@@ -55,6 +55,9 @@ Sync.MAX_DURATION = 20 * 60 -- seconds before a sync is cut, however much the pe
 -- what it lacks. An hour short of the window the peer takes vouched changes in,
 -- so one sent last in a long sync still reaches it inside it.
 Sync.FRESH = Memory.VOUCHED_WINDOW - 60 * 60 -- seconds
+-- Names an answer looks at before it lets the queue send (lazy): a step
+-- costs about a millisecond.
+Sync.STEP = 1000
 
 -- saved: when each peer last synced, by character of this account
 -- (MnemosyneDB.characterSyncs, character -> peer -> time); entries older than the
@@ -76,7 +79,10 @@ Sync.FRESH = Memory.VOUCHED_WINDOW - 60 * 60 -- seconds
 -- syncs; nil before login, when nothing syncs.
 -- scope: the Scope, which tells guildmates, who sync more often; with none,
 -- every peer waits the longer cooldown.
-function Sync.new(saved, clock, memory, settings, professions, early, playerName, scope)
+-- lazy: an answer comes as { peer, produce }, which Outbox calls as the
+-- queue sends (produce returns the next message, false while it is not
+-- ready, nil once done); left out, as its messages, whole.
+function Sync.new(saved, clock, memory, settings, professions, early, playerName, scope, lazy)
 	local now = clock()
 	early = early or {}
 	for character, synced in pairs(saved) do
@@ -105,6 +111,7 @@ function Sync.new(saved, clock, memory, settings, professions, early, playerName
 		scope = scope,
 		savedEarly = early,
 		playerName = playerName or function() end,
+		lazy = lazy or false,
 		professionDigests = {}, -- peer -> { digest, at }, its digest of professions until answered
 		endedAt = {}, -- peer -> { at, started } of a sync this side answered, ended or cut: its professions still count
 		sessions = {}, -- peer -> { started, active, answered, digestAgain }
@@ -115,6 +122,52 @@ end
 
 local function send(outgoing, peer, message)
 	outgoing[#outgoing + 1] = { peer = peer, text = Protocol.write(message), kind = message.kind }
+end
+
+-- Queues a part of an answer that body(emit, step) produces: emit(message)
+-- gives one message, step() lets the queue send before it goes on. It
+-- produces nothing more once the sync is cut (tick).
+local function produce(outgoing, peer, session, body)
+	local co = coroutine.create(function()
+		body(function(message)
+			coroutine.yield({ peer = peer, text = Protocol.write(message), kind = message.kind })
+		end, function()
+			coroutine.yield(false)
+		end)
+	end)
+	outgoing[#outgoing + 1] = {
+		peer = peer,
+		produce = function()
+			if session.cut or coroutine.status(co) == "dead" then
+				return nil
+			end
+			local ok, out = coroutine.resume(co)
+			if not ok then
+				error(out, 0)
+			end
+			return out
+		end,
+	}
+end
+
+-- What to send, each answer whole unless the sync is lazy.
+local function whole(self, outgoing)
+	if self.lazy then
+		return outgoing
+	end
+	local messages = {}
+	for _, out in ipairs(outgoing) do
+		if out.produce then
+			local message = out.produce()
+			while message ~= nil do
+				messages[#messages + 1] = message or nil
+				message = out.produce()
+			end
+		else
+			messages[#messages + 1] = out
+		end
+	end
+	return messages
 end
 
 -- What the character played made, by peer: its syncs (saved) or its early
@@ -158,77 +211,110 @@ local function start(self, peer, now, outgoing)
 	send(outgoing, peer, { kind = "digest", digest = self.memory:digest() })
 end
 
+-- Passes on the professions a peer lacks, from its digest of professions.
+local function passOnProfessions(self, peer, digest, emit, step)
+	for _, batch in ipairs(Protocol.batchProfessions(self.professions:answer(peer, digest, step))) do
+		emit({ kind = "professions", professions = batch })
+	end
+end
+
 -- Answers a peer's digest of professions, once a sync: the professions it lacks.
 local function answerProfessions(self, peer, digest, outgoing)
-	self.sessions[peer].professionsAnswered = true
+	local session = self.sessions[peer]
+	session.professionsAnswered = true
 	played(self, self.savedEarly)[peer] = "heard"
-	for _, batch in ipairs(Protocol.batchProfessions(self.professions:answer(peer, digest))) do
-		send(outgoing, peer, { kind = "professions", professions = batch })
+	produce(outgoing, peer, session, function(emit, step)
+		passOnProfessions(self, peer, digest, emit, step)
+	end)
+end
+
+-- Passes on the identities a peer lacks, from its digest, a step at a time.
+local function passOnIdentities(self, digest, now, emit, step)
+	local fresh, missing, looked = {}, {}, 0
+	local function stepEvery(count)
+		if count - looked >= Sync.STEP then
+			looked = count
+			step()
+		end
+	end
+	-- Hashed now, not at start: the memory may have changed while the peer's digest came.
+	local names = self.memory:missing(digest, stepEvery)
+	looked = 0
+	for i, name in ipairs(names) do
+		-- A first-hand name is the server's, never checked: one too long would break a batch.
+		if #name <= Protocol.MAX_NAME_BYTES then
+			local identity = self.memory:knows(name) and self.memory:passOn(name)
+			-- Not one ahead of the clock: no real change is, and the peer would not take it as vouched.
+			if identity and identity.revision <= now and now - identity.revision <= Sync.FRESH then
+				-- The peer takes up to 5,000 of these a day from one peer, besides its 1,000.
+				identity.vouched = true
+				fresh[#fresh + 1] = identity
+			else
+				missing[#missing + 1] = name
+			end
+		end
+		stepEvery(i)
+	end
+	-- First-hand changes of the last day first, the latest first, so a sync
+	-- cut short has passed on what the characters said of themselves lately.
+	table.sort(fresh, function(a, b)
+		return a.revision > b.revision
+	end)
+	local chosen = {}
+	for i, identity in ipairs(fresh) do
+		if i <= Memory.MAX_VOUCHED_PER_PEER then
+			chosen[i] = identity
+		else
+			missing[#missing + 1] = identity.name -- past the 5,000: takes turns with the rest, not vouched
+		end
+	end
+	-- Then the rest, no more than the peer keeps in a day from one peer,
+	-- from a point that moves with the clock, so later syncs pass on the rest.
+	for i = 1, math.min(#missing, Memory.MAX_CHANGES_PER_PEER) do
+		-- Appended: a nil from passOn would leave a hole that ends the batches there.
+		chosen[#chosen + 1] = self.memory:passOn(missing[(now + i) % #missing + 1])
+	end
+	for _, batch in ipairs(Protocol.batch(chosen)) do
+		emit({ kind = "identities", identities = batch })
 	end
 end
 
 -- Answers a peer's digest: what the peer lacks, then the end of this side's
 -- part. Passing on counts toward the cooldown, so a sync cut after it does not
--- pass on the memory again before 6 hours.
+-- pass on the memory again before 6 hours. The answer is made as the queue
+-- sends it (produce), from the memory as it is then, but stops once the sync
+-- is cut.
 local function answer(self, peer, digest, now, outgoing)
 	local session = self.sessions[peer]
 	session.answered = true
 	session.active = now
 	played(self, self.saved)[peer] = now
-	if self.settings.passOn then
-		local fresh, missing = {}, {}
-		-- Hashed now, not at start: the memory may have changed while the peer's digest came.
-		for _, name in ipairs(self.memory:missing(digest)) do
-			-- A first-hand name is the server's, never checked: one too long would break a batch.
-			if #name <= Protocol.MAX_NAME_BYTES then
-				local identity = self.memory:knows(name) and self.memory:passOn(name)
-				-- Not one ahead of the clock: no real change is, and the peer would not take it as vouched.
-				if identity and identity.revision <= now and now - identity.revision <= Sync.FRESH then
-					-- The peer takes up to 5,000 of these a day from one peer, besides its 1,000.
-					identity.vouched = true
-					fresh[#fresh + 1] = identity
-				else
-					missing[#missing + 1] = name
-				end
-			end
-		end
-		-- First-hand changes of the last day first, the latest first, so a sync
-		-- cut short has passed on what the characters said of themselves lately.
-		table.sort(fresh, function(a, b)
-			return a.revision > b.revision
-		end)
-		local chosen = {}
-		for i, identity in ipairs(fresh) do
-			if i <= Memory.MAX_VOUCHED_PER_PEER then
-				chosen[i] = identity
-			else
-				missing[#missing + 1] = identity.name -- past the 5,000: takes turns with the rest, not vouched
-			end
-		end
-		-- Then the rest, no more than the peer keeps in a day from one peer,
-		-- from a point that moves with the clock, so later syncs pass on the rest.
-		for i = 1, math.min(#missing, Memory.MAX_CHANGES_PER_PEER) do
-			-- Appended: a nil from passOn would leave a hole that ends the batches there.
-			chosen[#chosen + 1] = self.memory:passOn(missing[(now + i) % #missing + 1])
-		end
-		for _, batch in ipairs(Protocol.batch(chosen)) do
-			send(outgoing, peer, { kind = "identities", identities = batch })
-		end
-	end
+	local passOn = self.settings.passOn
 	local heard = self.professionDigests[peer]
 	self.professionDigests[peer] = nil
-	if self.professions and heard and now - heard.at < Sync.TIMEOUT then
-		answerProfessions(self, peer, heard.digest, outgoing)
+	local professions = self.professions and heard and now - heard.at < Sync.TIMEOUT
+	if professions then
+		session.professionsAnswered = true
+		played(self, self.savedEarly)[peer] = "heard"
 	end
-	send(outgoing, peer, { kind = "done" })
+	produce(outgoing, peer, session, function(emit, step)
+		if passOn then
+			passOnIdentities(self, digest, now, emit, step)
+		end
+		if professions then
+			passOnProfessions(self, peer, heard.digest, emit, step)
+		end
+		emit({ kind = "done" })
+	end)
 end
 
 -- Ends the sync with a peer, however it ends (its done, a late digest
 -- answered, the cut): its place is free, and, once this side answered it, its
 -- professions, which come after its identities and may come after its done
 -- (whispers come out of order), still count for 2 minutes.
-local function finish(self, peer, now)
+local function finish(self, peer, now, cut)
 	local session = self.sessions[peer]
+	session.cut = cut
 	self.sessions[peer] = nil
 	if session.answered then
 		self.endedAt[peer] = { at = now, started = session.started }
@@ -295,7 +381,7 @@ function Sync:request(peer, heard)
 	end
 	local outgoing = {}
 	start(self, peer, now, outgoing)
-	return outgoing, true
+	return whole(self, outgoing), true
 end
 
 -- Takes a sync message from a peer, read by Protocol: a digest (of identities
@@ -406,9 +492,9 @@ function Sync:receive(peer, message)
 		end
 		finish(self, peer, now)
 		played(self, self.saved)[peer] = now
-		return startWaiting(self, now)
+		return whole(self, startWaiting(self, now))
 	end
-	return outgoing
+	return whole(self, outgoing)
 end
 
 -- Cuts the syncs whose peer went quiet or that last too long, and starts
@@ -417,7 +503,7 @@ function Sync:tick()
 	local now = self.clock()
 	for peer, session in pairs(self.sessions) do
 		if now - session.active >= Sync.TIMEOUT or now - session.started >= Sync.MAX_DURATION then
-			finish(self, peer, now)
+			finish(self, peer, now, true)
 		end
 	end
 	for peer, doneAt in pairs(self.doneFirst) do
@@ -435,7 +521,7 @@ function Sync:tick()
 			self.endedAt[peer] = nil
 		end
 	end
-	return startWaiting(self, now)
+	return whole(self, startWaiting(self, now))
 end
 
 -- The peers the character played synced with in the last 6 hours, guildmates

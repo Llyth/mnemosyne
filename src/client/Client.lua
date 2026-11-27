@@ -568,7 +568,8 @@ function handlers.ADDON_LOADED(name)
 		ns.professions,
 		db.characterEarlySyncs,
 		Client.playerName,
-		ns.scope
+		ns.scope,
+		true -- lazy: each answer made as the paced queue sends it
 	)
 	ns.news = ns.News.new(GetTime, math.random, ns.memory, db.settings)
 	outbox = ns.Outbox.new(GetTime, Client.canSend)

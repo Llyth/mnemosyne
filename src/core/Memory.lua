@@ -646,14 +646,18 @@ end
 -- bucket whose digest differs from this memory's, removals included; never a
 -- disputed or stale one. Names only, so a whole memory costs no table each:
 -- passOn gives what to send of the ones chosen. The peer keeps what is newer
--- than what it holds.
-function Memory:missing(digest)
+-- than what it holds. step(count), when given, is called after each bucket
+-- with how many names were found so far (a lazy answer pauses there).
+function Memory:missing(digest, step)
 	local found = {}
 	for _, bucket in ipairs(Digest.differing(self:digest(), digest)) do
 		for name in pairs(self.names[bucket]) do
 			if passesOn(self.identities[name]) then
 				found[#found + 1] = name
 			end
+		end
+		if step then
+			step(#found)
 		end
 	end
 	return found
