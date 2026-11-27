@@ -140,6 +140,14 @@ describe("Self", function()
 		assert.same({ nickname = "Tony", revision = 1000 }, characters:registration("Hugh Jass"))
 	end)
 
+	it("remembers in its saved table that a character started empty, not from the seed", function()
+		characters:register("Hugh Jass", "Tony")
+		characters:startEmpty("Anna Conda")
+		local loaded = Self.new(saved, clock, settings)
+		assert.same({ false, true }, { loaded:startedEmpty("Hugh Jass"), loaded:startedEmpty("Anna Conda") })
+		assert.equal("notAsked", loaded:state("Anna Conda"))
+	end)
+
 	describe("whether a name is one of its characters", function()
 		local GUID, OTHER = "Player-1-00000001", "Player-1-00000002"
 

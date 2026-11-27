@@ -137,6 +137,21 @@ function Self:seeName(name, guid)
 	end
 end
 
+-- Remembers that a character started empty since the update, not from the
+-- seed (Seed.login): should its own saved table not come back, it starts
+-- empty again.
+function Self:startEmpty(name)
+	local character = self.characters[name] or {}
+	self.characters[name] = character
+	character.startedEmpty = true
+end
+
+-- Whether a character started empty since the update (startEmpty).
+function Self:startedEmpty(name)
+	local character = self.characters[name]
+	return character ~= nil and character.startedEmpty == true
+end
+
 -- The GUID a character had when last played, or nil when unknown.
 function Self:guid(name)
 	local character = self.characters[name]

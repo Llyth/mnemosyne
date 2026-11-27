@@ -19,7 +19,7 @@ Seed.KEPT_FOR = 30 * 24 * 60 * 60 -- seconds the seed is kept after it was first
 -- memory, professions and forgotten characters (Memory.copy,
 -- Professions.copy: without disputes and daily counts); then its schema.
 -- A character created since the update must start empty instead, which only
--- its name tells, read at login (isNew).
+-- its name tells, read at login (Seed.login).
 -- now: the server time, in seconds. schema: the saved tables' schema.
 -- Returns true when it copied the seed.
 function Seed.load(account, character, now, schema)
@@ -52,4 +52,23 @@ end
 -- when the game did not give it.
 function Seed.isNew(characters, name, guid)
 	return not characters:owns(name, guid)
+end
+
+-- The login step that finishes the seed, once the character played is known
+-- by its full name and GUID (nil when the game did not give it): a character
+-- that copied the seed at this load (copied, Seed.load) but is new since the
+-- update (isNew), or started empty at an earlier login (Self:startedEmpty:
+-- its own saved table did not come back, a known Forever bug), drops it
+-- (Memory:empty, Professions:empty), and the account remembers it started
+-- empty; then this account's characters (Self) learn its GUID, which isNew
+-- must not see first.
+function Seed.login(characters, name, guid, copied, memory, professions)
+	if copied and (characters:startedEmpty(name) or Seed.isNew(characters, name, guid)) then
+		memory:empty()
+		professions:empty()
+		characters:startEmpty(name)
+	end
+	if guid then
+		characters:see(name, guid)
+	end
 end

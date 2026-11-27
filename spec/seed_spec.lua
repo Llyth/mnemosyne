@@ -1,5 +1,5 @@
-local ns = require("spec.helpers.addon")("Protocol", "Digest", "Memory", "Professions", "Self", "Seed")
-local Seed, Self = ns.Seed, ns.Self
+local ns = require("spec.helpers.addon")("Protocol", "Digest", "Memory", "Scope", "Professions", "Self", "Seed")
+local Memory, Professions, Scope, Seed, Self = ns.Memory, ns.Professions, ns.Scope, ns.Seed, ns.Self
 
 describe("Seed", function()
 	local DAY = 24 * 60 * 60
@@ -191,6 +191,83 @@ describe("Seed", function()
 		it("as one under a name another player's character was seen to take", function()
 			characters:seeName("Anna Conda", "Player-1-0000000C")
 			assert.is_true(Seed.isNew(characters, "Anna Conda", nil))
+		end)
+	end)
+
+	-- A login as Client runs it: the saved tables loaded (Seed.load), the
+	-- character's memory and professions, then the login step once its name is
+	-- known. character: its saved table (MnemosyneCharacterDB), {} when it did
+	-- not come back. Returns its memory, professions and the account's
+	-- characters (Self).
+	local function login(character, name, guid)
+		local copied = Seed.load(account, character, now, SCHEMA)
+		character.memory = character.memory or {}
+		character.forgotten = character.forgotten or {}
+		character.professions = character.professions or {}
+		local function clock()
+			return now
+		end
+		local characters = Self.new(account.characters, clock, account.settings)
+		local memory = Memory.new(character.memory, clock, character.forgotten, characters)
+		local professions = Professions.new(
+			character.professions,
+			clock,
+			memory,
+			characters,
+			account.settings,
+			Scope.new(account.settings),
+			nil,
+			function()
+				return name
+			end
+		)
+		Seed.login(characters, name, guid, copied, memory, professions)
+		return memory, professions, characters
+	end
+
+	describe("at login", function()
+		it("starts a character created since the update empty, then learns its GUID", function()
+			local memory, professions, characters = login({}, "Hugh Jass", "Player-1-0000000H")
+			assert.same({ {}, {}, {} }, { memory:search(""), memory:forgotten(), professions:list() })
+			assert.equal("Player-1-0000000H", characters:guid("Hugh Jass"))
+		end)
+
+		it("starts empty a character under the name of one known with another GUID, deleted since", function()
+			account.characters["Hugh Jass"] = { nickname = "Tony", revision = 900, guid = "Player-1-0000000A" }
+			local memory = login({}, "Hugh Jass", "Player-1-0000000H")
+			assert.same({}, memory:search(""))
+		end)
+
+		it("keeps the seed for a character the account knew, then learns its GUID", function()
+			account.characters["Hugh Jass"] = { nickname = "Tony", revision = 900 } -- saved by 1.4.x: no GUID
+			local memory, professions, characters = login({}, "Hugh Jass", "Player-1-0000000H")
+			assert.same({ "Ann", 1 }, { memory:recall("Anna Conda").nickname, #professions:list() })
+			assert.equal("Player-1-0000000H", characters:guid("Hugh Jass"))
+		end)
+
+		it("starts empty again a character created since the update whose saved table did not come back", function()
+			login({}, "Hugh Jass", "Player-1-0000000H")
+			now = now + DAY
+			local memory, professions = login({}, "Hugh Jass", "Player-1-0000000H")
+			assert.same({ {}, {} }, { memory:search(""), professions:list() })
+		end)
+
+		it("copies the seed again to a character of 1.4.x whose saved table did not come back", function()
+			account.characters["Hugh Jass"] = { nickname = "Tony", revision = 900 }
+			login({}, "Hugh Jass", "Player-1-0000000H")
+			now = now + DAY
+			local memory = login({}, "Hugh Jass", "Player-1-0000000H")
+			assert.equal("Ann", memory:recall("Anna Conda").nickname)
+		end)
+
+		it("leaves a character that kept its saved table as it was", function()
+			local character = {}
+			login(character, "Hugh Jass", "Player-1-0000000H")
+			now = now + DAY
+			local memory = login(character, "Hugh Jass", "Player-1-0000000H")
+			memory:hear("Cole Slaw", { nickname = "Cole", revision = 900 })
+			now = now + DAY
+			assert.equal("Cole", login(character, "Hugh Jass", "Player-1-0000000H"):recall("Cole Slaw").nickname)
 		end)
 	end)
 end)
