@@ -203,7 +203,7 @@ end
 -- a taken name account-wide, Self:seeName).
 local function isOwn(self, name, guid)
 	local character = self.held[name]
-	return ((character and character.own) or self.characters:registration(name) ~= nil)
+	return ((character and character.own) or self.characters:state(name) ~= "notAsked")
 		and self.characters:owns(name, guid)
 end
 
@@ -219,12 +219,12 @@ local function asAnyone(self, name)
 	if played == nil or name == played then
 		return false
 	end
-	local registration = self.characters:registration(played)
-	if not (registration and registration.nickname) then
+	-- Self:state, not Self:registration: no table made at each call.
+	if self.characters:state(played) ~= "registered" then
 		return true
 	end
-	registration = self.characters:registration(name)
-	return registration ~= nil and registration.nickname == nil
+	local state = self.characters:state(name)
+	return state == "anonymous" or state == "unregistered"
 end
 
 -- Whether a character was seen on a roster or as a friend's in the last 30 days.
@@ -292,6 +292,17 @@ function Professions:hear(peer, heard)
 	then
 		return false
 	end
+	local character = self.held[name]
+	local known = character and character.skills[skillLine]
+	-- Refused on the revisions first: a copy's recipes are placed, and it is
+	-- hashed, only when it may be kept.
+	if firstHand then
+		if known and known.firstHand and not known.stale and known.revision > heard.revision then
+			return false
+		end
+	elseif known and (known.firstHand or known.stale or known.revision > heard.revision) then
+		return false
+	end
 	heard = {
 		name = name,
 		skillLine = skillLine,
@@ -301,19 +312,17 @@ function Professions:hear(peer, heard)
 		recipes = ownRecipes(self, skillLine, heard.recipes),
 		guid = heard.guid,
 	}
-	local character = self.held[name]
-	local known = character and character.skills[skillLine]
+	-- The hash holds the revision: copies of two revisions never say the same.
 	local same = known
 		and not known.disputed
+		and known.revision == heard.revision
 		and hashOf(self, name, skillLine, known) == hashOf(self, name, skillLine, heard)
 	if firstHand then
-		if known and known.firstHand and not known.stale and (known.revision > heard.revision or same) then
+		if known and known.firstHand and not known.stale and same then
 			return false
 		end
 	else
-		if known and (known.firstHand or known.stale or known.revision > heard.revision) then
-			return false
-		elseif known and known.revision == heard.revision and (known.disputed or same) then
+		if known and known.revision == heard.revision and (known.disputed or same) then
 			return false
 		elseif not countChange(self, peer, now) then
 			return false

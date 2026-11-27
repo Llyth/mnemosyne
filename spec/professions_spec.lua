@@ -144,6 +144,21 @@ describe("Professions", function()
 		assert.same({ 2329 }, shown("Hugh Jass")[1].recipes)
 	end)
 
+	it("refuses an older or outranked copy without placing its recipes", function()
+		local lookups = 0
+		professions = Professions.new(saved, clock, memory, characters, settings, scope, function(recipe)
+			lookups = lookups + 1
+			return recipeLines[recipe]
+		end, function()
+			return played
+		end)
+		professions:hear("Hugh Jass", alchemy(950))
+		lookups = 0
+		assert.is_false(professions:hear("Hugh Jass", alchemy(900)))
+		assert.is_false(professions:hear("Anna Conda", alchemy(5000)))
+		assert.equal(0, lookups)
+	end)
+
 	it("never lets a second-hand copy replace a first-hand profession", function()
 		professions:hear("Hugh Jass", alchemy(900))
 		assert.is_false(professions:hear("Anna Conda", alchemy(5000, { 1 })))
