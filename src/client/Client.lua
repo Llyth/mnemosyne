@@ -249,9 +249,9 @@ local function readScope()
 end
 
 -- Whether Mnemosyne talks with a character (Scope): a friend or a guildmate,
--- or anyone while "Talk with everyone" is on. The echo peer always.
+-- or anyone while "Talk with everyone" is on. The echo peer while it is on.
 function Client.inScope(name)
-	if name == Client.ECHO then
+	if echoing and name == Client.ECHO then
 		return true
 	end
 	if not scopeRead then
