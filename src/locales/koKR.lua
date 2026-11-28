@@ -122,6 +122,8 @@ L.FORGOTTEN_NONE =
 	"잊은 캐릭터가 없습니다. 캐릭터의 전체 이름을 입력하십시오: /mnemosyne forget <캐릭터>"
 L.NEWER_VERSION =
 	"Mnemosyne의 새 버전이 있습니다. 업데이트하지 않으면 다른 플레이어가 보낸 일부 메시지가 계속 무시됩니다."
+L.NEWER_RELEASE =
+	"다른 플레이어가 더 최신인 Mnemosyne %s 버전을 사용 중입니다. 업데이트하세요."
 -- The settings panel (Options, AddOns, Mnemosyne).
 L.HELP_PANEL = "/mnemosyne: Mnemosyne 창 열기"
 L.HELP_SETTINGS = "/mnemosyne settings: 설정 창 열기"

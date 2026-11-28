@@ -215,7 +215,8 @@ for them. Two
 switches of the settings panel, both on by default, change that: **Pass on what
 I know**, off to share only your own registrations, and **Show second-hand**, off
 to see only what characters said about themselves. When a player with a newer Mnemosyne talks
-to yours, it tells you once a session that a newer version exists.
+to yours, it tells you once a session that a newer version exists, naming the
+release that player runs when it can.
 
 Each of your characters has its own memory: what one learns, the others don't
 show or pass on, so another player can't plant something through one and find

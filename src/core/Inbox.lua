@@ -40,7 +40,8 @@ local SYNC_KINDS = {
 -- inScope(name): whether Mnemosyne talks with a character (Scope).
 -- playerName(): the character played, nil before login.
 -- log: Debug (isOn, received, dropped).
--- onNewer(): tells the player a newer Mnemosyne exists.
+-- onNewer(version): tells the player a newer Mnemosyne exists: a newer release,
+-- when it gives the version a peer runs, or else a newer protocol.
 -- versions: the saved versions of Mnemosyne peers run, by name.
 -- version(): this account's version of Mnemosyne (Protocol.releaseVersion),
 -- nil in a copy the packager did not build.
@@ -73,6 +74,22 @@ function Inbox.new(deps)
 		loginSyncs = 0,
 		toldNewer = false, -- the notice that a newer Mnemosyne exists, once a session
 	}, Inbox)
+end
+
+-- Whether release a is later than release b ("1.10.0" after "1.9.0"), by
+-- their major, minor and patch numbers.
+-- shortcut: ignores a pre-release suffix ("2.0.0-beta.1" ties "2.0.0"), fine while releases have none.
+local function laterRelease(a, b)
+	local a1, a2, a3 = a:match("^(%d+)%.(%d+)%.(%d+)")
+	local b1, b2, b3 = b:match("^(%d+)%.(%d+)%.(%d+)")
+	a1, a2, a3, b1, b2, b3 = tonumber(a1), tonumber(a2), tonumber(a3), tonumber(b1), tonumber(b2), tonumber(b3)
+	if a1 ~= b1 then
+		return a1 > b1
+	end
+	if a2 ~= b2 then
+		return a2 > b2
+	end
+	return a3 > b3
 end
 
 -- Starts the login window: the first peers answering within it get a sync.
@@ -174,6 +191,11 @@ function Inbox:receive(sender, channel, text)
 	end
 	if kind == "version" then
 		self.versions[sender] = message.version
+		local own = self.version()
+		if own and not self.toldNewer and laterRelease(message.version, own) then
+			self.toldNewer = true
+			self.onNewer(message.version)
+		end
 		-- Heard on a channel, the sender may not know this one's: whispered back
 		-- once, when this one has a version. Never back to a whisper, so two
 		-- peers never loop.
