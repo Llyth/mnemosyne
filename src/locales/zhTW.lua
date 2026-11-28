@@ -108,6 +108,7 @@ L.FORGET_FULL_NAME = "請輸入角色的完整名稱（名字和姓氏）：/mne
 L.FORGOTTEN_NONE = "沒有被遺忘的角色。請輸入角色的完整名稱：/mnemosyne forget <角色>"
 L.NEWER_VERSION =
 	"Mnemosyne已有較新的版本：請更新，否則部分來自其他玩家的訊息會持續被忽略。"
+L.NEWER_RELEASE = "有玩家正在使用較新的Mnemosyne %s：請更新。"
 -- The settings panel (Options, AddOns, Mnemosyne).
 L.HELP_PANEL = "/mnemosyne：開啟Mnemosyne視窗"
 L.HELP_SETTINGS = "/mnemosyne settings：開啟設定面板"

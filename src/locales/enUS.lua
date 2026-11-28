@@ -102,6 +102,7 @@ ns.L = {
 	FORGET_FULL_NAME = "Type the character's full name, first and last: /mnemosyne forget <character>",
 	FORGOTTEN_NONE = "No character is forgotten. Type a character's full name: /mnemosyne forget <character>",
 	NEWER_VERSION = "A newer Mnemosyne exists: update it, or some messages from other players stay ignored.",
+	NEWER_RELEASE = "A player runs Mnemosyne %s, newer than yours: update it.",
 	-- The settings panel (Options, AddOns, Mnemosyne).
 	HELP_PANEL = "/mnemosyne: open Mnemosyne's window",
 	HELP_SETTINGS = "/mnemosyne settings: open the settings panel",

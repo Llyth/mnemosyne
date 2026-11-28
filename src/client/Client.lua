@@ -737,8 +737,8 @@ function handlers.ADDON_LOADED(name)
 		inScope = Client.inScope,
 		playerName = Client.playerName,
 		log = Debug,
-		onNewer = function()
-			ns.say(L.NEWER_VERSION)
+		onNewer = function(version)
+			ns.say(version and L.NEWER_RELEASE:format(version) or L.NEWER_VERSION)
 		end,
 		versions = db.versions,
 		version = function()

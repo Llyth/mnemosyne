@@ -132,6 +132,8 @@ L.FORGOTTEN_NONE =
 	"Забытых персонажей нет. Введите полное имя персонажа: /mnemosyne forget <персонаж>"
 L.NEWER_VERSION = "Вышла новая версия Mnemosyne: обновите ее, "
 	.. "иначе часть сообщений от других игроков будет игнорироваться."
+L.NEWER_RELEASE =
+	"Игрок использует Mnemosyne %s, новее вашей версии: обновите ее."
 -- The settings panel (Options, AddOns, Mnemosyne).
 L.HELP_PANEL = "/mnemosyne: открыть окно Mnemosyne"
 L.HELP_SETTINGS = "/mnemosyne settings: открыть панель параметров"

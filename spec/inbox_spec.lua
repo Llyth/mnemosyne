@@ -162,6 +162,46 @@ describe("Inbox", function()
 		assert.same({ "Anna Conda newer", "Barb Dwyer newer" }, dropped)
 	end)
 
+	describe("a peer's release", function()
+		local told
+
+		before_each(function()
+			told = {}
+			inbox.onNewer = function(version)
+				told[#told + 1] = version
+			end
+		end)
+
+		local function hear(sender, version)
+			inbox:receive(sender, "GUILD", Protocol.write({ kind = "version", version = version }))
+		end
+
+		it("says once a session that a peer runs a newer release, and which", function()
+			hear("Anna Conda", "1.4.1")
+			hear("Barb Dwyer", "1.5.0")
+			assert.same({ "1.4.1" }, told)
+		end)
+
+		it("compares each part as a number, and ignores what follows the patch", function()
+			ownVersion = "1.9.0"
+			hear("Anna Conda", "1.10.0")
+			assert.same({ "1.10.0" }, told)
+			inbox.toldNewer = false
+			ownVersion = "2.0.0-beta.1"
+			hear("Barb Dwyer", "2.0.0")
+			assert.same({ "1.10.0" }, told)
+		end)
+
+		it("says nothing for the same or an older release, or in a copy without a version", function()
+			hear("Anna Conda", "1.4.0")
+			hear("Barb Dwyer", "1.3.9")
+			hear("Cole Slaw", "0.9.0")
+			ownVersion = nil
+			hear("Dee Zaster", "9.0.0")
+			assert.same({}, told)
+		end)
+	end)
+
 	it("answers an ask once a minute per sender", function()
 		inbox:receive("Anna Conda", "GUILD", ask)
 		inbox:receive("Anna Conda", "GUILD", ask)

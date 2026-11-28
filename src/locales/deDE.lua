@@ -113,6 +113,7 @@ L.FORGOTTEN_NONE = "Kein Charakter ist vergessen. Gebt den vollen Namen eines Ch
 	.. "/mnemosyne forget <Charakter>"
 L.NEWER_VERSION = "Eine neuere Version von Mnemosyne ist verfügbar: Aktualisiert sie, "
 	.. "sonst bleiben manche Nachrichten anderer Spieler ignoriert."
+L.NEWER_RELEASE = "Ein Spieler nutzt Mnemosyne %s, neuer als deine Version: Aktualisiere sie."
 -- The settings panel (Options, AddOns, Mnemosyne).
 L.HELP_PANEL = "/mnemosyne: das Fenster von Mnemosyne öffnen"
 L.HELP_SETTINGS = "/mnemosyne settings: die Optionen öffnen"
